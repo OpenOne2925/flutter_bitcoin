@@ -57,12 +57,6 @@ class SharedWalletState extends State<SharedWallet> {
     walletService = WalletService();
 
     openBoxAndCheckWallet();
-
-    // // Use a Future to await the wallet initialization and then sync
-    // Future.microtask(() async {
-    //   await openBoxAndCheckWallet(); // Ensure wallet is initialized first
-    //   await _syncWallet(); // Then call _syncWallet
-    // });
   }
 
   Future<void> openBoxAndCheckWallet() async {
@@ -185,12 +179,12 @@ class SharedWalletState extends State<SharedWallet> {
       // Fetch the balance of the wallet
       final availableBalance = await walletService.getAvailableBalance(address);
       setState(() {
-        avBalance = availableBalance; // Set the balance
+        avBalance = availableBalance; // Set the available balance
       });
 
       final ledgerBalance = await walletService.getLedgerBalance(address);
       setState(() {
-        ledBalance = ledgerBalance; // Set the balance
+        ledBalance = ledgerBalance; // Set the ledger balance
       });
 
       // Fetch and set the transactions
@@ -210,98 +204,6 @@ class SharedWalletState extends State<SharedWallet> {
       });
     }
   }
-
-  // Future<void> _loadWalletData() async {
-  //   setState(() {
-  //     _isLoading = true; // Show a loading indicator
-  //   });
-
-  //   try {
-  //     final List<ConnectivityResult> connectivityResult =
-  //         await (Connectivity().checkConnectivity());
-  //     print('$connectivityResult');
-
-  //     if (connectivityResult.contains(ConnectivityResult.none)) {
-  //       print('Offline mode: Loading wallet data from local storage');
-
-  //       final savedWallet = await walletService.loadSavedWallet();
-  //       setState(() {
-  //         wallet = savedWallet;
-  //       });
-
-  //       var addressInfo = await wallet.getAddress(
-  //           addressIndex: const AddressIndex.peek(index: 0));
-
-  //       print(addressInfo.address);
-
-  //       // Attempt to load wallet data from local storage (offline mode)
-  //       _walletData =
-  //           await _walletStorageService.loadWalletData(addressInfo.address);
-
-  //       // print(_walletData);
-
-  //       if (_walletData != null) {
-  //         // If offline data is available, use it to update the UI
-  //         setState(() {
-  //           address = _walletData!.address;
-  //           ledBalance = _walletData!.ledgerBalance;
-  //           avBalance = _walletData!.availableBalance;
-  //           _transactions = _walletData!.transactions.map((tx) {
-  //             return {'txid': tx}; // Convert to transaction format you expect
-  //           }).toList();
-  //           _isLoading = false;
-  //         });
-
-  //         // print(_transactions);
-
-  //         print('Loaded offline wallet data');
-  //         return; // Exit the function if offline data is loaded successfully
-  //       } else {
-  //         // Fetch and set the address
-  //         String walletAddress = await walletService.getAddress(wallet);
-  //         setState(() {
-  //           address = walletAddress;
-  //         });
-  //       }
-  //     } else {
-  //       wallet = await walletService.loadSavedWallet();
-  //       // print(wallet);
-  //       await walletService.saveLocalData(wallet);
-  //       // If no offline data is available, proceed to fetch online data
-  //       print('No offline data available, fetching from network');
-
-  //       // Fetch and set the address
-  //       String walletAddress = await walletService.getAddress(wallet);
-  //       setState(() {
-  //         address = walletAddress;
-  //       });
-
-  //       // Fetch and set the balance of the specific address
-  //       int ledgerBalance = await walletService.getLedgerBalance(walletAddress);
-  //       int availableBalance =
-  //           await walletService.getAvailableBalance(walletAddress);
-  //       setState(() {
-  //         ledBalance = ledgerBalance;
-  //         avBalance = availableBalance;
-  //       });
-
-  //       // Fetch and set the transactions
-  //       List<Map<String, dynamic>> transactions =
-  //           await walletService.getTransactions(walletAddress);
-  //       setState(() {
-  //         _transactions = transactions;
-  //       });
-
-  //       // print(_transactions);
-  //     }
-  //   } catch (e) {
-  //     print('Error loading wallet data: $e');
-  //   } finally {
-  //     setState(() {
-  //       _isLoading = false; // Hide the loading indicator
-  //     });
-  //   }
-  // }
 
   Future<void> _fetchCurrentBlockHeight() async {
     int currBlockHeight = await walletService.fetchCurrentBlockHeight();
@@ -474,28 +376,11 @@ class SharedWalletState extends State<SharedWallet> {
 
                 final decoded = _psbtController.text;
 
-                // final decoded =
-                //     btc.BtcTransaction.fromRaw(_psbtController.text);
-
                 // print("Decoded Transaction: $decoded");
-
                 // print("Mnemonic: " + widget.mnemonic);
 
                 final psbt = PartiallySignedTransaction(psbtBase64: decoded);
                 await walletService.signBroadcastTx(psbt, wallet);
-
-                // final rawTransactionHex =
-                //     await walletService.signTransactionByUser2(
-                //   decoded,
-                //   widget.mnemonic,
-                // );
-
-                // print("Signed Transaction: $rawTransactionHex");
-                // final decodedRawTransaction =
-                //     btc.BtcTransaction.fromRaw(rawTransactionHex);
-                // print("Decoded Signed Transaction: $decodedRawTransaction");
-
-                // await walletService.broadcastTransaction(rawTransactionHex);
 
                 Navigator.of(context).pop();
               },
