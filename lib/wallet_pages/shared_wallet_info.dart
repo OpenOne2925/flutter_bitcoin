@@ -169,9 +169,10 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
       // print('DescriptorString: $descriptorString');
       // print('DescriptorString1: $descriptorString1');
 
-      print("Shared Wallet Created!");
+      // print("Shared Wallet Created!");
     } catch (e) {
-      print("Error creating wallet: $e");
+      // print("Error creating wallet: $e");
+      throw ("Error creating wallet: $e");
     } finally {
       setState(() {
         isLoading = false;

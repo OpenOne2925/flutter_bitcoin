@@ -180,8 +180,8 @@ class WalletService {
 
       return wallet;
     } on Exception catch (e) {
-      print("Error: ${e.toString()}");
-      throw Exception('Failed to create wallet');
+      // print("Error: ${e.toString()}");
+      throw Exception('Failed to create wallet (Error: ${e.toString()})');
     }
   }
 
@@ -315,8 +315,8 @@ class WalletService {
       String changeAddressStr) async {
     await syncWallet(wallet);
 
-    final utxos = await wallet.getBalance();
-    print("Available UTXOs: ${utxos.total}");
+    // final utxos = await wallet.getBalance();
+    // print("Available UTXOs: ${utxos.total}");
 
     try {
       // Build the transaction
@@ -351,7 +351,8 @@ class WalletService {
       // Broadcast the transaction to the network
       await blockchain.broadcast(tx);
     } on Exception catch (e) {
-      print("Error: ${e.toString()}");
+      // print("Error: ${e.toString()}");
+      throw Exception('Failed to create wallet (Error: ${e.toString()})');
     }
   }
 
@@ -363,14 +364,14 @@ class WalletService {
   ) async {
     await syncWallet(wallet);
 
-    final utxos = await wallet.getBalance();
-    print("Available UTXOs: ${utxos.total}");
+    // final utxos = await wallet.getBalance();
+    // print("Available UTXOs: ${utxos.total}");
 
-    final unspent = await wallet.listUnspent();
+    // final unspent = await wallet.listUnspent();
 
-    for (var utxo in unspent) {
-      print('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
-    }
+    // for (var utxo in unspent) {
+    //   print('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
+    // }
 
     try {
       // Build the transaction
@@ -388,7 +389,7 @@ class WalletService {
       final internalChangeAddress = await wallet.getInternalAddress(
           addressIndex: const bdk.AddressIndex.peek(index: 0));
 
-      print('Nope: ${internalChangeAddress.index}');
+      // print('Nope: ${internalChangeAddress.index}');
 
       // Create the change address
       final changeAddress =
@@ -396,8 +397,9 @@ class WalletService {
 
       final changeScript = await changeAddress.scriptPubKey();
 
-      print(internalChangeAddress.address);
-      print('Ciao');
+      // print(internalChangeAddress.address);
+      // print('Ciao');
+
       // final keychainKind =
       //     await wallet.getDescriptorForKeyChain(bdk.KeychainKind.Internal);
       // final result = await keychainKind.asString();
@@ -429,7 +431,7 @@ class WalletService {
           .drainTo(changeScript) // Specify the address to send the change
           .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
-      print('Finally');
+      // print('Finally');
 
       // Sign the transaction
       final sbt = await wallet.sign(
@@ -446,7 +448,7 @@ class WalletService {
         ),
       );
 
-      print('Ciao');
+      // print('Ciao');
 
       // final transaction = await txBuilderResult.psbt.serialize();
 
@@ -549,7 +551,7 @@ class WalletService {
             'Failed to load transactions. Status Code: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error: $e');
+      // print('Error: $e');
       throw Exception('Failed to fetch transactions: $e');
     }
   }

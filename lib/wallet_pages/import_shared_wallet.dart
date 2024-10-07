@@ -203,7 +203,8 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
     } catch (e) {
       // If any error occurs during creation, set isValid to false
       isValid = false;
-      print('Error creating wallet with descriptor: $e');
+      // print('Error creating wallet with descriptor: $e');
+      throw ('Error creating wallet with descriptor: $e');
     }
 
     return isValid;

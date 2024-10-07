@@ -33,7 +33,7 @@ class CAWalletPageState extends State<CAWalletPage> {
 
     final List<ConnectivityResult> connectivityResult =
         await (Connectivity().checkConnectivity());
-    print('$connectivityResult');
+    // print('$connectivityResult');
 
     if (connectivityResult.contains(ConnectivityResult.none)) {
       // Call the method from WalletService

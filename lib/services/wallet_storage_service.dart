@@ -25,8 +25,8 @@ class WalletStorageService {
 
       return walletData;
     } catch (e) {
-      print('Error loading wallet data: $e');
-      return null; // Return null if the wallet is not found or an error occurs
+      // print('Error loading wallet data: $e');
+      throw Exception('Error loading wallet data (Error: ${e.toString()})');
     }
   }
 

@@ -104,10 +104,10 @@ class WalletPageState extends State<WalletPage> {
     try {
       final List<ConnectivityResult> connectivityResult =
           await (Connectivity().checkConnectivity());
-      print('$connectivityResult');
+      // print('$connectivityResult');
 
       if (connectivityResult.contains(ConnectivityResult.none)) {
-        print('Offline mode: Loading wallet data from local storage');
+        // print('Offline mode: Loading wallet data from local storage');
 
         try {
           final savedWallet = await walletService.loadSavedWallet(null);
@@ -115,7 +115,8 @@ class WalletPageState extends State<WalletPage> {
             wallet = savedWallet;
           });
         } catch (e) {
-          print('No Data Found Locally');
+          // print('No Data Found Locally');
+          throw ('No Data Found Locally');
         }
 
         var addressInfo = await wallet.getAddress(
@@ -143,10 +144,10 @@ class WalletPageState extends State<WalletPage> {
 
           // print(_transactions);
 
-          print('Loaded offline wallet data');
+          // print('Loaded offline wallet data');
           return; // Exit the function if offline data is loaded successfully
         } else {
-          print('Generating address');
+          // print('Generating address');
           // Fetch and set the address
           var walletAddressInfo = await wallet.getAddress(
             addressIndex: const AddressIndex.peek(index: 0),
@@ -161,7 +162,7 @@ class WalletPageState extends State<WalletPage> {
         // print(wallet);
         await walletService.saveLocalData(wallet);
         // If no offline data is available, proceed to fetch online data
-        print('No offline data available, fetching from network');
+        // print('No offline data available, fetching from network');
 
         // Fetch and set the address
         String walletAddress = await walletService.getAddress(wallet);
@@ -188,7 +189,8 @@ class WalletPageState extends State<WalletPage> {
         // print(_transactions);
       }
     } catch (e) {
-      print('Error loading wallet data: $e');
+      // print('Error loading wallet data: $e');
+      throw ('Error loading wallet data: $e');
     } finally {
       setState(() {
         _isLoading = false; // Hide the loading indicator

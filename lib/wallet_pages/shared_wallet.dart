@@ -126,7 +126,8 @@ class SharedWalletState extends State<SharedWallet> {
 
       await _syncWallet();
     } catch (e) {
-      print("Error creating or fetching balance for wallet: $e");
+      // print("Error creating or fetching balance for wallet: $e");
+      throw ("Error creating or fetching balance for wallet: $e");
     } finally {
       setState(() {
         _isLoading = false;
@@ -201,7 +202,8 @@ class SharedWalletState extends State<SharedWallet> {
 
       await _syncWallet();
     } catch (e) {
-      print("Error creating or fetching balance for wallet: $e");
+      // print("Error creating or fetching balance for wallet: $e");
+      throw ("Error creating or fetching balance for wallet: $e");
     } finally {
       setState(() {
         _isLoading = false;

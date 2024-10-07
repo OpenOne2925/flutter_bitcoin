@@ -22,8 +22,7 @@ class QRScannerPageState extends State<QRScannerPage> {
   void _onQRViewCreated(QRViewController controller) {
     this.controller = controller;
     controller.scannedDataStream.listen((scanData) {
-      print(
-          'Scanned Data: ${scanData.code}'); // Debugging: See the raw scanned data
+      // print('Scanned Data: ${scanData.code}');
 
       final recipientAddressStr = extractBitcoinAddress(scanData.code ?? '');
 
