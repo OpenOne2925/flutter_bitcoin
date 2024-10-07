@@ -107,8 +107,8 @@ class WalletService {
       }
       return descriptors;
     } on Exception catch (e) {
-      print("Error: ${e.toString()}");
-      rethrow;
+      // print("Error: ${e.toString()}");
+      throw ("Error: ${e.toString()}");
     }
   }
 
@@ -136,8 +136,8 @@ class WalletService {
 
       return res;
     } on Exception catch (e) {
-      print("Error: ${e.toString()}");
-      throw Exception('Failed to create wallet');
+      // print("Error: ${e.toString()}");
+      throw Exception('Failed to create wallet (Error: ${e.toString()})');
     }
   }
 
