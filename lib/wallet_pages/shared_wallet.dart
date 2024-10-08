@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
@@ -65,9 +68,34 @@ class SharedWalletState extends State<SharedWallet> {
     openBoxAndCheckWallet();
   }
 
+  final secureStorage = FlutterSecureStorage();
+
+  Future<List<int>> _getEncryptionKey() async {
+    // Check if the encryption key already exists
+    String? encodedKey = await secureStorage.read(key: 'encryptionKey');
+
+    if (encodedKey != null) {
+      // Decode the existing key from base64
+      return base64Url.decode(encodedKey);
+    } else {
+      // Generate a new encryption key if it doesn't exist
+      var key = Hive.generateSecureKey();
+      // Store the new key in secure storage
+      await secureStorage.write(
+          key: 'encryptionKey', value: base64UrlEncode(key));
+      return key;
+    }
+  }
+
   Future<void> openBoxAndCheckWallet() async {
+    // Open the encrypted box using Hive
+    final encryptionKey = await _getEncryptionKey();
+
     // Open the box (for example using Hive)
-    descriptorBox = await Hive.openBox('wallet_descriptors');
+    descriptorBox = await Hive.openBox(
+      'wallet_descriptors',
+      encryptionCipher: HiveAesCipher(encryptionKey),
+    );
 
     // print('Retrieving descriptor with key: ${widget.mnemonic}');
 

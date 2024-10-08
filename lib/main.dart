@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_wallet/wallet_pages/ca_wallet_page.dart';
 import 'package:flutter_wallet/wallet_pages/create_shared_wallet.dart';
 import 'package:flutter_wallet/wallet_pages/import_shared_wallet.dart';
@@ -17,14 +20,44 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Hive.initFlutter(); // Initialize Hive
-  await Hive.openBox('walletBox'); // Create a box for storing wallet info
-  await Hive.openBox(
-      'wallet_descriptors'); // Create a box for storing wallet info
 
   // Register the generated Hive adapter for WalletData
   Hive.registerAdapter(WalletDataAdapter());
 
+  // Retrieve or generate encryption key
+  final encryptionKey = await _getEncryptionKey();
+
+  // Open the encrypted boxes
+  await Hive.openBox(
+    'walletBox',
+    encryptionCipher: HiveAesCipher(encryptionKey),
+  );
+
+  await Hive.openBox(
+    'wallet_descriptors',
+    encryptionCipher: HiveAesCipher(encryptionKey),
+  );
+
   runApp(const MyApp());
+}
+
+final secureStorage = FlutterSecureStorage();
+
+Future<List<int>> _getEncryptionKey() async {
+  // Check if the encryption key already exists
+  String? encodedKey = await secureStorage.read(key: 'encryptionKey');
+
+  if (encodedKey != null) {
+    // Decode the existing key from base64
+    return base64Url.decode(encodedKey);
+  } else {
+    // Generate a new encryption key if it doesn't exist
+    var key = Hive.generateSecureKey();
+    // Store the new key in secure storage
+    await secureStorage.write(
+        key: 'encryptionKey', value: base64UrlEncode(key));
+    return key;
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -41,7 +74,6 @@ class MyApp extends StatelessWidget {
           return MaterialApp(
             title: 'Wallet',
             theme: themeProvider.themeData,
-            // Determine initial route based on whether the wallet exists
             initialRoute: _determineInitialRoute(),
             routes: {
               '/wallet_page': (context) => const WalletPage(),

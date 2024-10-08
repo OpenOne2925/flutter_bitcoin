@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
@@ -49,9 +52,34 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
   late Box<dynamic> descriptorBox;
 
+  final secureStorage = FlutterSecureStorage();
+
+  Future<List<int>> _getEncryptionKey() async {
+    // Check if the encryption key already exists
+    String? encodedKey = await secureStorage.read(key: 'encryptionKey');
+
+    if (encodedKey != null) {
+      // Decode the existing key from base64
+      return base64Url.decode(encodedKey);
+    } else {
+      // Generate a new encryption key if it doesn't exist
+      var key = Hive.generateSecureKey();
+      // Store the new key in secure storage
+      await secureStorage.write(
+          key: 'encryptionKey', value: base64UrlEncode(key));
+      return key;
+    }
+  }
+
   Future<void> openBoxAndCheckWallet() async {
-    // Open the box (for example using Hive)
-    descriptorBox = await Hive.openBox('wallet_descriptors');
+    // Open the encrypted box using Hive
+
+    final encryptionKey = await _getEncryptionKey();
+
+    descriptorBox = await Hive.openBox(
+      'wallet_descriptors',
+      encryptionCipher: HiveAesCipher(encryptionKey),
+    );
     boxOpened = true; // Ensure this is only opened once
 
     // print('Retrieving descriptor with key: wallet_${_mnemonic}');

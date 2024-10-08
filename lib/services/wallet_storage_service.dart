@@ -1,10 +1,33 @@
+import 'dart:convert';
+
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:hive/hive.dart';
 
 class WalletStorageService {
-  // Open the Hive box
+  final secureStorage = FlutterSecureStorage();
+
+  // Method to retrieve or generate encryption key
+  Future<List<int>> _getEncryptionKey() async {
+    String? encodedKey = await secureStorage.read(key: 'encryptionKey');
+
+    if (encodedKey != null) {
+      return base64Url.decode(encodedKey);
+    } else {
+      var key = Hive.generateSecureKey();
+      await secureStorage.write(
+          key: 'encryptionKey', value: base64UrlEncode(key));
+      return key;
+    }
+  }
+
+  // Open the Hive box with encryption
   Future<Box<WalletData>> openBox() async {
-    return await Hive.openBox<WalletData>('walletDataBox');
+    final encryptionKey = await _getEncryptionKey();
+    return await Hive.openBox<WalletData>(
+      'walletDataBox',
+      encryptionCipher: HiveAesCipher(encryptionKey),
+    );
   }
 
   Future<void> saveWalletData(String walletId, WalletData walletData) async {
