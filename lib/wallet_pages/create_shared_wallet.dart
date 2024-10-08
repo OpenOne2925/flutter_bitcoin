@@ -53,28 +53,12 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
   late Box<dynamic> descriptorBox;
 
   final secureStorage = FlutterSecureStorage();
-
-  Future<List<int>> _getEncryptionKey() async {
-    // Check if the encryption key already exists
-    String? encodedKey = await secureStorage.read(key: 'encryptionKey');
-
-    if (encodedKey != null) {
-      // Decode the existing key from base64
-      return base64Url.decode(encodedKey);
-    } else {
-      // Generate a new encryption key if it doesn't exist
-      var key = Hive.generateSecureKey();
-      // Store the new key in secure storage
-      await secureStorage.write(
-          key: 'encryptionKey', value: base64UrlEncode(key));
-      return key;
-    }
-  }
+  final WalletService walletService = WalletService();
 
   Future<void> openBoxAndCheckWallet() async {
     // Open the encrypted box using Hive
 
-    final encryptionKey = await _getEncryptionKey();
+    final encryptionKey = await walletService.getEncryptionKey();
 
     descriptorBox = await Hive.openBox(
       'wallet_descriptors',

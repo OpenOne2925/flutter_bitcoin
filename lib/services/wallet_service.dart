@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:bdk_flutter/bdk_flutter.dart' as bdk;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:hive/hive.dart';
@@ -25,6 +26,8 @@ class WalletService {
   String? address;
   String? ledgerBalance;
   String? availableBalance;
+
+  final secureStorage = FlutterSecureStorage();
 
   Future<bdk.Mnemonic> generateMnemonicHandler() async {
     return await bdk.Mnemonic.create(bdk.WordCount.Words12);
@@ -539,6 +542,23 @@ class WalletService {
       return int.parse(response.body); // The current block height
     } else {
       throw Exception('Failed to fetch current block height');
+    }
+  }
+
+  Future<List<int>> getEncryptionKey() async {
+    // Check if the encryption key already exists
+    String? encodedKey = await secureStorage.read(key: 'encryptionKey');
+
+    if (encodedKey != null) {
+      // Decode the existing key from base64
+      return base64Url.decode(encodedKey);
+    } else {
+      // Generate a new encryption key if it doesn't exist
+      var key = Hive.generateSecureKey();
+      // Store the new key in secure storage
+      await secureStorage.write(
+          key: 'encryptionKey', value: base64UrlEncode(key));
+      return key;
     }
   }
 }

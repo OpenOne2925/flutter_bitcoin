@@ -1,7 +1,7 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/wallet_pages/ca_wallet_page.dart';
 import 'package:flutter_wallet/wallet_pages/create_shared_wallet.dart';
 import 'package:flutter_wallet/wallet_pages/import_shared_wallet.dart';
@@ -19,13 +19,15 @@ void main() async {
   // Ensure all Flutter bindings are initialized before running Hive
   WidgetsFlutterBinding.ensureInitialized();
 
+  final WalletService walletService = WalletService();
+
   await Hive.initFlutter(); // Initialize Hive
 
   // Register the generated Hive adapter for WalletData
   Hive.registerAdapter(WalletDataAdapter());
 
   // Retrieve or generate encryption key
-  final encryptionKey = await _getEncryptionKey();
+  final encryptionKey = await walletService.getEncryptionKey();
 
   // Open the encrypted boxes
   await Hive.openBox(
@@ -42,23 +44,6 @@ void main() async {
 }
 
 final secureStorage = FlutterSecureStorage();
-
-Future<List<int>> _getEncryptionKey() async {
-  // Check if the encryption key already exists
-  String? encodedKey = await secureStorage.read(key: 'encryptionKey');
-
-  if (encodedKey != null) {
-    // Decode the existing key from base64
-    return base64Url.decode(encodedKey);
-  } else {
-    // Generate a new encryption key if it doesn't exist
-    var key = Hive.generateSecureKey();
-    // Store the new key in secure storage
-    await secureStorage.write(
-        key: 'encryptionKey', value: base64UrlEncode(key));
-    return key;
-  }
-}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
