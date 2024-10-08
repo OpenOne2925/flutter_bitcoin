@@ -1,5 +1,8 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:flutter_wallet/hive/wallet_data.dart';
+import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
@@ -49,6 +52,9 @@ class SharedWalletState extends State<SharedWallet> {
       GlobalKey<RefreshIndicatorState>();
 
   late Wallet wallet;
+  late WalletData? _walletData;
+
+  final WalletStorageService _walletStorageService = WalletStorageService();
 
   @override
   void initState() {
@@ -92,33 +98,59 @@ class SharedWalletState extends State<SharedWallet> {
         null,
       );
 
-      // descriptorBox.put('wallet_${widget.mnemonic}', widget.descriptor);
+      final List<ConnectivityResult> connectivityResult =
+          await (Connectivity().checkConnectivity());
 
-      // Fetch the wallet's receive address
-      final wallAddress = await walletService.getAddress(wallet);
-      setState(() {
-        address = wallAddress;
-      });
+      if (connectivityResult.contains(ConnectivityResult.none)) {
+        String walletAddress = await walletService.getAddress(wallet);
+        setState(() {
+          address = walletAddress;
+        });
 
-      // Fetch the balance of the wallet
-      final availableBalance = await walletService.getAvailableBalance(address);
-      setState(() {
-        avBalance = availableBalance; // Set the balance
-      });
+        _walletData = await _walletStorageService.loadWalletData(walletAddress);
 
-      final ledgerBalance = await walletService.getLedgerBalance(address);
-      setState(() {
-        ledBalance = ledgerBalance; // Set the balance
-      });
+        if (_walletData != null) {
+          // If offline data is available, use it to update the UI
+          setState(() {
+            address = _walletData!.address;
+            ledBalance = _walletData!.ledgerBalance;
+            avBalance = _walletData!.availableBalance;
+            _transactions = _walletData!.transactions.map((tx) {
+              return {'txid': tx}; // Convert to transaction format you expect
+            }).toList();
+            _isLoading = false;
+          });
+        }
+      } else {
+        // Fetch the wallet's receive address
+        final wallAddress = await walletService.getAddress(wallet);
+        setState(() {
+          address = wallAddress;
+        });
 
-      // Fetch and set the transactions
-      List<Map<String, dynamic>> transactions =
-          await walletService.getTransactions(address);
-      setState(() {
-        _transactions = transactions;
-      });
+        await walletService.saveLocalData(wallet);
 
-      await _syncWallet();
+        // Fetch the balance of the wallet
+        final availableBalance =
+            await walletService.getAvailableBalance(address);
+        setState(() {
+          avBalance = availableBalance; // Set the balance
+        });
+
+        final ledgerBalance = await walletService.getLedgerBalance(address);
+        setState(() {
+          ledBalance = ledgerBalance; // Set the balance
+        });
+
+        // Fetch and set the transactions
+        List<Map<String, dynamic>> transactions =
+            await walletService.getTransactions(address);
+        setState(() {
+          _transactions = transactions;
+        });
+
+        await _syncWallet();
+      }
     } catch (e) {
       // print("Error creating or fetching balance for wallet: $e");
       throw ("Error creating or fetching balance for wallet: $e");
@@ -169,6 +201,8 @@ class SharedWalletState extends State<SharedWallet> {
       );
 
       descriptorBox.put('wallet_${widget.mnemonic}', widget.descriptor);
+
+      await walletService.saveLocalData(wallet);
 
       // Fetch the wallet's receive address
       final wallAddress = await walletService.getAddress(wallet);
@@ -459,33 +493,61 @@ class SharedWalletState extends State<SharedWallet> {
 
   Future<void> _syncWallet() async {
     // print('Descriptor: ' + widget.descriptor);
+    final List<ConnectivityResult> connectivityResult =
+        await (Connectivity().checkConnectivity());
 
-    await walletService.syncWallet(wallet);
+    // print(connectivityResult);
 
-    await _fetchCurrentBlockHeight();
+    if (connectivityResult.contains(ConnectivityResult.none)) {
+      await _extractOlderWithPrivateKey(widget.descriptor);
 
-    await _extractOlderWithPrivateKey(widget.descriptor);
+      String walletAddress = await walletService.getAddress(wallet);
+      setState(() {
+        address = walletAddress;
+      });
 
-    String walletAddress = await walletService.getAddress(wallet);
-    setState(() {
-      address = walletAddress;
-    });
+      _walletData = await _walletStorageService.loadWalletData(walletAddress);
 
-    // Fetch and set the balance of the specific address
-    int ledgerBalance = await walletService.getLedgerBalance(walletAddress);
-    int availableBalance =
-        await walletService.getAvailableBalance(walletAddress);
-    setState(() {
-      ledBalance = ledgerBalance;
-      avBalance = availableBalance;
-    });
+      if (_walletData != null) {
+        // If offline data is available, use it to update the UI
+        setState(() {
+          address = _walletData!.address;
+          ledBalance = _walletData!.ledgerBalance;
+          avBalance = _walletData!.availableBalance;
+          _transactions = _walletData!.transactions.map((tx) {
+            return {'txid': tx}; // Convert to transaction format you expect
+          }).toList();
+          _isLoading = false;
+        });
+      }
+    } else {
+      await walletService.syncWallet(wallet);
 
-    // Fetch and set the transactions
-    List<Map<String, dynamic>> transactions =
-        await walletService.getTransactions(walletAddress);
-    setState(() {
-      _transactions = transactions;
-    });
+      await _fetchCurrentBlockHeight();
+
+      await _extractOlderWithPrivateKey(widget.descriptor);
+
+      String walletAddress = await walletService.getAddress(wallet);
+      setState(() {
+        address = walletAddress;
+      });
+
+      // Fetch and set the balance of the specific address
+      int ledgerBalance = await walletService.getLedgerBalance(walletAddress);
+      int availableBalance =
+          await walletService.getAvailableBalance(walletAddress);
+      setState(() {
+        ledBalance = ledgerBalance;
+        avBalance = availableBalance;
+      });
+
+      // Fetch and set the transactions
+      List<Map<String, dynamic>> transactions =
+          await walletService.getTransactions(walletAddress);
+      setState(() {
+        _transactions = transactions;
+      });
+    }
   }
 
   // Function to show a PIN input dialog

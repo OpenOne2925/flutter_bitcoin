@@ -7,21 +7,29 @@ class WalletStorageService {
     return await Hive.openBox<WalletData>('walletDataBox');
   }
 
-  // Save wallet data to Hive
   Future<void> saveWalletData(String walletId, WalletData walletData) async {
-    // print(walletData.address);
-
     var box = await openBox();
-    await box.put(walletId, walletData); // Use a key to store the wallet data
+
+    // Save the wallet data
+    await box.put(walletId, walletData);
+
+    // // Retrieve the data immediately after saving to verify
+    // final savedData = box.get(walletId);
+
+    // if (savedData != null) {
+    //   print('Data saved successfully for $walletId: $savedData');
+    // } else {
+    //   print('Failed to save data for $walletId');
+    // }
   }
 
   // Load wallet data from Hive
   Future<WalletData?> loadWalletData(String walletId) async {
     try {
-      var box =
-          await openBox(); // Safely open or access the existing box      WalletData? walletData =
+      var box = await openBox(); // Safely open or access the existing box
       WalletData? walletData =
           box.get(walletId); // Retrieve the wallet data using the walletId
+      // print(walletData);
 
       return walletData;
     } catch (e) {

@@ -149,7 +149,11 @@ class WalletService {
     String? password,
   ) async {
     try {
-      await blockchainInit();
+      final List<ConnectivityResult> connectivityResult =
+          await (Connectivity().checkConnectivity());
+      if (!connectivityResult.contains(ConnectivityResult.none)) {
+        await blockchainInit();
+      }
 
       final descriptorWallet = await bdk.Descriptor.create(
         descriptor: descriptorStr,
@@ -335,6 +339,7 @@ class WalletService {
       // - Send `amount` to the recipient
       // - Any remaining funds (change) will be sent to the change address
       final txBuilderResult = await txBuilder
+          .enableRbf()
           .addRecipient(recipientScript, amount) // Send to recipient
           .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
           .feeRate(50.0) // Set the fee rate (in satoshis per byte)
@@ -400,32 +405,14 @@ class WalletService {
       // print(internalChangeAddress.address);
       // print('Ciao');
 
-      // final keychainKind =
-      //     await wallet.getDescriptorForKeyChain(bdk.KeychainKind.Internal);
-      // final result = await keychainKind.asString();
-      // print(result);
-
-      // const outpoint = bdk.OutPoint(
-      //   txid:
-      //       "a4d8dc5c695c0109f8b7a3f7f9070870e7695e826e3d805a7123916c00df15be",
-      //   vout: 0,
-      // );
-
       // Build the transaction:
       // - Send `amount` to the recipient
       // - Any remaining funds (change) will be sent to the change address
-
-      // int amountChange = utxos.total - amount;
-
       // TODO SharedWallet with timelocks
       final txBuilderResult = await txBuilder
-          // .enableRbf()
+          .enableRbf()
           .addRecipient(recipientScript, amount) // Send to recipient
-          // .addRecipient(changeScript, amountChange)
-          // .addUtxo(outpoint)
-          // .manuallySelectedOnly()
           .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-          // .onlySpendChange()
           .doNotSpendChange()
           .feeRate(50.0) // Set the fee rate (in satoshis per byte)
           .drainTo(changeScript) // Specify the address to send the change
@@ -443,23 +430,11 @@ class WalletService {
           removePartialSigs: false,
           tryFinalize: false,
           signWithTapInternalKey: false,
-          // assumeHeight: await fetchCurrentBlockHeight() + 6,
           allowGrinding: true,
         ),
       );
 
       // print('Ciao');
-
-      // final transaction = await txBuilderResult.psbt.serialize();
-
-      // // final psbt = bdk.PartiallySignedTransaction(psbtBase64: transaction);
-      // final sbt = await wallet.sign(psbt: txBuilderResult.psbt);
-
-      // // Extract the finalized transaction
-      // final tx = await sbt.extractTx();
-
-      // // Broadcast the transaction to the network
-      // await blockchain.broadcast(tx);
 
       return sbt.serialize();
     } on Exception catch (e) {
