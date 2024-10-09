@@ -52,17 +52,17 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
   late Box<dynamic> descriptorBox;
 
-  final secureStorage = FlutterSecureStorage();
-  final WalletService walletService = WalletService();
+  // final secureStorage = FlutterSecureStorage();
+  // final WalletService walletService = WalletService();
 
   Future<void> openBoxAndCheckWallet() async {
     // Open the encrypted box using Hive
 
-    final encryptionKey = await walletService.getEncryptionKey();
+    // final encryptionKey = await _getEncryptionKey();
 
     descriptorBox = await Hive.openBox(
       'wallet_descriptors',
-      encryptionCipher: HiveAesCipher(encryptionKey),
+      // encryptionCipher: HiveAesCipher(encryptionKey),
     );
     boxOpened = true; // Ensure this is only opened once
 
@@ -127,6 +127,19 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       );
     }
   }
+
+  // Future<List<int>> _getEncryptionKey() async {
+  //   String? encodedKey = await secureStorage.read(key: 'encryptionKey');
+
+  //   if (encodedKey != null) {
+  //     return base64Url.decode(encodedKey);
+  //   } else {
+  //     var key = Hive.generateSecureKey();
+  //     await secureStorage.write(
+  //         key: 'encryptionKey', value: base64UrlEncode(key));
+  //     return key;
+  //   }
+  // }
 
   // String createDescriptor(
   //   List<dynamic> publicKeys,

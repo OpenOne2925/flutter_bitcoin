@@ -68,16 +68,16 @@ class SharedWalletState extends State<SharedWallet> {
     openBoxAndCheckWallet();
   }
 
-  final secureStorage = FlutterSecureStorage();
+  // final secureStorage = FlutterSecureStorage();
 
   Future<void> openBoxAndCheckWallet() async {
     // Open the encrypted box using Hive
-    final encryptionKey = await walletService.getEncryptionKey();
+    // final encryptionKey = await _getEncryptionKey();
 
     // Open the box (for example using Hive)
     descriptorBox = await Hive.openBox(
       'wallet_descriptors',
-      encryptionCipher: HiveAesCipher(encryptionKey),
+      // encryptionCipher: HiveAesCipher(encryptionKey),
     );
 
     // print('Retrieving descriptor with key: ${widget.mnemonic}');
@@ -96,6 +96,19 @@ class SharedWalletState extends State<SharedWallet> {
 
     // await _syncWallet();
   }
+
+  // Future<List<int>> _getEncryptionKey() async {
+  //   String? encodedKey = await secureStorage.read(key: 'encryptionKey');
+
+  //   if (encodedKey != null) {
+  //     return base64Url.decode(encodedKey);
+  //   } else {
+  //     var key = Hive.generateSecureKey();
+  //     await secureStorage.write(
+  //         key: 'encryptionKey', value: base64UrlEncode(key));
+  //     return key;
+  //   }
+  // }
 
   Future<void> loadWallet() async {
     try {
@@ -283,6 +296,9 @@ class SharedWalletState extends State<SharedWallet> {
           actions: [
             TextButton(
               onPressed: () async {
+                // TODO Check if it still works
+                Navigator.of(context).pop();
+
                 final int amount = int.parse(_amountController.text);
 
                 _txToSend = await walletService.createPartialTx(
@@ -290,9 +306,6 @@ class SharedWalletState extends State<SharedWallet> {
                   amount,
                   wallet,
                 );
-
-                // Close the dialog after submitting
-                Navigator.of(context).pop();
               },
               child: const Text('Submit'),
             ),

@@ -102,6 +102,18 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
   //   });
   // }
 
+  void _navigateToSharedWallet() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SharedWallet(
+          descriptor: _descriptor!,
+          mnemonic: _mnemonic!,
+        ),
+      ),
+    );
+  }
+
   Future<void> _generateWallet() async {
     var walletBox = Hive.box('walletBox');
 
@@ -333,16 +345,9 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                 if (_formKey.currentState!.validate()) {
                   _generateWallet();
                   await Future.delayed(const Duration(milliseconds: 500));
+                  if (!mounted) return;
 
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SharedWallet(
-                        descriptor: _descriptor!,
-                        mnemonic: _mnemonic!,
-                      ),
-                    ),
-                  );
+                  _navigateToSharedWallet();
                 } else {
                   // Show error if the form is invalid
                   setState(() {

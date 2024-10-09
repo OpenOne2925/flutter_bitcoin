@@ -26,7 +26,7 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
   String? descriptorString1;
 
   Descriptor? descriptorWallet;
-  // Descriptor? internalDescriptorWallet;
+  Descriptor? internalDescriptorWallet;
 
   Descriptor? descriptorWallet1;
   Descriptor? descriptorWallet2;
@@ -127,7 +127,7 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
 
       // print(descriptor1);
 
-      // final internalDescriptor = replaceAllDerivationPaths(descriptor);
+      final internalDescriptor = replaceAllDerivationPaths(descriptor);
 
       // print('Ciaoooooooo' + internalDescriptor);
 
@@ -137,10 +137,10 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
         network: Network.Testnet, // Use Network.Mainnet for mainnet
       );
 
-      // internalDescriptorWallet = await Descriptor.create(
-      //   descriptor: internalDescriptor,
-      //   network: Network.Testnet, // Use Network.Mainnet for mainnet
-      // );
+      internalDescriptorWallet = await Descriptor.create(
+        descriptor: internalDescriptor,
+        network: Network.Testnet, // Use Network.Mainnet for mainnet
+      );
 
       descriptorWallet1 = await Descriptor.create(
         descriptor: descriptor1,
@@ -150,7 +150,14 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
       descriptorString = await descriptorWallet!.asString();
       // descriptorString1 = await descriptorWallet1!.asString();
 
-      descriptorString1 = await descriptorWallet1!.asStringPrivate();
+      // descriptorString1 = await descriptorWallet1!.asStringPrivate();
+
+      descriptorString1 = descriptor1;
+
+      // print(descriptor);
+      // print(descriptor1);
+
+      // print(descriptorString);
 
       // print(descriptorString1);
 
@@ -161,7 +168,7 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
 
       await Wallet.create(
         descriptor: descriptorWallet!,
-        changeDescriptor: descriptorWallet,
+        changeDescriptor: internalDescriptorWallet,
         network: Network.Testnet,
         databaseConfig: const DatabaseConfig.memory(),
       );
