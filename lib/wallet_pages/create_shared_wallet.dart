@@ -236,7 +236,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     var secretKey =
         await _walletService.getSecretKeyfromMnemonic(savedMnemonic);
 
-    var futurePubKey = await secretKey.asPublic();
+    var futurePubKey = secretKey.toPublic();
     var pubKey = futurePubKey.toString();
 
     var privKey = secretKey.asString();
@@ -484,25 +484,25 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       .onSurface, // Dynamic text color
                 ),
               ),
-              const SizedBox(height: 16),
-              // TextField for amount1
-              TextFormField(
-                controller: _amount1Controller,
-                onChanged: (value) {
-                  amount2 = int.parse(value);
-                },
-                decoration: CustomTextFieldStyles.textFieldDecoration(
-                  context: context,
-                  labelText: 'Enter Second Amount',
-                  hintText: 'Enter Second Amount',
-                ),
-                keyboardType: TextInputType.number,
-                style: TextStyle(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface, // Dynamic text color
-                ),
-              ),
+              // const SizedBox(height: 16),
+              // // TextField for amount1
+              // TextFormField(
+              //   controller: _amount1Controller,
+              //   onChanged: (value) {
+              //     amount2 = int.parse(value);
+              //   },
+              //   decoration: CustomTextFieldStyles.textFieldDecoration(
+              //     context: context,
+              //     labelText: 'Enter Second Amount',
+              //     hintText: 'Enter Second Amount',
+              //   ),
+              //   keyboardType: TextInputType.number,
+              //   style: TextStyle(
+              //     color: Theme.of(context)
+              //         .colorScheme
+              //         .onSurface, // Dynamic text color
+              //   ),
+              // ),
               const SizedBox(height: 16),
               CustomButton(
                 onPressed: () {

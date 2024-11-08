@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:bdk_flutter/bdk_flutter.dart' as bdk;
+import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -14,8 +14,8 @@ class WalletService {
   // Base URL for Mempool Space Testnet API
   final String baseUrl = 'https://mempool.space/testnet/api';
 
-  late bdk.Wallet wallet;
-  late bdk.Blockchain blockchain;
+  late Wallet wallet;
+  late Blockchain blockchain;
 
   TextEditingController mnemonic = TextEditingController();
   TextEditingController recipientAddress = TextEditingController();
@@ -29,18 +29,16 @@ class WalletService {
 
   final secureStorage = FlutterSecureStorage();
 
-  Future<bdk.Mnemonic> generateMnemonicHandler() async {
-    return await bdk.Mnemonic.create(bdk.WordCount.Words12);
+  Future<Mnemonic> generateMnemonicHandler() async {
+    return await Mnemonic.create(WordCount.words12);
   }
 
-  Future<bdk.DescriptorSecretKey> getSecretKeyfromMnemonic(
-      String mnemonic) async {
-    final mnemonicObj = await bdk.Mnemonic.fromString(mnemonic);
+  Future<DescriptorSecretKey> getSecretKeyfromMnemonic(String mnemonic) async {
+    final mnemonicObj = await Mnemonic.fromString(mnemonic);
 
     // Create a descriptor secret key (this holds the seed/private key)
-    final descriptorSecretKey = await bdk.DescriptorSecretKey.create(
-      network:
-          bdk.Network.Testnet, // Use Network.Mainnet for main Bitcoin network
+    final descriptorSecretKey = await DescriptorSecretKey.create(
+      network: Network.testnet, // Use Network.Mainnet for main Bitcoin network
       mnemonic: mnemonicObj,
       password: '',
     );
@@ -53,7 +51,7 @@ class WalletService {
 
     // Create the derivation path object
     final derivationPath =
-        await bdk.DerivationPath.create(path: derivationPathString);
+        await DerivationPath.create(path: derivationPathString);
 
     // print(derivationPath);
 
@@ -63,13 +61,13 @@ class WalletService {
     return derivedSecretKey;
   }
 
-  Future<bdk.DescriptorSecretKey> getInternalSecretKeyfromMnemonic(
+  Future<DescriptorSecretKey> getInternalSecretKeyfromMnemonic(
       String mnemonic) async {
-    final mnemonicObj = await bdk.Mnemonic.fromString(mnemonic);
+    final mnemonicObj = await Mnemonic.fromString(mnemonic);
 
     // Create a descriptor secret key (this holds the seed/private key)
-    final descriptorSecretKey = await bdk.DescriptorSecretKey.create(
-      network: bdk.Network.Testnet,
+    final descriptorSecretKey = await DescriptorSecretKey.create(
+      network: Network.testnet,
       mnemonic: mnemonicObj,
       password: '',
     );
@@ -80,7 +78,7 @@ class WalletService {
 
     // Create the derivation path object
     final derivationPath =
-        await bdk.DerivationPath.create(path: derivationPathString);
+        await DerivationPath.create(path: derivationPathString);
 
     // print(derivationPath);
 
@@ -89,20 +87,20 @@ class WalletService {
     return derivedSecretKey;
   }
 
-  Future<List<bdk.Descriptor>> getDescriptors(String mnemonic) async {
-    final descriptors = <bdk.Descriptor>[];
+  Future<List<Descriptor>> getDescriptors(String mnemonic) async {
+    final descriptors = <Descriptor>[];
     try {
-      for (var e in [bdk.KeychainKind.External, bdk.KeychainKind.Internal]) {
-        final mnemonicObj = await bdk.Mnemonic.fromString(mnemonic);
+      for (var e in [KeychainKind.externalChain, KeychainKind.internalChain]) {
+        final mnemonicObj = await Mnemonic.fromString(mnemonic);
 
-        final descriptorSecretKey = await bdk.DescriptorSecretKey.create(
-          network: bdk.Network.Testnet,
+        final descriptorSecretKey = await DescriptorSecretKey.create(
+          network: Network.testnet,
           mnemonic: mnemonicObj,
         );
 
-        final descriptor = await bdk.Descriptor.newBip84(
+        final descriptor = await Descriptor.newBip84(
           secretKey: descriptorSecretKey,
-          network: bdk.Network.Testnet,
+          network: Network.testnet,
           keychain: e,
         );
 
@@ -115,8 +113,8 @@ class WalletService {
     }
   }
 
-  Future<bdk.Wallet> createOrRestoreWallet(
-      String mnemonic, bdk.Network network, String? password) async {
+  Future<Wallet> createOrRestoreWallet(
+      String mnemonic, Network network, String? password) async {
     try {
       final descriptors = await getDescriptors(mnemonic);
 
@@ -126,11 +124,11 @@ class WalletService {
         await blockchainInit();
       }
 
-      final res = await bdk.Wallet.create(
+      final res = await Wallet.create(
         descriptor: descriptors[0],
         changeDescriptor: descriptors[1],
         network: network,
-        databaseConfig: const bdk.DatabaseConfig.memory(),
+        databaseConfig: const DatabaseConfig.memory(),
       );
       // var addressInfo =
       //     await res.getAddress(addressIndex: const AddressIndex());
@@ -144,11 +142,11 @@ class WalletService {
     }
   }
 
-  Future<bdk.Wallet> createSharedWallet(
+  Future<Wallet> createSharedWallet(
     String descriptorStr,
     String internalDescriptor,
     String mnemonic,
-    bdk.Network network,
+    Network network,
     String? password,
   ) async {
     try {
@@ -158,7 +156,7 @@ class WalletService {
         await blockchainInit();
       }
 
-      final descriptorWallet = await bdk.Descriptor.create(
+      final descriptorWallet = await Descriptor.create(
         descriptor: descriptorStr,
         network: network, // Use Network.Mainnet for mainnet
       );
@@ -171,18 +169,18 @@ class WalletService {
 
       // print('Ciaooooooooo ' + internalDescriptor);
 
-      final internalDescriptorWallet = await bdk.Descriptor.create(
+      final internalDescriptorWallet = await Descriptor.create(
         descriptor: internalDescriptor,
         network: network,
       );
 
       // print('Ciaoooooooooooooo');
 
-      final wallet = await bdk.Wallet.create(
+      final wallet = await Wallet.create(
         descriptor: descriptorWallet,
         changeDescriptor: internalDescriptorWallet,
         network: network,
-        databaseConfig: const bdk.DatabaseConfig.memory(),
+        databaseConfig: const DatabaseConfig.memory(),
       );
 
       return wallet;
@@ -192,9 +190,9 @@ class WalletService {
     }
   }
 
-  Future<int> getBalance(bdk.Wallet wallet) async {
+  BigInt getBalance(Wallet wallet) {
     // await syncWallet(wallet);
-    bdk.Balance balance = await wallet.getBalance();
+    Balance balance = wallet.getBalance();
 
     // print(balance.total);
 
@@ -263,7 +261,7 @@ class WalletService {
     }
   }
 
-  Future<bdk.Wallet> loadSavedWallet(String? mnemonic) async {
+  Future<Wallet> loadSavedWallet(String? mnemonic) async {
     var walletBox = Hive.box('walletBox');
     String? savedMnemonic = walletBox.get('walletMnemonic');
 
@@ -273,7 +271,7 @@ class WalletService {
       // Restore the wallet using the saved mnemonic
       wallet = await createOrRestoreWallet(
         savedMnemonic,
-        bdk.Network.Testnet,
+        Network.testnet,
         null, // Use a saved password if required
       );
       // print(wallet);
@@ -281,19 +279,19 @@ class WalletService {
     } else {
       wallet = await createOrRestoreWallet(
         mnemonic!,
-        bdk.Network.Testnet,
+        Network.testnet,
         null,
       );
     }
     return wallet;
   }
 
-  Future<void> saveLocalData(bdk.Wallet wallet) async {
-    String currentAddress = await getAddress(wallet);
+  Future<void> saveLocalData(Wallet wallet) async {
+    String currentAddress = getAddress(wallet);
 
     final walletData = WalletData(
       address: currentAddress,
-      balance: await getBalance(wallet),
+      balance: int.parse(getBalance(wallet).toString()),
       ledgerBalance: await getLedgerBalance(currentAddress),
       availableBalance: await getAvailableBalance(currentAddress),
       transactions: await getTransactions(currentAddress),
@@ -303,23 +301,27 @@ class WalletService {
     await _walletStorageService.saveWalletData(currentAddress, walletData);
   }
 
-  Future<void> syncWallet(bdk.Wallet wallet) async {
+  Future<void> syncWallet(Wallet wallet) async {
     await blockchainInit(); // Ensure blockchain is initialized before usage
 
-    await wallet.sync(blockchain);
+    await wallet.sync(blockchain: blockchain);
   }
 
-  Future<String> getAddress(bdk.Wallet wallet) async {
+  String getAddress(Wallet wallet) {
     // await syncWallet(wallet);
 
-    var addressInfo = await wallet.getAddress(
-        addressIndex: const bdk.AddressIndex.peek(index: 0));
-    return addressInfo.address;
+    var addressInfo =
+        wallet.getAddress(addressIndex: const AddressIndex.peek(index: 0));
+    return addressInfo.address.asString();
   }
 
   // Method to create, sign and broadcast a single user transaction
-  Future<void> sendTx(String recipientAddressStr, int amount, bdk.Wallet wallet,
-      String changeAddressStr) async {
+  Future<void> sendTx(
+    String recipientAddressStr,
+    BigInt amount,
+    Wallet wallet,
+    String changeAddressStr,
+  ) async {
     await syncWallet(wallet);
 
     // final utxos = await wallet.getBalance();
@@ -327,16 +329,20 @@ class WalletService {
 
     try {
       // Build the transaction
-      final txBuilder = bdk.TxBuilder();
+      final txBuilder = TxBuilder();
 
       // Create recipient address
-      final recipientAddress =
-          await bdk.Address.create(address: recipientAddressStr);
-      final recipientScript = await recipientAddress.scriptPubKey();
+      // final recipientAddress =
+      //     await Address.create(address: recipientAddressStr);
+      // final recipientScript = await recipientAddress.scriptPubKey();
 
       // Create the change address
-      final changeAddress = await bdk.Address.create(address: changeAddressStr);
-      final changeScript = await changeAddress.scriptPubKey();
+      // final changeAddress = await Address.create(address: changeAddressStr);
+      // final changeScript = await changeAddress.scriptPubKey();
+
+      // TODO: Creating address, check if it works
+      final recipientScript = await ScriptBuf.fromHex(recipientAddressStr);
+      final changeScript = await ScriptBuf.fromHex(changeAddressStr);
 
       // Build the transaction:
       // - Send `amount` to the recipient
@@ -351,13 +357,14 @@ class WalletService {
           .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
       // Sign the transaction
-      final sbt = await wallet.sign(psbt: txBuilderResult.psbt);
+      final isFinalized = await wallet.sign(psbt: txBuilderResult.$1);
 
-      // Extract the finalized transaction
-      final tx = await sbt.extractTx();
-
-      // Broadcast the transaction to the network
-      await blockchain.broadcast(tx);
+      // Broadcast the transaction only if it is finalized
+      if (isFinalized) {
+        final tx = txBuilderResult.$1.extractTx();
+        // Broadcast the transaction to the network only if it is finalized
+        await blockchain.broadcast(transaction: tx);
+      }
     } on Exception catch (e) {
       // print("Error: ${e.toString()}");
       throw Exception('Failed to create wallet (Error: ${e.toString()})');
@@ -367,8 +374,8 @@ class WalletService {
   // Method to create a PSBT for a multisig transaction, this psbt is signed by the first user
   Future<String> createPartialTx(
     String recipientAddressStr,
-    int amount,
-    bdk.Wallet wallet,
+    BigInt amount,
+    Wallet wallet,
   ) async {
     await syncWallet(wallet);
 
@@ -383,51 +390,65 @@ class WalletService {
 
     try {
       // Build the transaction
-      final txBuilder = bdk.TxBuilder();
+      final txBuilder = TxBuilder();
+
+      // const String timelockDescriptor =
+      //     "wsh(and_v(v:older(2),pk([24d87569/84'/1'/0'/0/0]tpubDHebJGZWZaZ3JkhwTx5DytaRpFhK9ffFaN9PMBm7m63bdkdxqKgXkSPMzYzfDAGStx8LWt4b2CgGm86BwtNuG6PdsxsLVmuf6EjREX3oHjL/1/*)))";
+
+      // final descriptor = await Descriptor.create(
+      //   descriptor: timelockDescriptor,
+      //   network: Network.Testnet,
+      // );
+
+      // final wallet2 = await Wallet.create(
+      //   descriptor: descriptor,
+      //   network: Network.Testnet,
+      //   databaseConfig: DatabaseConfig.memory(),
+      // );
 
       // Create recipient address
-      final recipientAddress =
-          await bdk.Address.create(address: recipientAddressStr);
-      final recipientScript = await recipientAddress.scriptPubKey();
+      // final recipientAddress =
+      //     await Address.create(address: recipientAddressStr);
+      // final recipientScript = await recipientAddress.scriptPubKey();
 
       // final changeAddressStr = await getAddress(wallet);
 
       // print(changeAddressStr);
 
-      final internalChangeAddress = await wallet.getInternalAddress(
-          addressIndex: const bdk.AddressIndex.peek(index: 0));
+      final internalChangeAddress = wallet.getInternalAddress(
+          addressIndex: const AddressIndex.peek(index: 0));
 
       // print('Nope: ${internalChangeAddress.index}');
 
       // Create the change address
-      final changeAddress =
-          await bdk.Address.create(address: internalChangeAddress.address);
-
-      final changeScript = await changeAddress.scriptPubKey();
+      // final changeAddress =
+      //     await Address.create(address: internalChangeAddress.address);
+      // final changeScript = await changeAddress.scriptPubKey();
 
       // print(internalChangeAddress.address);
       // print('Ciao');
 
+      final recipientScript = await ScriptBuf.fromHex(recipientAddressStr);
+      final changeScript =
+          await ScriptBuf.fromHex(internalChangeAddress.address.asString());
+
       // Build the transaction:
       // - Send `amount` to the recipient
       // - Any remaining funds (change) will be sent to the change address
-      // TODO SharedWallet with timelocks
+      // TODO SharedWallet with timelocks .policy path to be added now available
       final txBuilderResult = await txBuilder
           .enableRbf()
           .addRecipient(recipientScript, amount) // Send to recipient
           .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-          .doNotSpendChange()
+          // .doNotSpendChange()
           .feeRate(50.0) // Set the fee rate (in satoshis per byte)
           .drainTo(changeScript) // Specify the address to send the change
           .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
-      // print('Finally');
-
       // Sign the transaction
-      final sbt = await wallet.sign(
-        psbt: txBuilderResult.psbt,
-        signOptions: const bdk.SignOptions(
-          isMultiSig: true,
+      final psbt = await wallet.sign(
+        psbt: txBuilderResult.$1,
+        signOptions: const SignOptions(
           trustWitnessUtxo: false,
           allowAllSighashes: false,
           removePartialSigs: false,
@@ -437,9 +458,12 @@ class WalletService {
         ),
       );
 
-      // print('Ciao');
-
-      return sbt.serialize();
+      if (psbt) {
+        final psbtString = txBuilderResult.$1.asString();
+        return psbtString;
+      } else {
+        throw Exception("Failed to sign the transaction");
+      }
     } on Exception catch (e) {
       // print("Error: ${e.toString()}");
       throw Exception("Error: ${e.toString()}");
@@ -447,40 +471,41 @@ class WalletService {
   }
 
   // This method takes a PSBT, signs it with the second user and then broadcasts it
-  Future<void> signBroadcastTx(
-      bdk.PartiallySignedTransaction sbt, bdk.Wallet wallet) async {
-    // final sbt2 = await wallet.sign(psbt: sbt);
+  Future<void> signBroadcastTx(String psbtString, Wallet wallet) async {
+    // Convert the psbt String to a PartiallySignedTransaction
+    final psbt = await PartiallySignedTransaction.fromString(psbtString);
 
-    final sbt2 = await wallet.sign(
-      psbt: sbt,
-      signOptions: const bdk.SignOptions(
-        isMultiSig: true,
-        trustWitnessUtxo: false,
-        allowAllSighashes: false,
-        removePartialSigs: false,
-        tryFinalize: false,
-        signWithTapInternalKey: false,
-        allowGrinding: true,
-      ),
-    );
-
-    final combinedpsbt = await sbt.combine(sbt2);
-
-    // Extract the finalized transaction
-    final tx = await combinedpsbt.extractTx();
-
-    // Broadcast the transaction to the network
-    await blockchain.broadcast(tx);
+    try {
+      final isFinalized = await wallet.sign(
+        psbt: psbt,
+        signOptions: const SignOptions(
+          trustWitnessUtxo: false,
+          allowAllSighashes: false,
+          removePartialSigs: false,
+          tryFinalize: false,
+          signWithTapInternalKey: false,
+          allowGrinding: true,
+        ),
+      );
+      if (isFinalized) {
+        final tx = psbt.extractTx();
+        await blockchain.broadcast(transaction: tx);
+      } else {
+        debugPrint("Psbt not finalized!");
+      }
+    } on Exception catch (e) {
+      throw Exception("Error: ${e.toString()}");
+    }
   }
 
   Future<void> blockchainInit() async {
-    blockchain = await bdk.Blockchain.create(
-      config: const bdk.BlockchainConfig.electrum(
-        config: bdk.ElectrumConfig(
+    blockchain = await Blockchain.create(
+      config: BlockchainConfig.electrum(
+        config: ElectrumConfig(
           url: "ssl://electrum.blockstream.info:60002",
           timeout: 5,
           retry: 5,
-          stopGap: 10,
+          stopGap: BigInt.from(10),
           validateDomain: false,
         ),
       ),

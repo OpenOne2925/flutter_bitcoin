@@ -50,7 +50,7 @@ class CAWalletPageState extends State<CAWalletPage> {
       var walletBox = Hive.box('walletBox');
       walletBox.put('walletMnemonic', _mnemonic);
       walletBox.put('walletNetwork',
-          Network.Testnet.toString()); // or serialize this properly
+          Network.testnet.toString()); // or serialize this properly
 
       if (!mounted) return;
 
@@ -63,7 +63,7 @@ class CAWalletPageState extends State<CAWalletPage> {
     } else {
       // print('No es possibile');
       final wallet = await _walletService.createOrRestoreWallet(
-          _mnemonic!, Network.Testnet, null);
+          _mnemonic!, Network.testnet, null);
 
       // print(wallet);
 
@@ -76,7 +76,7 @@ class CAWalletPageState extends State<CAWalletPage> {
       var walletBox = Hive.box('walletBox');
       walletBox.put('walletMnemonic', _mnemonic);
       walletBox.put('walletNetwork',
-          Network.Testnet.toString()); // or serialize this properly
+          Network.testnet.toString()); // or serialize this properly
 
       if (!mounted) return;
 
@@ -90,7 +90,7 @@ class CAWalletPageState extends State<CAWalletPage> {
   }
 
   Future<void> _generateMnemonic() async {
-    var res = await Mnemonic.create(WordCount.Words12);
+    var res = await Mnemonic.create(WordCount.words12);
 
     // print(res);
 

@@ -41,7 +41,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
     var secretKey =
         await _walletService.getSecretKeyfromMnemonic(savedMnemonic);
 
-    var futurePubKey = await secretKey.asPublic();
+    var futurePubKey = secretKey.toPublic();
     pubKey = futurePubKey.toString();
 
     setState(() {
@@ -124,7 +124,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
     var secretKey =
         await _walletService.getSecretKeyfromMnemonic(savedMnemonic);
 
-    var futurePubKey = await secretKey.asPublic();
+    var futurePubKey = secretKey.toPublic();
     pubKey = futurePubKey.toString();
 
     String pubKey1 = pubKey.replaceAll("*", "0/*");
@@ -171,12 +171,17 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
         if (i == 1) {
           _descriptor =
               "wsh(or_d(multi(2,$privKey1,$pubKey1),or_i(and_v(v:older($amount1),pk($pubKey2)),and_v(v:older($amount2),pk($privKey2)))))";
-
+          // print(privKey1);
+          // print(privKey2);
           // _descriptor = "wsh(multi(2,$privKey,$pubKey))";
         } else {
           _descriptor =
               "wsh(or_d(multi(2,$pubKey1,$privKey1),or_i(and_v(v:older($amount1),pk($privKey2)),and_v(v:older($amount2),pk($pubKey2)))))";
+          // _descriptor =
+          //     "wsh(or_d(pk($privKey1),and_v(v:older($amount1),pk($privKey2))))";
 
+          // print(privKey1);
+          // print(privKey2);
           // _descriptor = "wsh(multi(2,$pubKey,$privKey))";
         }
 
@@ -197,7 +202,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
 
     bool isValid = true;
 
-    Network network = Network.Testnet;
+    Network network = Network.testnet;
 
     try {
       // Try creating the descriptor

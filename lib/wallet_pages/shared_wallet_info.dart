@@ -134,20 +134,20 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
       // Create the wallet using the descriptor
       descriptorWallet = await Descriptor.create(
         descriptor: descriptor,
-        network: Network.Testnet, // Use Network.Mainnet for mainnet
+        network: Network.testnet, // Use Network.Mainnet for mainnet
       );
 
       internalDescriptorWallet = await Descriptor.create(
         descriptor: internalDescriptor,
-        network: Network.Testnet, // Use Network.Mainnet for mainnet
+        network: Network.testnet, // Use Network.Mainnet for mainnet
       );
 
       descriptorWallet1 = await Descriptor.create(
         descriptor: descriptor1,
-        network: Network.Testnet, // Use Network.Mainnet for mainnet
+        network: Network.testnet, // Use Network.Mainnet for mainnet
       );
 
-      descriptorString = await descriptorWallet!.asString();
+      descriptorString = descriptorWallet!.asString();
       // descriptorString1 = await descriptorWallet1!.asString();
 
       // descriptorString1 = await descriptorWallet1!.asStringPrivate();
@@ -169,7 +169,7 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
       await Wallet.create(
         descriptor: descriptorWallet!,
         changeDescriptor: internalDescriptorWallet,
-        network: Network.Testnet,
+        network: Network.testnet,
         databaseConfig: const DatabaseConfig.memory(),
       );
 

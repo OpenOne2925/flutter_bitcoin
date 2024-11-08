@@ -119,14 +119,14 @@ class WalletPageState extends State<WalletPage> {
           throw ('No Data Found Locally');
         }
 
-        var addressInfo = await wallet.getAddress(
-            addressIndex: const AddressIndex.peek(index: 0));
+        var addressInfo =
+            wallet.getAddress(addressIndex: const AddressIndex.peek(index: 0));
 
         // print(addressInfo.address);
 
         // Attempt to load wallet data from local storage (offline mode)
-        _walletData =
-            await _walletStorageService.loadWalletData(addressInfo.address);
+        _walletData = await _walletStorageService
+            .loadWalletData(addressInfo.address.asString());
 
         // print(_walletData);
 
@@ -149,12 +149,12 @@ class WalletPageState extends State<WalletPage> {
         } else {
           // print('Generating address');
           // Fetch and set the address
-          var walletAddressInfo = await wallet.getAddress(
+          var walletAddressInfo = wallet.getAddress(
             addressIndex: const AddressIndex.peek(index: 0),
           );
 
           setState(() {
-            address = walletAddressInfo.address;
+            address = walletAddressInfo.address.asString();
           });
         }
       } else {
@@ -165,7 +165,7 @@ class WalletPageState extends State<WalletPage> {
         // print('No offline data available, fetching from network');
 
         // Fetch and set the address
-        String walletAddress = await walletService.getAddress(wallet);
+        String walletAddress = walletService.getAddress(wallet);
         setState(() {
           address = walletAddress;
         });
@@ -235,7 +235,7 @@ class WalletPageState extends State<WalletPage> {
 
                 await walletService.sendTx(
                   recipientAddressStr,
-                  amount,
+                  BigInt.from(amount),
                   wallet,
                   changeAddressStr,
                 );
@@ -346,7 +346,11 @@ class WalletPageState extends State<WalletPage> {
                 final String changeAddressStr = address;
 
                 await walletService.sendTx(
-                    recipientAddressStr, amount, wallet, changeAddressStr);
+                  recipientAddressStr,
+                  BigInt.from(amount),
+                  wallet,
+                  changeAddressStr,
+                );
                 Navigator.of(context).pop();
               },
               child: const Text('Submit'),

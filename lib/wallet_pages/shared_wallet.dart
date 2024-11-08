@@ -1,6 +1,5 @@
-import 'dart:convert';
-
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -38,7 +37,6 @@ class SharedWalletState extends State<SharedWallet> {
   int ledBalance = 0;
   int avBalance = 0;
   int currentBlockHeight = 0;
-  int older = 0;
 
   List<Map<String, dynamic>> _transactions = [];
   List<int> _olderValues = []; // Declare a list to store all older values
@@ -118,7 +116,7 @@ class SharedWalletState extends State<SharedWallet> {
         widget.descriptor,
         internalDescriptor,
         widget.mnemonic,
-        Network.Testnet,
+        Network.testnet,
         null,
       );
 
@@ -126,7 +124,7 @@ class SharedWalletState extends State<SharedWallet> {
           await (Connectivity().checkConnectivity());
 
       if (connectivityResult.contains(ConnectivityResult.none)) {
-        String walletAddress = await walletService.getAddress(wallet);
+        String walletAddress = walletService.getAddress(wallet);
         setState(() {
           address = walletAddress;
         });
@@ -147,7 +145,7 @@ class SharedWalletState extends State<SharedWallet> {
         }
       } else {
         // Fetch the wallet's receive address
-        final wallAddress = await walletService.getAddress(wallet);
+        final wallAddress = walletService.getAddress(wallet);
         setState(() {
           address = wallAddress;
         });
@@ -205,7 +203,9 @@ class SharedWalletState extends State<SharedWallet> {
 
   Future<void> createWalletFromDescriptor() async {
     try {
-      // print('Descriptor: ' + widget.descriptor);
+      if (kDebugMode) {
+        print('DescriptorWidget: ${widget.descriptor}');
+      }
 
       final internalDescriptor = replaceAllDerivationPaths(widget.descriptor);
 
@@ -220,7 +220,7 @@ class SharedWalletState extends State<SharedWallet> {
         widget.descriptor,
         internalDescriptor,
         widget.mnemonic,
-        Network.Testnet,
+        Network.testnet,
         null,
       );
 
@@ -229,7 +229,7 @@ class SharedWalletState extends State<SharedWallet> {
       await walletService.saveLocalData(wallet);
 
       // Fetch the wallet's receive address
-      final wallAddress = await walletService.getAddress(wallet);
+      final wallAddress = walletService.getAddress(wallet);
       setState(() {
         address = wallAddress;
       });
@@ -296,14 +296,13 @@ class SharedWalletState extends State<SharedWallet> {
           actions: [
             TextButton(
               onPressed: () async {
-                // TODO Check if it still works
                 Navigator.of(context).pop();
 
                 final int amount = int.parse(_amountController.text);
 
                 _txToSend = await walletService.createPartialTx(
                   recipientAddressStr,
-                  amount,
+                  BigInt.from(amount),
                   wallet,
                 );
               },
@@ -392,7 +391,7 @@ class SharedWalletState extends State<SharedWallet> {
 
                 _txToSend = await walletService.createPartialTx(
                   recipientAddressStr,
-                  amount,
+                  BigInt.from(amount),
                   wallet,
                 );
 
@@ -432,13 +431,12 @@ class SharedWalletState extends State<SharedWallet> {
 
                 // print("PSBT Raw: ${_psbtController.text}");
 
-                final decoded = _psbtController.text;
+                final psbtString = _psbtController.text;
 
                 // print("Decoded Transaction: $decoded");
                 // print("Mnemonic: " + widget.mnemonic);
 
-                final psbt = PartiallySignedTransaction(psbtBase64: decoded);
-                await walletService.signBroadcastTx(psbt, wallet);
+                await walletService.signBroadcastTx(psbtString, wallet);
 
                 Navigator.of(context).pop();
               },
@@ -516,7 +514,9 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   Future<void> _syncWallet() async {
-    // print('Descriptor: ' + widget.descriptor);
+    if (kDebugMode) {
+      print('Descriptor: ${widget.descriptor}');
+    }
     final List<ConnectivityResult> connectivityResult =
         await (Connectivity().checkConnectivity());
 
@@ -525,7 +525,7 @@ class SharedWalletState extends State<SharedWallet> {
     if (connectivityResult.contains(ConnectivityResult.none)) {
       await _extractOlderWithPrivateKey(widget.descriptor);
 
-      String walletAddress = await walletService.getAddress(wallet);
+      String walletAddress = walletService.getAddress(wallet);
       setState(() {
         address = walletAddress;
       });
@@ -551,7 +551,7 @@ class SharedWalletState extends State<SharedWallet> {
 
       await _extractOlderWithPrivateKey(widget.descriptor);
 
-      String walletAddress = await walletService.getAddress(wallet);
+      String walletAddress = walletService.getAddress(wallet);
       setState(() {
         address = walletAddress;
       });
