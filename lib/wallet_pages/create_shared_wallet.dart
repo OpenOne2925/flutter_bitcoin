@@ -387,7 +387,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     color: Theme.of(context)
                         .colorScheme
                         .onSurface
-                        .withOpacity(0.3), // Border color
+                        .withValues(), // Border color
                   ),
                   borderRadius: BorderRadius.circular(8.0), // Rounded corners
                 ),
@@ -442,7 +442,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               const SizedBox(height: 16),
               // TextField for amount1
               TextFormField(
-                controller: _amount2Controller,
+                controller: _amount1Controller,
                 onChanged: (value) {
                   amount1 = int.parse(value);
                 },
@@ -484,25 +484,25 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       .onSurface, // Dynamic text color
                 ),
               ),
-              // const SizedBox(height: 16),
-              // // TextField for amount1
-              // TextFormField(
-              //   controller: _amount1Controller,
-              //   onChanged: (value) {
-              //     amount2 = int.parse(value);
-              //   },
-              //   decoration: CustomTextFieldStyles.textFieldDecoration(
-              //     context: context,
-              //     labelText: 'Enter Second Amount',
-              //     hintText: 'Enter Second Amount',
-              //   ),
-              //   keyboardType: TextInputType.number,
-              //   style: TextStyle(
-              //     color: Theme.of(context)
-              //         .colorScheme
-              //         .onSurface, // Dynamic text color
-              //   ),
-              // ),
+              const SizedBox(height: 16),
+              // TextField for amount1
+              TextFormField(
+                controller: _amount2Controller,
+                onChanged: (value) {
+                  amount2 = int.parse(value);
+                },
+                decoration: CustomTextFieldStyles.textFieldDecoration(
+                  context: context,
+                  labelText: 'Enter Second Amount',
+                  hintText: 'Enter Second Amount',
+                ),
+                keyboardType: TextInputType.number,
+                style: TextStyle(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface, // Dynamic text color
+                ),
+              ),
               const SizedBox(height: 16),
               CustomButton(
                 onPressed: () {

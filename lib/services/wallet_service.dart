@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -389,14 +390,14 @@ class WalletService {
   ) async {
     await syncWallet(wallet);
 
-    // final utxos = await wallet.getBalance();
-    // print("Available UTXOs: ${utxos.total}");
+    final utxos = wallet.getBalance();
+    print("Available UTXOs: ${utxos.spendable}");
 
-    // final unspent = await wallet.listUnspent();
+    final unspent = wallet.listUnspent();
 
-    // for (var utxo in unspent) {
-    //   print('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
-    // }
+    for (var utxo in unspent) {
+      print('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
+    }
 
     try {
       // Build the transaction
@@ -444,42 +445,118 @@ class WalletService {
           addressIndex: const AddressIndex.peek(index: 0));
       final changeScript = internalChangeAddress.address.scriptPubkey();
 
+      final feeRate = await getFeeRate();
+
+      // 'multiSigId': Uint32List.fromList([0, 1]),    // Example multi-sig node ID
+      // 'timeLockId2': Uint32List.fromList([0]),      // Example `older(2)` node ID
+      // 'timeLockId6': Uint32List.fromList([1]),      // Example `older(6)` node ID
+
+      final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
+      final externalWalletPolicy = wallet.policies(KeychainKind.externalChain);
+
+      printPrettyJson(internalWalletPolicy!.asString());
+      printPrettyJson(externalWalletPolicy!.asString());
+      print("Contribution: ${externalWalletPolicy.contribution()}");
+      print("Satisfaction: ${externalWalletPolicy.satisfaction()}");
+      print("Item: ${externalWalletPolicy.item()}");
+      print("Requires Path: ${externalWalletPolicy.requiresPath()}");
+
+      // Define paths for each part of the policy
+      Map<String, Uint32List> intPath = {
+        internalWalletPolicy.id(): Uint32List.fromList([0]),
+      };
+
+      // Define paths for each part of the policy
+      Map<String, Uint32List> extPath = {
+        externalWalletPolicy.id(): Uint32List.fromList([0]),
+      };
+
+      debugPrint("Internal policy Path: $intPath\n");
+
+      debugPrint("External policy Path: $extPath\n");
+
       // Build the transaction:
       // - Send `amount` to the recipient
       // - Any remaining funds (change) will be sent to the change address
-      // TODO SharedWallet with timelocks .policy path to be added now available
+      // TODO SharedWallet with timelocks .policyPath to be added now available
       final txBuilderResult = await txBuilder
-          .enableRbf()
+          // .enableRbf()
+          .enableRbfWithSequence(2)
           .addRecipient(recipientScript, amount) // Send to recipient
           .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
           // .doNotSpendChange()
-          .feeRate(50.0) // Set the fee rate (in satoshis per byte)
+          .policyPath(KeychainKind.internalChain, intPath)
+          .policyPath(KeychainKind.externalChain, extPath)
+          .feeRate(
+              feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
           .drainTo(changeScript) // Specify the address to send the change
           .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
-      // Sign the transaction
-      final psbt = await wallet.sign(
-        psbt: txBuilderResult.$1,
-        signOptions: const SignOptions(
-          trustWitnessUtxo: false,
-          allowAllSighashes: false,
-          removePartialSigs: false,
-          tryFinalize: false,
-          signWithTapInternalKey: false,
-          allowGrinding: true,
-        ),
-      );
+      print('Signing');
 
-      if (psbt) {
-        final psbtString = txBuilderResult.$1.asString();
-        return psbtString;
-      } else {
-        throw Exception("Failed to sign the transaction");
+      try {
+        final psbt = await wallet.sign(
+          psbt: txBuilderResult.$1,
+          signOptions: const SignOptions(
+            // assumeHeight: 54235,
+            trustWitnessUtxo: false,
+            allowAllSighashes: true,
+            removePartialSigs: true,
+            tryFinalize: true,
+            signWithTapInternalKey: true,
+            allowGrinding: true,
+          ),
+        );
+
+        print('Sending');
+
+        if (psbt) {
+          final tx = txBuilderResult.$1.extractTx();
+
+          for (var input in await tx.input()) {
+            print("Input sequence number: ${input.sequence}");
+          }
+          final isLockTime = await tx.isLockTimeEnabled();
+          print('LockTime enabled: $isLockTime');
+          final lockTime = await tx.lockTime();
+          print('LockTime: ${lockTime}');
+
+          try {
+            await blockchain.broadcast(transaction: tx);
+            print('Transaction sent');
+
+            final psbtString = txBuilderResult.$1.asString();
+
+            return psbtString;
+          } catch (broadcastError) {
+            throw Exception("Broadcasting error: ${broadcastError.toString()}");
+          }
+        } else {
+          print("Signing failed: Wallet returned false on sign attempt.");
+          throw Exception(
+              "Signing process returned false, possible policy path or UTXO mismatch.");
+        }
+      } catch (signingError) {
+        throw Exception(
+            "Transaction signing error: ${signingError.toString()}");
       }
     } on Exception catch (e) {
       // print("Error: ${e.toString()}");
       throw Exception("Error: ${e.toString()}");
     }
+  }
+
+  void printInChunks(String text, {int chunkSize = 800}) {
+    for (int i = 0; i < text.length; i += chunkSize) {
+      print(text.substring(
+          i, i + chunkSize > text.length ? text.length : i + chunkSize));
+    }
+  }
+
+  void printPrettyJson(String jsonString) {
+    final jsonObject = json.decode(jsonString);
+    const encoder = JsonEncoder.withIndent('  ');
+    printInChunks(encoder.convert(jsonObject));
   }
 
   // This method takes a PSBT, signs it with the second user and then broadcasts it
@@ -514,7 +591,7 @@ class WalletService {
     blockchain = await Blockchain.create(
       config: BlockchainConfig.electrum(
         config: ElectrumConfig(
-          //url: "ssl://electrum.blockstream.info:60002",
+          // url: "ssl://electrum.blockstream.info:50002",
           url: "ssl://mempool.space:40002",
           timeout: 5,
           retry: 5,
