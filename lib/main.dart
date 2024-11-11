@@ -42,6 +42,8 @@ void main() async {
   runApp(const MyApp());
 }
 
+// TODO: Resolve stackoverflow problem with Data Encryption
+
 // // FlutterSecureStorage for encryption key management
 // final secureStorage = FlutterSecureStorage();
 

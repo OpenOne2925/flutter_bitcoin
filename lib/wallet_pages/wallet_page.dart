@@ -282,7 +282,6 @@ class WalletPageState extends State<WalletPage> {
                       .colorScheme
                       .onSurface, // Dynamic text color
                 ),
-                keyboardType: TextInputType.number, // Numeric input
               ),
               const SizedBox(height: 16), // Add spacing between fields
 

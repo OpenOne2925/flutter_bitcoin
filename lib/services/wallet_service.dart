@@ -12,7 +12,7 @@ class WalletService {
   final WalletStorageService _walletStorageService = WalletStorageService();
 
   // Base URL for Mempool Space Testnet API
-  final String baseUrl = 'https://mempool.space/testnet/api';
+  final String baseUrl = 'https://mempool.space/testnet4/api';
 
   late Wallet wallet;
   late Blockchain blockchain;
@@ -340,9 +340,18 @@ class WalletService {
       // final changeAddress = await Address.create(address: changeAddressStr);
       // final changeScript = await changeAddress.scriptPubKey();
 
-      // TODO: Creating address, check if it works
-      final recipientScript = await ScriptBuf.fromHex(recipientAddressStr);
-      final changeScript = await ScriptBuf.fromHex(changeAddressStr);
+      final recipientAddress = await Address.fromString(
+          s: recipientAddressStr, network: wallet.network());
+      final recipientScript = recipientAddress.scriptPubkey();
+      // final feeRate = await estimateFeeRate(25, blockchain);
+
+      final changeAddress = await Address.fromString(
+          s: changeAddressStr, network: wallet.network());
+      final changeScript = changeAddress.scriptPubkey();
+
+      // TODO: should work correctly, still needs testing
+
+      final feeRate = await getFeeRate();
 
       // Build the transaction:
       // - Send `amount` to the recipient
@@ -351,7 +360,8 @@ class WalletService {
           .enableRbf()
           .addRecipient(recipientScript, amount) // Send to recipient
           .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-          .feeRate(50.0) // Set the fee rate (in satoshis per byte)
+          .feeRate(
+              feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
           .drainTo(
               changeScript) // Specify the custom address to send the change
           .finish(wallet); // Finalize the transaction with wallet's UTXOs
@@ -415,9 +425,6 @@ class WalletService {
 
       // print(changeAddressStr);
 
-      final internalChangeAddress = wallet.getInternalAddress(
-          addressIndex: const AddressIndex.peek(index: 0));
-
       // print('Nope: ${internalChangeAddress.index}');
 
       // Create the change address
@@ -428,9 +435,14 @@ class WalletService {
       // print(internalChangeAddress.address);
       // print('Ciao');
 
-      final recipientScript = await ScriptBuf.fromHex(recipientAddressStr);
-      final changeScript =
-          await ScriptBuf.fromHex(internalChangeAddress.address.asString());
+      final recipientAddress = await Address.fromString(
+          s: recipientAddressStr, network: wallet.network());
+      final recipientScript = recipientAddress.scriptPubkey();
+      // final feeRate = await estimateFeeRate(25, blockchain);
+
+      final internalChangeAddress = wallet.getInternalAddress(
+          addressIndex: const AddressIndex.peek(index: 0));
+      final changeScript = internalChangeAddress.address.scriptPubkey();
 
       // Build the transaction:
       // - Send `amount` to the recipient
@@ -502,7 +514,8 @@ class WalletService {
     blockchain = await Blockchain.create(
       config: BlockchainConfig.electrum(
         config: ElectrumConfig(
-          url: "ssl://electrum.blockstream.info:60002",
+          //url: "ssl://electrum.blockstream.info:60002",
+          url: "ssl://mempool.space:40002",
           timeout: 5,
           retry: 5,
           stopGap: BigInt.from(10),
@@ -522,9 +535,11 @@ class WalletService {
 
       // print(response.body);
 
-      int feeRate = jsonResponse['fastestFee'];
+      int feeRate = jsonResponse['halfHourFee'];
 
-      return feeRate;
+      // print('FeeRate: $feeRate');
+
+      return feeRate + 4;
     } else {
       throw Exception('Failed to fetch available balance');
     }
