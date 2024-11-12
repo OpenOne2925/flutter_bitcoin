@@ -16,6 +16,14 @@ class WalletService {
   final String baseUrl = 'https://mempool.space/testnet4/api';
 
   late Wallet wallet;
+
+  List<String> electrumServers = [
+    "ssl://mempool.space:40002",
+    "ssl://blockstream.info:993",
+    "ssl://tn.not.fyi:55002",
+    "ssl://electrum.blockonomics.co:51002",
+    "ssl://testnet.aranguren.org:51002"
+  ];
   late Blockchain blockchain;
 
   TextEditingController mnemonic = TextEditingController();
@@ -383,10 +391,12 @@ class WalletService {
   }
 
   // Method to create a PSBT for a multisig transaction, this psbt is signed by the first user
-  Future<String> createPartialTx(
+  Future<String?> createPartialTx(
     String recipientAddressStr,
     BigInt amount,
     Wallet wallet,
+    int olderValue,
+    bool multiSig,
   ) async {
     await syncWallet(wallet);
 
@@ -403,39 +413,6 @@ class WalletService {
       // Build the transaction
       final txBuilder = TxBuilder();
 
-      // const String timelockDescriptor =
-      //     "wsh(and_v(v:older(2),pk([24d87569/84'/1'/0'/0/0]tpubDHebJGZWZaZ3JkhwTx5DytaRpFhK9ffFaN9PMBm7m63bdkdxqKgXkSPMzYzfDAGStx8LWt4b2CgGm86BwtNuG6PdsxsLVmuf6EjREX3oHjL/1/*)))";
-
-      // final descriptor = await Descriptor.create(
-      //   descriptor: timelockDescriptor,
-      //   network: Network.Testnet,
-      // );
-
-      // final wallet2 = await Wallet.create(
-      //   descriptor: descriptor,
-      //   network: Network.Testnet,
-      //   databaseConfig: DatabaseConfig.memory(),
-      // );
-
-      // Create recipient address
-      // final recipientAddress =
-      //     await Address.create(address: recipientAddressStr);
-      // final recipientScript = await recipientAddress.scriptPubKey();
-
-      // final changeAddressStr = await getAddress(wallet);
-
-      // print(changeAddressStr);
-
-      // print('Nope: ${internalChangeAddress.index}');
-
-      // Create the change address
-      // final changeAddress =
-      //     await Address.create(address: internalChangeAddress.address);
-      // final changeScript = await changeAddress.scriptPubKey();
-
-      // print(internalChangeAddress.address);
-      // print('Ciao');
-
       final recipientAddress = await Address.fromString(
           s: recipientAddressStr, network: wallet.network());
       final recipientScript = recipientAddress.scriptPubkey();
@@ -447,96 +424,221 @@ class WalletService {
 
       final feeRate = await getFeeRate();
 
-      // 'multiSigId': Uint32List.fromList([0, 1]),    // Example multi-sig node ID
-      // 'timeLockId2': Uint32List.fromList([0]),      // Example `older(2)` node ID
-      // 'timeLockId6': Uint32List.fromList([1]),      // Example `older(6)` node ID
-
       final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
       final externalWalletPolicy = wallet.policies(KeychainKind.externalChain);
 
-      printPrettyJson(internalWalletPolicy!.asString());
-      printPrettyJson(externalWalletPolicy!.asString());
-      print("Contribution: ${externalWalletPolicy.contribution()}");
-      print("Satisfaction: ${externalWalletPolicy.satisfaction()}");
-      print("Item: ${externalWalletPolicy.item()}");
-      print("Requires Path: ${externalWalletPolicy.requiresPath()}");
+      // printPrettyJson(internalWalletPolicy!.asString());
+      // printPrettyJson(externalWalletPolicy!.asString());
+      // print("Contribution: ${externalWalletPolicy.contribution()}");
+      // print("Satisfaction: ${externalWalletPolicy.satisfaction()}");
+      // print("Item: ${externalWalletPolicy.item()}");
+      // print("Requires Path: ${externalWalletPolicy.requiresPath()}");
 
-      // Define paths for each part of the policy
-      Map<String, Uint32List> intPath = {
-        internalWalletPolicy.id(): Uint32List.fromList([0]),
+      String policyString = externalWalletPolicy!.asString();
+
+      // Regular expression to capture both "id" and "type" fields
+      RegExp idTypePattern = RegExp(r'"id":\s*"(\w+)",\s*"type":\s*"(\w+)"');
+      List<Map<String, String>> idTypePairs = [];
+
+      // Extract both ID and type pairs
+      for (final match in idTypePattern.allMatches(policyString)) {
+        String id = match.group(1)!;
+        String type = match.group(2)!;
+        idTypePairs.add({"id": id, "type": type});
+      }
+
+      print("Extracted ID and Type pairs: $idTypePairs");
+
+      RegExp timeLockPattern = RegExp(
+          r'"id":\s*"(\w+)",\s*"type":\s*"RELATIVETIMELOCK",\s*"value":\s*(\d+)');
+      List<Map<String, String>> timeLockPairs = [];
+
+      // Extract IDs, types, and values
+      for (final match in timeLockPattern.allMatches(policyString)) {
+        String id = match.group(1)!; // Extract the "id"
+        String value = match.group(2)!; // Extract the "value" as a string
+        timeLockPairs.add({"id": id, "value": value});
+      }
+
+      // Extract only the IDs where the value is olderValue
+      String timeLockId = timeLockPairs
+          .firstWhere((pair) => pair["value"] == olderValue.toString())["id"]!;
+
+      print("TimeLock ID: $timeLockId");
+
+      // Could be used if needed, but the MULTISIG PATH should always be the first,
+      // so it's better to use internalWalletPolicy.id() which already returns the first ID
+      // List<String> multiSigIds = idTypePairs
+      //     .where((pair) => pair["type"] == "MULTISIG")
+      //     .map((pair) => pair["id"]!)
+      //     .toList();
+
+      // print("MULTISIG IDs: $multiSigIds");
+
+      // Extract only the IDs where the type is "THRESH"
+      List<String> threshIds = idTypePairs
+          .where((pair) => pair["type"] == "THRESH")
+          .map((pair) => pair["id"]!)
+          .toList();
+
+      // threshIds.removeWhere((id) => id == timeLockId);
+
+      print("THRESH IDs: $threshIds");
+
+      // Extract IDs using a regular expression
+      RegExp idPattern = RegExp(r'"id":\s*"(\w+)"');
+      List<String> ids = [];
+
+      for (final match in idPattern.allMatches(policyString)) {
+        ids.add(match.group(1)!);
+      }
+
+      print("Extracted IDs: $ids");
+
+      int index = ids.indexOf(timeLockId);
+
+      String? previousId = ids[index - 1];
+
+      print("Previous ID: $previousId");
+
+      int correctIndex = threshIds.indexOf(previousId);
+
+      // Use IDs as needed
+      Map<String, Uint32List> timeLockPath = {
+        threshIds[0]:
+            Uint32List.fromList([1]), // Top-level THRESH (selects second item)
+        threshIds[1]:
+            Uint32List.fromList([1]), // Nested THRESH (selects `p6e44ze9`)
+        threshIds[correctIndex]:
+            Uint32List.fromList([0, 1]) // Satisfies both timelock and signature
       };
 
-      // Define paths for each part of the policy
-      Map<String, Uint32List> extPath = {
-        externalWalletPolicy.id(): Uint32List.fromList([0]),
+      print("Generated timeLockPath: $timeLockPath");
+
+      Map<String, Uint32List> multiSigPath = {
+        externalWalletPolicy.id():
+            Uint32List.fromList([0]), // Returns the MULTISIG path
       };
 
-      debugPrint("Internal policy Path: $intPath\n");
+      print("Generated multiSigPath: $multiSigPath");
 
-      debugPrint("External policy Path: $extPath\n");
+      ///
+      ///
+      ///
+      /// TEST PATHS
+      ///
+      ///
+      ///
+      // Map<String, Uint32List> intPath = {
+      //   "0l4q5cp3": Uint32List.fromList(
+      //       [1]), // Selects `8evs6fhr` in the top-level THRESH policy
+      //   "8evs6fhr": Uint32List.fromList(
+      //       [0]), // Selects `p6e44ze9` in the nested THRESH policy
+      //   "p6e44ze9": Uint32List.fromList([
+      //     0,
+      //     1
+      //   ]) // Satisfies both `older(2)` (8kel7sdw) and ECDSA signature (267x0vpf)
+      // };
+
+      // Map<String, Uint32List> extPath = {
+      //   "0l4q5cp3": Uint32List.fromList(
+      //       [1]), // Selects `8evs6fhr` in the top-level THRESH policy
+      //   "8evs6fhr": Uint32List.fromList(
+      //       [0]), // Selects `p6e44ze9` in the nested THRESH policy
+      //   "p6e44ze9": Uint32List.fromList([
+      //     0,
+      //     1
+      //   ]) // Satisfies both `older(2)` (8kel7sdw) and ECDSA signature (267x0vpf)
+      // };
+
+      // debugPrint("Internal policy Path: $intPath\n");
+
+      // debugPrint("External policy Path: $extPath\n");
+      ///
+      ///
+      ///
+      /// END TEST PATHS
+      ///
+      ///
+      ///
 
       // Build the transaction:
       // - Send `amount` to the recipient
       // - Any remaining funds (change) will be sent to the change address
       // TODO SharedWallet with timelocks .policyPath to be added now available
-      final txBuilderResult = await txBuilder
-          // .enableRbf()
-          .enableRbfWithSequence(0)
-          .addRecipient(recipientScript, amount) // Send to recipient
-          .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-          .policyPath(KeychainKind.internalChain, intPath)
-          .policyPath(KeychainKind.externalChain, extPath)
-          .feeRate(
-              feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
-          .drainTo(changeScript) // Specify the address to send the change
-          .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
-      print('Signing');
+      (PartiallySignedTransaction, TransactionDetails) txBuilderResult;
 
-      try {
-        final psbt = await wallet.sign(
-          psbt: txBuilderResult.$1,
-          signOptions: const SignOptions(
-            trustWitnessUtxo: false,
-            allowAllSighashes: true,
-            removePartialSigs: true,
-            tryFinalize: true,
-            signWithTapInternalKey: true,
-            allowGrinding: true,
-          ),
-        );
+      if (multiSig) {
+        print('MultiSig Builder');
+        txBuilderResult = await txBuilder
+            // .enableRbf()
+            // .enableRbfWithSequence(2)
+            .addRecipient(recipientScript, amount) // Send to recipient
+            .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
+            .policyPath(KeychainKind.internalChain, multiSigPath)
+            .policyPath(KeychainKind.externalChain, multiSigPath)
+            .feeRate(
+                feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
+            .drainTo(changeScript) // Specify the address to send the change
+            .finish(wallet); // Finalize the transaction with wallet's UTXOs
+      } else {
+        print('TimeLock Builder');
+        txBuilderResult = await txBuilder
+            // .enableRbf()
+            // .enableRbfWithSequence(2)
+            .addRecipient(recipientScript, amount) // Send to recipient
+            .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
+            .policyPath(KeychainKind.internalChain, timeLockPath)
+            .policyPath(KeychainKind.externalChain, timeLockPath)
+            .feeRate(
+                feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
+            .drainTo(changeScript) // Specify the address to send the change
+            .finish(wallet); // Finalize the transaction with wallet's UTXOs
+      }
+      print('Transaction Built');
 
+      final psbt = await wallet.sign(
+        psbt: txBuilderResult.$1,
+        signOptions: const SignOptions(
+          trustWitnessUtxo: false,
+          allowAllSighashes: true,
+          removePartialSigs: true,
+          tryFinalize: true,
+          signWithTapInternalKey: true,
+          allowGrinding: true,
+        ),
+      );
+
+      if (psbt) {
         print('Sending');
 
-        if (psbt) {
-          final tx = txBuilderResult.$1.extractTx();
+        final tx = txBuilderResult.$1.extractTx();
 
-          for (var input in await tx.input()) {
-            print("Input sequence number: ${input.sequence}");
-          }
-          final isLockTime = await tx.isLockTimeEnabled();
-          print('LockTime enabled: $isLockTime');
-          LockTime lockTime = await tx.lockTime();
-          print('LockTime: ${lockTime}');
+        for (var input in await tx.input()) {
+          print("Input sequence number: ${input.sequence}");
+        }
+        // print('LockTime enabled: ${tx.isLockTimeEnabled()}');
+        // print('LockTime: ${tx.lockTime()}');
 
-          try {
-            await blockchain.broadcast(transaction: tx);
-            print('Transaction sent');
-
+        try {
+          if (multiSig) {
+            print('MultiSig Broadcast');
             final psbtString = txBuilderResult.$1.asString();
 
             return psbtString;
-          } catch (broadcastError) {
-            throw Exception("Broadcasting error: ${broadcastError.toString()}");
+          } else {
+            print('TimeLock Broadcast');
+            await blockchain.broadcast(transaction: tx);
+            print('Transaction sent');
+            return null;
           }
-        } else {
-          print("Signing failed: Wallet returned false on sign attempt.");
-          throw Exception(
-              "Signing process returned false, possible policy path or UTXO mismatch.");
+        } catch (broadcastError) {
+          throw Exception("Broadcasting error: ${broadcastError.toString()}");
         }
-      } catch (signingError) {
+      } else {
         throw Exception(
-            "Transaction signing error: ${signingError.toString()}");
+            "Signing process returned false, possible policy path or UTXO mismatch.");
       }
     } on Exception catch (e) {
       // print("Error: ${e.toString()}");
@@ -585,19 +687,28 @@ class WalletService {
     }
   }
 
+  // Use the first available server in the list
   Future<void> blockchainInit() async {
-    blockchain = await Blockchain.create(
-      config: BlockchainConfig.electrum(
-        config: ElectrumConfig(
-          // url: "ssl://electrum.blockstream.info:50002",
-          url: "ssl://mempool.space:40002",
-          timeout: 5,
-          retry: 5,
-          stopGap: BigInt.from(10),
-          validateDomain: false,
-        ),
-      ),
-    );
+    for (var url in electrumServers) {
+      try {
+        blockchain = await Blockchain.create(
+          config: BlockchainConfig.electrum(
+            config: ElectrumConfig(
+              url: url,
+              timeout: 5,
+              retry: 5,
+              stopGap: BigInt.from(10),
+              validateDomain: false,
+            ),
+          ),
+        );
+        print("Connected to Electrum server: $url");
+        return;
+      } catch (e) {
+        print("Failed to connect to Electrum server: $url, trying next...");
+      }
+    }
+    throw Exception("Failed to connect to any Electrum server.");
   }
 
   Future<int> getFeeRate() async {

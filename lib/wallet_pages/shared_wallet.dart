@@ -2,6 +2,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
@@ -300,10 +301,17 @@ class SharedWalletState extends State<SharedWallet> {
 
                 final int amount = int.parse(_amountController.text);
 
+                final olderValue =
+                    await extractOlderWithPrivateKey(widget.descriptor);
+
+                final multiSig = true;
+
                 _txToSend = await walletService.createPartialTx(
                   recipientAddressStr,
                   BigInt.from(amount),
                   wallet,
+                  olderValue,
+                  multiSig,
                 );
               },
               child: const Text('Submit'),
@@ -389,10 +397,17 @@ class SharedWalletState extends State<SharedWallet> {
                 final String recipientAddressStr = _recipientController.text;
                 final int amount = int.parse(_amountController.text);
 
+                final olderValue =
+                    await extractOlderWithPrivateKey(widget.descriptor);
+
+                final multiSig = true;
+
                 _txToSend = await walletService.createPartialTx(
                   recipientAddressStr,
                   BigInt.from(amount),
                   wallet,
+                  olderValue,
+                  multiSig,
                 );
 
                 Navigator.of(context).pop();
@@ -493,7 +508,7 @@ class SharedWalletState extends State<SharedWallet> {
     );
   }
 
-  Future<void> _extractOlderWithPrivateKey(String descriptor) async {
+  Future<void> _extractOlder(String descriptor) async {
     final regExp =
         RegExp(r'older\((\d+)\).*?pk\(\[.*?](tp(?:rv|ub)[a-zA-Z0-9]+)');
     final matches = regExp.allMatches(descriptor);
@@ -513,6 +528,28 @@ class SharedWalletState extends State<SharedWallet> {
     });
   }
 
+  Future<int> extractOlderWithPrivateKey(String descriptor) async {
+    // Adjusted regex to match only "older" values followed by "pk(...tprv...)"
+    final regExp =
+        RegExp(r'older\((\d+)\).*?pk\(\[.*?](tp(?:rv|ub)[a-zA-Z0-9]+)');
+    final matches = regExp.allMatches(descriptor);
+
+    int older = 0;
+
+    for (var match in matches) {
+      String olderValue = match.group(1)!; // Extract the older value
+      String keyType = match.group(2)!; // Capture whether it's tprv or tpub
+
+      // Only process the match if it's a private key (tprv)
+      if (keyType.startsWith("tprv")) {
+        print('Found older value associated with private key: $olderValue');
+        older = int.parse(olderValue);
+      }
+    }
+
+    return older;
+  }
+
   Future<void> _syncWallet() async {
     if (kDebugMode) {
       print('Descriptor: ${widget.descriptor}');
@@ -523,7 +560,7 @@ class SharedWalletState extends State<SharedWallet> {
     // print(connectivityResult);
 
     if (connectivityResult.contains(ConnectivityResult.none)) {
-      await _extractOlderWithPrivateKey(widget.descriptor);
+      await _extractOlder(widget.descriptor);
 
       String walletAddress = walletService.getAddress(wallet);
       setState(() {
@@ -549,7 +586,7 @@ class SharedWalletState extends State<SharedWallet> {
 
       await _fetchCurrentBlockHeight();
 
-      await _extractOlderWithPrivateKey(widget.descriptor);
+      await _extractOlder(widget.descriptor);
 
       String walletAddress = walletService.getAddress(wallet);
       setState(() {
@@ -705,11 +742,17 @@ class SharedWalletState extends State<SharedWallet> {
                   ),
                   _buildTransactionsBox(), // Transactions box should scroll along with the rest
                   const SizedBox(height: 8), // Add some spacing
-                  _buildInfoBox('Transaction to Sign', _txToSend.toString(),
-                      () {
-                    // Handle tap events for the transaction content if needed
-                    _signTransaction();
-                  }),
+                  _buildInfoBox(
+                    'MultiSig Transactions',
+                    _txToSend != null
+                        ? _txToSend.toString()
+                        : 'No transactions to sign',
+                    () {
+                      // Handle tap events for the transaction content if needed
+                      _signTransaction();
+                    },
+                    showCopyButton: true,
+                  ),
                 ],
               ),
             ),
@@ -792,8 +835,9 @@ class SharedWalletState extends State<SharedWallet> {
     );
   }
 
-// Box for displaying general wallet info with onTap functionality
-  Widget _buildInfoBox(String title, String data, VoidCallback onTap) {
+  // Box for displaying general wallet info with onTap functionality
+  Widget _buildInfoBox(String title, String data, VoidCallback onTap,
+      {bool showCopyButton = false}) {
     return GestureDetector(
       onTap: onTap, // Detects tap and calls the passed function
       child: Card(
@@ -817,12 +861,31 @@ class SharedWalletState extends State<SharedWallet> {
                 ),
               ),
               const SizedBox(height: 8),
-              SelectableText(
-                data,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.black, // Black text to match theme
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      data,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black, // Black text to match theme
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (showCopyButton) // Display copy button if true
+                    IconButton(
+                      icon: const Icon(Icons.copy, color: Colors.orange),
+                      tooltip: 'Copy to clipboard',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: data));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Copied to clipboard")),
+                        );
+                      },
+                    ),
+                ],
               ),
             ],
           ),
@@ -963,7 +1026,7 @@ class SharedWalletState extends State<SharedWallet> {
 
     final amountSubtract = otherVout != null
         ? otherVout['value']?.toString() ?? 'Unknown Amount'
-        : null;
+        : 0;
 
     List<Widget> vinWidgets = [];
 
@@ -977,7 +1040,8 @@ class SharedWalletState extends State<SharedWallet> {
             ? vin['prevout']['scriptpubkey_address'] ?? 'Unknown Sender'
             : 'Unknown Sender';
 
-        final amount = int.parse(amountSent) - int.parse(amountSubtract!) - fee;
+        final amount =
+            int.parse(amountSent) - int.parse(amountSubtract.toString()) - fee;
 
         vinWidgets.add(
           Padding(
@@ -1045,11 +1109,13 @@ class SharedWalletState extends State<SharedWallet> {
             : 'Unknown Time')
         : 'Unconfirmed Transaction';
 
-    int blockHeight = tx['status'] != null &&
-            tx['status']['confirmed'] != null &&
-            tx['status']['confirmed']
-        ? tx['status']['block_height']
-        : 0;
+    // int blockHeight = tx['status'] != null &&
+    //         tx['status']['confirmed'] != null &&
+    //         tx['status']['confirmed']
+    //     ? tx['status']['block_height']
+    //     : 0;
+
+    int blockHeight = tx['locktime'];
 
     int confirmations = blockHeight == 0 ? 0 : currentBlockHeight - blockHeight;
 
@@ -1227,8 +1293,8 @@ class SharedWalletState extends State<SharedWallet> {
                     // Calculate the number of remaining blocks
                     int remainingBlocks = olderValue - confirmations;
 
-                    // Calculate the estimated time in minutes (10 minutes per block)
-                    int remainingMinutes = remainingBlocks * 10;
+                    // Calculate the estimated time in minutes (20 minutes per block)
+                    int remainingMinutes = remainingBlocks * 20;
 
                     // Convert minutes to a more readable format (e.g., days, hours, minutes)
                     int days = remainingMinutes ~/ (60 * 24);
@@ -1251,7 +1317,7 @@ class SharedWalletState extends State<SharedWallet> {
                               ? 'Timelock not started yet'
                               : confirmations > olderValue
                                   ? 'Timelock $olderValue expired! ETA: $confirmations'
-                                  : '$remainingBlocks blocks remaining! \nEstimated time remaining: $estimatedTime',
+                                  : '$remainingBlocks blocks remaining! \nEstimated time remaining: \n$estimatedTime',
                           style: TextStyle(
                             color: isDarkMode ? Colors.white70 : Colors.black87,
                             fontSize: 14,

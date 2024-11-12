@@ -294,7 +294,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                   color: Theme.of(context)
                       .colorScheme
                       .onSurface
-                      .withOpacity(0.3), // Border color
+                      .withValues(), // Border color
                 ),
                 borderRadius: BorderRadius.circular(8.0), // Rounded corners
               ),

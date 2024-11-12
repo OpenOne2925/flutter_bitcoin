@@ -319,7 +319,7 @@ class WalletPageState extends State<WalletPage> {
                 },
                 backgroundColor: Colors.white, // White background
                 foregroundColor: Colors.orange, // Bitcoin orange color for text
-                icon: Icons.send_rounded, // Icon you want to use
+                icon: Icons.percent, // Icon you want to use
                 iconColor: Colors.black, // Color for the icon
                 label: 'Send All',
               ),
