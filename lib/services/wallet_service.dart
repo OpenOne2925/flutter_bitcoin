@@ -481,10 +481,9 @@ class WalletService {
       // TODO SharedWallet with timelocks .policyPath to be added now available
       final txBuilderResult = await txBuilder
           // .enableRbf()
-          .enableRbfWithSequence(2)
+          .enableRbfWithSequence(0)
           .addRecipient(recipientScript, amount) // Send to recipient
           .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-          // .doNotSpendChange()
           .policyPath(KeychainKind.internalChain, intPath)
           .policyPath(KeychainKind.externalChain, extPath)
           .feeRate(
@@ -498,7 +497,6 @@ class WalletService {
         final psbt = await wallet.sign(
           psbt: txBuilderResult.$1,
           signOptions: const SignOptions(
-            // assumeHeight: 54235,
             trustWitnessUtxo: false,
             allowAllSighashes: true,
             removePartialSigs: true,
@@ -518,7 +516,7 @@ class WalletService {
           }
           final isLockTime = await tx.isLockTimeEnabled();
           print('LockTime enabled: $isLockTime');
-          final lockTime = await tx.lockTime();
+          LockTime lockTime = await tx.lockTime();
           print('LockTime: ${lockTime}');
 
           try {
