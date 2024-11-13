@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:typed_data';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -565,7 +566,7 @@ class WalletService {
       // Build the transaction:
       // - Send `amount` to the recipient
       // - Any remaining funds (change) will be sent to the change address
-      // TODO SharedWallet with timelocks .policyPath to be added now available
+      // TODO Test MultiSig 2-2 wallet
 
       (PartiallySignedTransaction, TransactionDetails) txBuilderResult;
 
@@ -586,7 +587,7 @@ class WalletService {
         print('TimeLock Builder');
         txBuilderResult = await txBuilder
             // .enableRbf()
-            // .enableRbfWithSequence(2)
+            // .enableRbfWithSequence(olderValue)
             .addRecipient(recipientScript, amount) // Send to recipient
             .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
             .policyPath(KeychainKind.internalChain, timeLockPath)
@@ -598,48 +599,63 @@ class WalletService {
       }
       print('Transaction Built');
 
-      final psbt = await wallet.sign(
-        psbt: txBuilderResult.$1,
-        signOptions: const SignOptions(
-          trustWitnessUtxo: false,
-          allowAllSighashes: true,
-          removePartialSigs: true,
-          tryFinalize: true,
-          signWithTapInternalKey: true,
-          allowGrinding: true,
-        ),
-      );
+      print('PSBT Before Signing: ');
+      printInChunks(txBuilderResult.$1.toString());
 
-      if (psbt) {
-        print('Sending');
+      final psbt = await wallet.sign(psbt: txBuilderResult.$1);
 
-        final tx = txBuilderResult.$1.extractTx();
+      // final psbt = await wallet.sign(
+      //   psbt: txBuilderResult.$1,
+      //   signOptions: const SignOptions(
+      //     trustWitnessUtxo: false,
+      //     allowAllSighashes: true,
+      //     removePartialSigs: false,
+      //     tryFinalize: false,
+      //     signWithTapInternalKey: true,
+      //     allowGrinding: true,
+      //   ),
+      // );
 
-        for (var input in await tx.input()) {
-          print("Input sequence number: ${input.sequence}");
-        }
-        // print('LockTime enabled: ${tx.isLockTimeEnabled()}');
-        // print('LockTime: ${tx.lockTime()}');
+      print('PSBT After Signing: ');
+      printInChunks(txBuilderResult.$1.toString());
 
-        try {
-          if (multiSig) {
-            print('MultiSig Broadcast');
-            final psbtString = txBuilderResult.$1.asString();
+      // if (psbt) {
+      print('Sending');
 
-            return psbtString;
-          } else {
-            print('TimeLock Broadcast');
-            await blockchain.broadcast(transaction: tx);
-            print('Transaction sent');
-            return null;
-          }
-        } catch (broadcastError) {
-          throw Exception("Broadcasting error: ${broadcastError.toString()}");
-        }
-      } else {
-        throw Exception(
-            "Signing process returned false, possible policy path or UTXO mismatch.");
+      final tx = txBuilderResult.$1.extractTx();
+
+      for (var input in await tx.input()) {
+        print("Input sequence number: ${input.sequence}");
       }
+      final isLockTime = await tx.isLockTimeEnabled();
+      print('LockTime enabled: $isLockTime');
+      final lockTime = await tx.lockTime();
+      print('LockTime: $lockTime');
+
+      try {
+        if (multiSig) {
+          print('MultiSig Broadcast');
+          // final psbtString = txBuilderResult.$1.asString();
+
+          final psbtString = base64Encode(txBuilderResult.$1.serialize());
+
+          print('Encoded: ');
+          printInChunks(psbtString);
+
+          return psbtString;
+        } else {
+          print('TimeLock Broadcast');
+          await blockchain.broadcast(transaction: tx);
+          print('Transaction sent');
+          return null;
+        }
+      } catch (broadcastError) {
+        throw Exception("Broadcasting error: ${broadcastError.toString()}");
+      }
+      // } else {
+      //   throw Exception(
+      //       "Signing process returned false, possible policy path or UTXO mismatch.");
+      // }
     } on Exception catch (e) {
       // print("Error: ${e.toString()}");
       throw Exception("Error: ${e.toString()}");
@@ -662,23 +678,38 @@ class WalletService {
   // This method takes a PSBT, signs it with the second user and then broadcasts it
   Future<void> signBroadcastTx(String psbtString, Wallet wallet) async {
     // Convert the psbt String to a PartiallySignedTransaction
+    log('Converting: $psbtString');
     final psbt = await PartiallySignedTransaction.fromString(psbtString);
 
+    log('Converted: $psbt');
+
     try {
-      final isFinalized = await wallet.sign(
-        psbt: psbt,
-        signOptions: const SignOptions(
-          trustWitnessUtxo: false,
-          allowAllSighashes: false,
-          removePartialSigs: false,
-          tryFinalize: false,
-          signWithTapInternalKey: false,
-          allowGrinding: true,
-        ),
-      );
+      // final isFinalized = await wallet.sign(
+      //   psbt: psbt,
+      //   signOptions: const SignOptions(
+      //     trustWitnessUtxo: false,
+      //     allowAllSighashes: true,
+      //     removePartialSigs: true,
+      //     tryFinalize: true,
+      //     signWithTapInternalKey: true,
+      //     allowGrinding: true,
+      //   ),
+      // );
+
+      final isFinalized = await wallet.sign(psbt: psbt);
+
+      print('Transaction Signed');
+      final tx = psbt.extractTx();
+      print('Extracting');
+      await blockchain.broadcast(transaction: tx);
+      print('Transaction sent');
+
       if (isFinalized) {
+        print('Transaction Signed');
         final tx = psbt.extractTx();
+        print('Extracting');
         await blockchain.broadcast(transaction: tx);
+        print('Transaction sent');
       } else {
         debugPrint("Psbt not finalized!");
       }

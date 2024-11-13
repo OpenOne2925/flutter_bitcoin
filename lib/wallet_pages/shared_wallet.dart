@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -323,6 +325,8 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   Future<void> _sendTx() async {
+    bool isMultiSig = false;
+
     if (!mounted) return;
 
     showDialog(
@@ -330,54 +334,71 @@ class SharedWalletState extends State<SharedWallet> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Sending Menu'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min, // Adjust the size of the dialog
-            children: [
-              TextFormField(
-                controller: _recipientController,
-                decoration: CustomTextFieldStyles.textFieldDecoration(
-                  context: context,
-                  labelText: 'Recipient Address',
-                  hintText: 'Enter Recipient\'s Address',
-                ),
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _amountController,
-                decoration: CustomTextFieldStyles.textFieldDecoration(
-                  context: context,
-                  labelText: 'Amount (Sats)',
-                  hintText: 'Enter Amount',
-                ),
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              CustomButton(
-                onPressed: () async {
-                  final int availableBalance =
-                      await walletService.getAvailableBalance(address);
-                  final int feeRate = await walletService.getFeeRate();
-                  final sendAllBalance = availableBalance - feeRate;
+          content: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min, // Adjust the size of the dialog
+                children: [
+                  TextFormField(
+                    controller: _recipientController,
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText: 'Recipient Address',
+                      hintText: 'Enter Recipient\'s Address',
+                    ),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _amountController,
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText: 'Amount (Sats)',
+                      hintText: 'Enter Amount',
+                    ),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+                  // Add the CheckboxListTile widget here
+                  CheckboxListTile(
+                    title: const Text("MultiSig Transaction"),
+                    value: isMultiSig,
+                    onChanged: (bool? newValue) {
+                      setState(() {
+                        isMultiSig = newValue ?? false;
+                      });
+                    },
+                    controlAffinity:
+                        ListTileControlAffinity.leading, // Checkbox on the left
+                  ),
+                  const SizedBox(height: 16),
+                  CustomButton(
+                    onPressed: () async {
+                      final int availableBalance =
+                          await walletService.getAvailableBalance(address);
+                      final int feeRate = await walletService.getFeeRate();
+                      final sendAllBalance = availableBalance - feeRate;
 
-                  if (sendAllBalance > 0) {
-                    _amountController.text = sendAllBalance.toString();
-                  } else {
-                    _amountController.text = 'No balance Available';
-                  }
-                },
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.orange,
-                icon: Icons.send_rounded,
-                iconColor: Colors.black,
-                label: 'Send All',
-              ),
-            ],
+                      if (sendAllBalance > 0) {
+                        _amountController.text = sendAllBalance.toString();
+                      } else {
+                        _amountController.text = 'No balance Available';
+                      }
+                    },
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.orange,
+                    icon: Icons.send_rounded,
+                    iconColor: Colors.black,
+                    label: 'Send All',
+                  ),
+                ],
+              );
+            },
           ),
           actions: [
             TextButton(
@@ -400,14 +421,12 @@ class SharedWalletState extends State<SharedWallet> {
                 final olderValue =
                     await extractOlderWithPrivateKey(widget.descriptor);
 
-                final multiSig = true;
-
                 _txToSend = await walletService.createPartialTx(
                   recipientAddressStr,
                   BigInt.from(amount),
                   wallet,
                   olderValue,
-                  multiSig,
+                  isMultiSig,
                 );
 
                 Navigator.of(context).pop();
@@ -444,7 +463,7 @@ class SharedWalletState extends State<SharedWallet> {
               onPressed: () async {
                 await walletService.syncWallet(wallet);
 
-                // print("PSBT Raw: ${_psbtController.text}");
+                log("PSBT Raw: ${_psbtController.text}");
 
                 final psbtString = _psbtController.text;
 
@@ -724,9 +743,14 @@ class SharedWalletState extends State<SharedWallet> {
                 padding: const EdgeInsets.all(8.0),
                 children: [
                   // Display wallet address
-                  _buildInfoBox('Address', address, () {
-                    // Handle tap events for Address
-                  }),
+                  _buildInfoBox(
+                    'Address',
+                    address,
+                    () {
+                      // Handle tap events for Address
+                    },
+                    showCopyButton: true,
+                  ),
                   Row(
                     children: [
                       Expanded(
@@ -881,7 +905,10 @@ class SharedWalletState extends State<SharedWallet> {
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: data));
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Copied to clipboard")),
+                          const SnackBar(
+                            content: Text("Copied to clipboard"),
+                            duration: Duration(seconds: 1),
+                          ),
                         );
                       },
                     ),
