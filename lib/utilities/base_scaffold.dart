@@ -39,7 +39,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
           IconButton(
             icon: Icon(
               isDarkMode ? Icons.dark_mode : Icons.light_mode,
-              color: isDarkMode ? Colors.black : Colors.orange,
+              color: isDarkMode ? Colors.deepPurple : Colors.orange,
             ),
             onPressed: () {
               Provider.of<ThemeProvider>(context, listen: false).toggleTheme();

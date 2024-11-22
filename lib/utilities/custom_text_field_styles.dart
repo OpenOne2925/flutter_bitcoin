@@ -16,7 +16,7 @@ class CustomTextFieldStyles {
         color: Theme.of(context)
             .colorScheme
             .onSurface
-            .withOpacity(0.6), // Dynamic hint color
+            .withValues(), // Dynamic hint color
       ),
       filled: true,
       fillColor:
@@ -40,7 +40,7 @@ class CustomTextFieldStyles {
           color: Theme.of(context)
               .colorScheme
               .onSurface
-              .withOpacity(0.3), // Grey border when not focused
+              .withValues(), // Grey border when not focused
         ),
       ),
       contentPadding: const EdgeInsets.symmetric(

@@ -230,15 +230,37 @@ class WalletPageState extends State<WalletPage> {
           actions: [
             TextButton(
               onPressed: () async {
-                final int amount = int.parse(_amountController.text);
-                final String changeAddressStr = address; // Your change address
+                try {
+                  final int amount = int.parse(_amountController.text);
+                  final String changeAddressStr =
+                      address; // Your change address
 
-                await walletService.sendTx(
-                  recipientAddressStr,
-                  BigInt.from(amount),
-                  wallet,
-                  changeAddressStr,
-                );
+                  await walletService.sendTx(
+                    recipientAddressStr,
+                    BigInt.from(amount),
+                    wallet,
+                    changeAddressStr,
+                  );
+
+                  // Show a success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Transaction created successfully.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  // Show error message in a snackbar
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        e.toString(),
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
 
                 // Close the dialog after submitting
                 Navigator.of(context).pop();
@@ -340,16 +362,38 @@ class WalletPageState extends State<WalletPage> {
                 backgroundColor: Colors.orange, // Button text color
               ),
               onPressed: () async {
-                final String recipientAddressStr = _recipientController.text;
-                final int amount = int.parse(_amountController.text);
-                final String changeAddressStr = address;
+                try {
+                  final String recipientAddressStr = _recipientController.text;
+                  final int amount = int.parse(_amountController.text);
+                  final String changeAddressStr = address;
 
-                await walletService.sendTx(
-                  recipientAddressStr,
-                  BigInt.from(amount),
-                  wallet,
-                  changeAddressStr,
-                );
+                  await walletService.sendTx(
+                    recipientAddressStr,
+                    BigInt.from(amount),
+                    wallet,
+                    changeAddressStr,
+                  );
+
+                  // Show a success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Transaction created successfully.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  // Show error message in a snackbar
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        e.toString(),
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+
                 Navigator.of(context).pop();
               },
               child: const Text('Submit'),

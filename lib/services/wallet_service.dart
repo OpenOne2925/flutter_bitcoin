@@ -359,8 +359,6 @@ class WalletService {
           s: changeAddressStr, network: wallet.network());
       final changeScript = changeAddress.scriptPubkey();
 
-      // TODO: should work correctly, still needs testing
-
       final feeRate = await getFeeRate();
 
       // Build the transaction:
@@ -387,7 +385,7 @@ class WalletService {
       }
     } on Exception catch (e) {
       // debugPrint("Error: ${e.toString()}");
-      throw Exception('Failed to create wallet (Error: ${e.toString()})');
+      throw Exception('Failed to send Transaction (Error: ${e.toString()})');
     }
   }
 
@@ -402,9 +400,20 @@ class WalletService {
     await syncWallet(wallet);
 
     final utxos = wallet.getBalance();
-    debugPrint("Available UTXOs: ${utxos.spendable}");
+    debugPrint("Available UTXOs: ${utxos.confirmed}");
 
     final unspent = wallet.listUnspent();
+    final feeRate = await getFeeRate();
+
+    final totalSpending = amount + BigInt.from(feeRate);
+    debugPrint("Total Spending: $totalSpending");
+
+    // Filter out unconfirmed UTXOs
+    if (utxos.confirmed < totalSpending) {
+      // Exit early if no confirmed UTXOs are available
+      throw Exception(
+          "Not enough confirmed funds available. Please wait until your transactions confirm.");
+    }
 
     for (var utxo in unspent) {
       debugPrint('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
@@ -421,8 +430,6 @@ class WalletService {
       final internalChangeAddress = wallet.getInternalAddress(
           addressIndex: const AddressIndex.peek(index: 0));
       final changeScript = internalChangeAddress.address.scriptPubkey();
-
-      final feeRate = await getFeeRate();
 
       final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
       final externalWalletPolicy = wallet.policies(KeychainKind.externalChain);
@@ -524,7 +531,6 @@ class WalletService {
       if (multiSig) {
         debugPrint('MultiSig Builder');
         txBuilderResult = await txBuilder
-            // .enableRbf()
             .addRecipient(recipientScript, amount) // Send to recipient
             .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
             .policyPath(KeychainKind.internalChain, multiSigPath)
@@ -536,10 +542,10 @@ class WalletService {
 
         debugPrint('Transaction Built');
 
-        debugPrint('PSBT Before Signing: ');
-        debugPrintInChunks(txBuilderResult.$1.toString());
+        // debugPrint('PSBT Before Signing: ');
+        // debugPrintInChunks(txBuilderResult.$1.toString());
 
-        await wallet.sign(
+        final signed = await wallet.sign(
           psbt: txBuilderResult.$1,
           signOptions: const SignOptions(
             trustWitnessUtxo: false,
@@ -551,12 +557,17 @@ class WalletService {
           ),
         );
 
-        debugPrint('PSBT After Signing: ');
-        debugPrintInChunks(txBuilderResult.$1.toString());
+        if (signed) {
+          debugPrint('Signing returned true');
+        } else {
+          debugPrint('Signing returned false');
+        }
+
+        // debugPrint('PSBT After Signing: ');
+        // debugPrintInChunks(txBuilderResult.$1.toString());
       } else {
         debugPrint('TimeLock Builder');
         txBuilderResult = await txBuilder
-            .enableRbfWithSequence(olderValue)
             .addRecipient(recipientScript, amount) // Send to recipient
             .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
             .policyPath(KeychainKind.internalChain, timeLockPath)
@@ -568,10 +579,10 @@ class WalletService {
 
         debugPrint('Transaction Built');
 
-        debugPrint('PSBT Before Signing: ');
-        debugPrintInChunks(txBuilderResult.$1.toString());
+        // debugPrint('PSBT Before Signing: ');
+        // debugPrintInChunks(txBuilderResult.$1.toString());
 
-        await wallet.sign(
+        final signed = await wallet.sign(
           psbt: txBuilderResult.$1,
           signOptions: const SignOptions(
             trustWitnessUtxo: false,
@@ -583,21 +594,15 @@ class WalletService {
           ),
         );
 
-        debugPrint('PSBT After Signing: ');
-        debugPrintInChunks(txBuilderResult.$1.toString());
+        if (signed) {
+          debugPrint('Signing returned true');
+        } else {
+          debugPrint('Signing returned false');
+        }
+
+        // debugPrint('PSBT After Signing: ');
+        // debugPrintInChunks(txBuilderResult.$1.toString());
       }
-
-      debugPrint('Sending');
-
-      final tx = txBuilderResult.$1.extractTx();
-
-      for (var input in await tx.input()) {
-        debugPrint("Input sequence number: ${input.sequence}");
-      }
-      final isLockTime = await tx.isLockTimeEnabled();
-      debugPrint('LockTime enabled: $isLockTime');
-      final lockTime = await tx.lockTime();
-      debugPrint('LockTime: $lockTime');
 
       try {
         if (multiSig) {
@@ -605,12 +610,24 @@ class WalletService {
 
           final psbtString = base64Encode(txBuilderResult.$1.serialize());
 
-          debugPrint('Encoded: ');
-          debugPrintInChunks(psbtString);
+          // debugPrint('Encoded: ');
+          // debugPrintInChunks(psbtString);
 
           return psbtString;
         } else {
           debugPrint('TimeLock Broadcast');
+
+          debugPrint('Sending');
+          final tx = txBuilderResult.$1.extractTx();
+
+          for (var input in await tx.input()) {
+            debugPrint("Input sequence number: ${input.sequence}");
+          }
+          final isLockTime = await tx.isLockTimeEnabled();
+          debugPrint('LockTime enabled: $isLockTime');
+          final lockTime = await tx.lockTime();
+          debugPrint('LockTime: $lockTime');
+
           await blockchain.broadcast(transaction: tx);
           debugPrint('Transaction sent');
           return null;
@@ -619,6 +636,8 @@ class WalletService {
         throw Exception("Broadcasting error: ${broadcastError.toString()}");
       }
     } on Exception catch (e) {
+      print("Error: ${e.toString()}");
+
       throw Exception("Error: ${e.toString()}");
     }
   }
@@ -637,12 +656,16 @@ class WalletService {
   }
 
   // This method takes a PSBT, signs it with the second user and then broadcasts it
-  Future<void> signBroadcastTx(String psbtString, Wallet wallet) async {
+  Future<String> signBroadcastTx(String psbtString, Wallet wallet) async {
+    await syncWallet(wallet);
+
     // Convert the psbt String to a PartiallySignedTransaction
     final psbt = await PartiallySignedTransaction.fromString(psbtString);
 
+    debugPrintInChunks('Transaction Not Signed: $psbt');
+
     try {
-      await wallet.sign(
+      final signed = await wallet.sign(
         psbt: psbt,
         signOptions: const SignOptions(
           trustWitnessUtxo: false,
@@ -654,12 +677,34 @@ class WalletService {
         ),
       );
 
-      debugPrint('Transaction Signed');
+      if (signed) {
+        debugPrint('Signing returned true');
+      } else {
+        debugPrint('Signing returned false');
+      }
+
+      debugPrintInChunks('Transaction Signed: $psbt');
+
       final tx = psbt.extractTx();
       debugPrint('Extracting');
+
+      final lockTime = await tx.lockTime();
+
+      print('LockTime: $lockTime');
+      for (var input in await tx.input()) {
+        debugPrint("Input sequence number: ${input.sequence}");
+      }
+
+      final currentHeight = await blockchain.getHeight();
+      debugPrint('Current height: $currentHeight');
+
       await blockchain.broadcast(transaction: tx);
       debugPrint('Transaction sent');
+
+      return psbt.toString();
     } on Exception catch (e) {
+      print("Error: ${e.toString()}");
+
       throw Exception("Error: ${e.toString()}");
     }
   }

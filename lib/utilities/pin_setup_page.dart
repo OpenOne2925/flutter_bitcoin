@@ -58,6 +58,7 @@ class PinSetupPageState extends State<PinSetupPage> {
                       .onSurface, // Dynamic text color
                 ),
               ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _confirmPinController,
                 decoration: CustomTextFieldStyles.textFieldDecoration(

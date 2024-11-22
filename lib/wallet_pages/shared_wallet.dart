@@ -276,6 +276,8 @@ class SharedWalletState extends State<SharedWallet> {
 
   // Method to handle scanned QR Codes
   void _showTransactionDialog(String recipientAddressStr) {
+    bool isMultiSig = false;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -294,27 +296,62 @@ class SharedWalletState extends State<SharedWallet> {
                 ),
                 keyboardType: TextInputType.number,
               ),
+              const SizedBox(height: 16),
+              // Add the CheckboxListTile widget here
+              CheckboxListTile(
+                title: const Text("MultiSig Transaction"),
+                value: isMultiSig,
+                onChanged: (bool? newValue) {
+                  setState(() {
+                    isMultiSig = newValue ?? false;
+                  });
+                },
+                controlAffinity:
+                    ListTileControlAffinity.leading, // Checkbox on the left
+              ),
             ],
           ),
           actions: [
             TextButton(
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.orange,
+              ),
               onPressed: () async {
+                try {
+                  final int amount = int.parse(_amountController.text);
+
+                  final olderValue =
+                      await extractOlderWithPrivateKey(widget.descriptor);
+
+                  _txToSend = await walletService.createPartialTx(
+                    recipientAddressStr,
+                    BigInt.from(amount),
+                    wallet,
+                    olderValue,
+                    isMultiSig,
+                  );
+
+                  // Show a success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Transaction created successfully.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  // Show error message in a snackbar
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        e.toString(),
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+
                 Navigator.of(context).pop();
-
-                final int amount = int.parse(_amountController.text);
-
-                final olderValue =
-                    await extractOlderWithPrivateKey(widget.descriptor);
-
-                final multiSig = true;
-
-                _txToSend = await walletService.createPartialTx(
-                  recipientAddressStr,
-                  BigInt.from(amount),
-                  wallet,
-                  olderValue,
-                  multiSig,
-                );
               },
               child: const Text('Submit'),
             ),
@@ -415,19 +452,40 @@ class SharedWalletState extends State<SharedWallet> {
                 backgroundColor: Colors.orange,
               ),
               onPressed: () async {
-                final String recipientAddressStr = _recipientController.text;
-                final int amount = int.parse(_amountController.text);
+                try {
+                  final String recipientAddressStr = _recipientController.text;
+                  final int amount = int.parse(_amountController.text);
 
-                final olderValue =
-                    await extractOlderWithPrivateKey(widget.descriptor);
+                  final olderValue =
+                      await extractOlderWithPrivateKey(widget.descriptor);
 
-                _txToSend = await walletService.createPartialTx(
-                  recipientAddressStr,
-                  BigInt.from(amount),
-                  wallet,
-                  olderValue,
-                  isMultiSig,
-                );
+                  _txToSend = await walletService.createPartialTx(
+                    recipientAddressStr,
+                    BigInt.from(amount),
+                    wallet,
+                    olderValue,
+                    isMultiSig,
+                  );
+
+                  // Show a success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Transaction created successfully.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  // Show error message in a snackbar
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        e.toString(),
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
 
                 Navigator.of(context).pop();
               },
@@ -444,33 +502,59 @@ class SharedWalletState extends State<SharedWallet> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Sending Menu'),
+          title: const Text('Sign MultiSig Transaction'),
           content: Column(
             mainAxisSize: MainAxisSize.min, // Adjust the size of the dialog
             children: [
               // TextField for Recipient Address
               TextField(
                 controller: _psbtController,
-                decoration: const InputDecoration(
+                decoration: CustomTextFieldStyles.textFieldDecoration(
+                  context: context,
                   labelText: 'Psbt',
                   hintText: 'Enter psbt',
+                ),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
             ],
           ),
           actions: [
             TextButton(
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.orange,
+              ),
               onPressed: () async {
-                await walletService.syncWallet(wallet);
+                try {
+                  log("PSBT Raw: ${_psbtController.text}");
 
-                log("PSBT Raw: ${_psbtController.text}");
+                  final psbtString = _psbtController.text;
 
-                final psbtString = _psbtController.text;
+                  // print("Decoded Transaction: $decoded");
+                  // print("Mnemonic: " + widget.mnemonic);
 
-                // print("Decoded Transaction: $decoded");
-                // print("Mnemonic: " + widget.mnemonic);
+                  await walletService.signBroadcastTx(psbtString, wallet);
 
-                await walletService.signBroadcastTx(psbtString, wallet);
+                  // Show a success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Transaction created successfully.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  // Show error message in a snackbar
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        e.toString(),
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
 
                 Navigator.of(context).pop();
               },
@@ -516,6 +600,9 @@ class SharedWalletState extends State<SharedWallet> {
           ),
           actions: [
             TextButton(
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.orange,
+              ),
               onPressed: () {
                 Navigator.of(context).pop(); // Close the dialog
               },
@@ -561,7 +648,8 @@ class SharedWalletState extends State<SharedWallet> {
 
       // Only process the match if it's a private key (tprv)
       if (keyType.startsWith("tprv")) {
-        print('Found older value associated with private key: $olderValue');
+        debugPrint(
+            'Found older value associated with private key: $olderValue');
         older = int.parse(olderValue);
       }
     }
