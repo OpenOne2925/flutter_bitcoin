@@ -614,14 +614,14 @@ class WalletPageState extends State<WalletPage> {
                         // Scan to Send Button
                         CustomButton(
                           onPressed: () async {
-                            final recipientAddressStr = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const QRScannerPage()),
-                            );
-                            if (recipientAddressStr != null) {
-                              _showTransactionDialog(recipientAddressStr);
-                            }
+                            // final recipientAddressStr = await Navigator.push(
+                            //   context,
+                            //   MaterialPageRoute(
+                            //       builder: (context) => const QRScannerPage()),
+                            // );
+                            // if (recipientAddressStr != null) {
+                            //   _showTransactionDialog(recipientAddressStr);
+                            // }
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:

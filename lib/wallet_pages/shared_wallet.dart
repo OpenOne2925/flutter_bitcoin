@@ -1,5 +1,5 @@
+import 'dart:convert';
 import 'dart:developer';
-
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -69,17 +69,11 @@ class SharedWalletState extends State<SharedWallet> {
     openBoxAndCheckWallet();
   }
 
-  // final secureStorage = FlutterSecureStorage();
+  final secureStorage = FlutterSecureStorage();
 
   Future<void> openBoxAndCheckWallet() async {
-    // Open the encrypted box using Hive
-    // final encryptionKey = await _getEncryptionKey();
-
-    // Open the box (for example using Hive)
-    descriptorBox = await Hive.openBox(
-      'wallet_descriptors',
-      // encryptionCipher: HiveAesCipher(encryptionKey),
-    );
+    // Open the box
+    descriptorBox = Hive.box('descriptorBox');
 
     // print('Retrieving descriptor with key: ${widget.mnemonic}');
 
@@ -98,22 +92,11 @@ class SharedWalletState extends State<SharedWallet> {
     // await _syncWallet();
   }
 
-  // Future<List<int>> _getEncryptionKey() async {
-  //   String? encodedKey = await secureStorage.read(key: 'encryptionKey');
-
-  //   if (encodedKey != null) {
-  //     return base64Url.decode(encodedKey);
-  //   } else {
-  //     var key = Hive.generateSecureKey();
-  //     await secureStorage.write(
-  //         key: 'encryptionKey', value: base64UrlEncode(key));
-  //     return key;
-  //   }
-  // }
-
   Future<void> loadWallet() async {
     try {
       final internalDescriptor = replaceAllDerivationPaths(widget.descriptor);
+
+      print('Internal: $internalDescriptor');
 
       wallet = await walletService.createSharedWallet(
         widget.descriptor,
@@ -206,13 +189,11 @@ class SharedWalletState extends State<SharedWallet> {
 
   Future<void> createWalletFromDescriptor() async {
     try {
-      if (kDebugMode) {
-        print('DescriptorWidget: ${widget.descriptor}');
-      }
+      print('DescriptorWidget: ${widget.descriptor}');
 
       final internalDescriptor = replaceAllDerivationPaths(widget.descriptor);
 
-      // print(internalDescriptor);
+      print('Internal: $internalDescriptor');
 
       // final pubKey =
       //     await walletService.getSecretKeyfromMnemonic(widget.mnemonic);
@@ -536,6 +517,8 @@ class SharedWalletState extends State<SharedWallet> {
 
                   await walletService.signBroadcastTx(psbtString, wallet);
 
+                  print('Banana: $_txToSend');
+
                   // Show a success message
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -657,7 +640,26 @@ class SharedWalletState extends State<SharedWallet> {
     return older;
   }
 
+  void debugPrintPrettyJson(String jsonString) {
+    final jsonObject = json.decode(jsonString);
+    const encoder = JsonEncoder.withIndent('  ');
+    debugPrintInChunks(encoder.convert(jsonObject));
+  }
+
+  void debugPrintInChunks(String text, {int chunkSize = 800}) {
+    for (int i = 0; i < text.length; i += chunkSize) {
+      debugPrint(text.substring(
+          i, i + chunkSize > text.length ? text.length : i + chunkSize));
+    }
+  }
+
   Future<void> _syncWallet() async {
+    final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
+    final externalWalletPolicy = wallet.policies(KeychainKind.externalChain);
+
+    // debugPrintPrettyJson(internalWalletPolicy!.asString());
+    // debugPrintPrettyJson(externalWalletPolicy!.asString());
+
     if (kDebugMode) {
       print('Descriptor: ${widget.descriptor}');
     }
@@ -904,17 +906,17 @@ class SharedWalletState extends State<SharedWallet> {
                         CustomButton(
                           onPressed: () async {
                             // Handle scanning address functionality
-                            final recipientAddressStr = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const QRScannerPage()),
-                            );
+                            // final recipientAddressStr = await Navigator.push(
+                            //   context,
+                            //   MaterialPageRoute(
+                            //       builder: (context) => const QRScannerPage()),
+                            // );
 
                             // If a valid Bitcoin address was scanned, show the transaction dialog
-                            if (recipientAddressStr != null) {
-                              // Show the transaction dialog after the scanning
-                              _showTransactionDialog(recipientAddressStr);
-                            }
+                            // if (recipientAddressStr != null) {
+                            //   // Show the transaction dialog after the scanning
+                            //   _showTransactionDialog(recipientAddressStr);
+                            // }
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:

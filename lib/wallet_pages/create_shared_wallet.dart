@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -48,30 +46,21 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
   final WalletService _walletService = WalletService();
 
-  bool boxOpened = false; // to ensure the box is opened only once
-
   late Box<dynamic> descriptorBox;
 
-  // final secureStorage = FlutterSecureStorage();
+  final secureStorage = FlutterSecureStorage();
   // final WalletService walletService = WalletService();
 
   Future<void> openBoxAndCheckWallet() async {
     // Open the encrypted box using Hive
-
-    // final encryptionKey = await _getEncryptionKey();
-
-    descriptorBox = await Hive.openBox(
-      'wallet_descriptors',
-      // encryptionCipher: HiveAesCipher(encryptionKey),
-    );
-    boxOpened = true; // Ensure this is only opened once
+    descriptorBox = Hive.box('descriptorBox');
 
     // print('Retrieving descriptor with key: wallet_${_mnemonic}');
 
     // After the box is opened, proceed with checking for the existing wallet
     var existingDescriptor = descriptorBox.get('wallet_$_mnemonic');
 
-    // print('Retrieved descriptor: $existingDescriptor');
+    print('Retrieved descriptor: $existingDescriptor');
 
     if (existingDescriptor != null) {
       // print('Wallet with this mnemonic already exists.');
@@ -127,19 +116,6 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       );
     }
   }
-
-  // Future<List<int>> _getEncryptionKey() async {
-  //   String? encodedKey = await secureStorage.read(key: 'encryptionKey');
-
-  //   if (encodedKey != null) {
-  //     return base64Url.decode(encodedKey);
-  //   } else {
-  //     var key = Hive.generateSecureKey();
-  //     await secureStorage.write(
-  //         key: 'encryptionKey', value: base64UrlEncode(key));
-  //     return key;
-  //   }
-  // }
 
   // String createDescriptor(
   //   List<dynamic> publicKeys,

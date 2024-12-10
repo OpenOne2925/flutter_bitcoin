@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
@@ -26,39 +26,49 @@ void main() async {
   Hive.registerAdapter(WalletDataAdapter());
 
   // Retrieve or generate encryption key
-  // final encryptionKey = await _getEncryptionKey();
+  final encryptionKey = await _getEncryptionKey();
 
   // Open the encrypted boxes
   await Hive.openBox(
     'walletBox',
-    // encryptionCipher: HiveAesCipher(encryptionKey),
+    encryptionCipher: HiveAesCipher(Uint8List.fromList(encryptionKey)),
   );
 
   await Hive.openBox(
-    'wallet_descriptors',
-    // encryptionCipher: HiveAesCipher(encryptionKey),
+    'descriptorBox',
+    encryptionCipher: HiveAesCipher(Uint8List.fromList(encryptionKey)),
   );
 
-  runApp(const MyApp());
+  await Hive.openBox<WalletData>(
+    'walletDataBox',
+    encryptionCipher: HiveAesCipher(Uint8List.fromList(encryptionKey)),
+  );
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => ThemeProvider(darkTheme)),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
-// TODO: Resolve stackoverflow problem with Data Encryption
+// FlutterSecureStorage for encryption key management
+final secureStorage = FlutterSecureStorage();
 
-// // FlutterSecureStorage for encryption key management
-// final secureStorage = FlutterSecureStorage();
+Future<List<int>> _getEncryptionKey() async {
+  String? encodedKey = await secureStorage.read(key: 'encryptionKey');
 
-// Future<List<int>> _getEncryptionKey() async {
-//   String? encodedKey = await secureStorage.read(key: 'encryptionKey');
-
-//   if (encodedKey != null) {
-//     return base64Url.decode(encodedKey);
-//   } else {
-//     var key = Hive.generateSecureKey();
-//     await secureStorage.write(
-//         key: 'encryptionKey', value: base64UrlEncode(key));
-//     return key;
-//   }
-// }
+  if (encodedKey != null) {
+    return base64Url.decode(encodedKey);
+  } else {
+    var key = Hive.generateSecureKey();
+    await secureStorage.write(
+        key: 'encryptionKey', value: base64UrlEncode(key));
+    return key;
+  }
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});

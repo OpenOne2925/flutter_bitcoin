@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:typed_data';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -165,6 +164,16 @@ class WalletService {
       if (!connectivityResult.contains(ConnectivityResult.none)) {
         await blockchainInit();
       }
+
+      // final mnemonicM = await Mnemonic.fromString(mnemonic);
+      // final internalDescriptorD = await DescriptorSecretKey.create(
+      //     network: network, mnemonic: mnemonicM);
+
+      // final internalDescriptorTrue = await Descriptor.newBip84(
+      //   secretKey: internalDescriptorD,
+      //   network: network,
+      //   keychain: KeychainKind.internalChain,
+      // );
 
       final descriptorWallet = await Descriptor.create(
         descriptor: descriptorStr,
@@ -434,8 +443,8 @@ class WalletService {
       final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
       final externalWalletPolicy = wallet.policies(KeychainKind.externalChain);
 
-      // debugPrintPrettyJson(internalWalletPolicy!.asString());
-      // debugPrintPrettyJson(externalWalletPolicy!.asString());
+      debugPrintPrettyJson(internalWalletPolicy!.asString());
+      debugPrintPrettyJson(externalWalletPolicy!.asString());
 
       String policyString = externalWalletPolicy!.asString();
 
@@ -681,9 +690,10 @@ class WalletService {
         debugPrint('Signing returned true');
       } else {
         debugPrint('Signing returned false');
+        // throw Exception('Not signed');
       }
 
-      debugPrintInChunks('Transaction Signed: $psbt');
+      debugPrintInChunks('Transaction after Signing: $psbt');
 
       final tx = psbt.extractTx();
       debugPrint('Extracting');

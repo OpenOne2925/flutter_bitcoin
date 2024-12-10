@@ -25,7 +25,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
   void initState() {
     super.initState();
     // Open the Hive box for wallet descriptors
-    _descriptorBox = Hive.box<dynamic>('wallet_descriptors');
+    _descriptorBox = Hive.box<dynamic>('descriptorBox');
   }
 
   @override
