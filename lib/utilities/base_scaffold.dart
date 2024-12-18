@@ -93,7 +93,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
         ),
         onTap: () {
           Navigator.of(context).pushNamedAndRemoveUntil(
-              '/wallet_page', (Route<dynamic> route) => false);
+              '/ca_wallet_page', (Route<dynamic> route) => false);
         },
       ),
     );

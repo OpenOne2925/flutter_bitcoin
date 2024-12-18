@@ -35,6 +35,8 @@ class SharedWalletState extends State<SharedWallet> {
 
   String address = '';
   String? _txToSend;
+  String? _error = 'No Errors, for now';
+  String? _descriptor = 'Descriptor here';
 
   int balance = 0;
   int ledBalance = 0;
@@ -55,10 +57,14 @@ class SharedWalletState extends State<SharedWallet> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
 
-  late Wallet wallet;
+  // late Wallet wallet;
   late WalletData? _walletData;
 
   final WalletStorageService _walletStorageService = WalletStorageService();
+
+  String? gatoDescriptorString;
+
+  late Wallet? walletState;
 
   @override
   void initState() {
@@ -66,7 +72,32 @@ class SharedWalletState extends State<SharedWallet> {
 
     walletService = WalletService();
 
+    // createSharedWallet();
+
     openBoxAndCheckWallet();
+  }
+
+  Future<void> createSharedWallet() async {
+    final wallet = await Wallet.create(
+      descriptor: await Descriptor.create(
+        descriptor: widget.descriptor,
+        network: Network.testnet,
+      ),
+      network: Network.testnet,
+      databaseConfig: const DatabaseConfig.memory(),
+    );
+
+    setState(() {
+      // balance = wallet.getBalance().total.toInt();
+      address = wallet
+          .getAddress(
+            addressIndex: const AddressIndex.peek(index: 0),
+          )
+          .address
+          .toString();
+      _descriptor = widget.descriptor;
+      walletState = wallet;
+    });
   }
 
   final secureStorage = FlutterSecureStorage();
@@ -83,34 +114,24 @@ class SharedWalletState extends State<SharedWallet> {
     // print('Retrieved descriptor: $existingDescriptor');
 
     if (existingDescriptor != null) {
-      // print('Wallet with this mnemonic already exists.');
+      print('Wallet with this mnemonic already exists.');
       loadWallet();
     } else {
       createWalletFromDescriptor();
     }
 
-    // await _syncWallet();
+    await _syncWallet();
   }
 
   Future<void> loadWallet() async {
     try {
-      final internalDescriptor = replaceAllDerivationPaths(widget.descriptor);
-
-      print('Internal: $internalDescriptor');
-
-      wallet = await walletService.createSharedWallet(
-        widget.descriptor,
-        internalDescriptor,
-        widget.mnemonic,
-        Network.testnet,
-        null,
-      );
+      await createSharedWallet();
 
       final List<ConnectivityResult> connectivityResult =
           await (Connectivity().checkConnectivity());
 
       if (connectivityResult.contains(ConnectivityResult.none)) {
-        String walletAddress = walletService.getAddress(wallet);
+        String walletAddress = walletService.getAddress(walletState!);
         setState(() {
           address = walletAddress;
         });
@@ -131,12 +152,12 @@ class SharedWalletState extends State<SharedWallet> {
         }
       } else {
         // Fetch the wallet's receive address
-        final wallAddress = walletService.getAddress(wallet);
-        setState(() {
-          address = wallAddress;
-        });
+        // final wallAddress = walletService.getAddress(walletState!);
+        // setState(() {
+        //   address = wallAddress;
+        // });
 
-        await walletService.saveLocalData(wallet);
+        await walletService.saveLocalData(walletState!);
 
         // Fetch the balance of the wallet
         final availableBalance =
@@ -189,31 +210,16 @@ class SharedWalletState extends State<SharedWallet> {
 
   Future<void> createWalletFromDescriptor() async {
     try {
-      print('DescriptorWidget: ${widget.descriptor}');
+      // print('DescriptorWidget: ${widget.descriptor}');
 
-      final internalDescriptor = replaceAllDerivationPaths(widget.descriptor);
-
-      print('Internal: $internalDescriptor');
-
-      // final pubKey =
-      //     await walletService.getSecretKeyfromMnemonic(widget.mnemonic);
-
-      // final result = await pubKey.asPublic();
-
-      wallet = await walletService.createSharedWallet(
-        widget.descriptor,
-        internalDescriptor,
-        widget.mnemonic,
-        Network.testnet,
-        null,
-      );
+      await createSharedWallet();
 
       descriptorBox.put('wallet_${widget.mnemonic}', widget.descriptor);
 
-      await walletService.saveLocalData(wallet);
+      await walletService.saveLocalData(walletState!);
 
       // Fetch the wallet's receive address
-      final wallAddress = walletService.getAddress(wallet);
+      final wallAddress = walletService.getAddress(walletState!);
       setState(() {
         address = wallAddress;
       });
@@ -301,16 +307,17 @@ class SharedWalletState extends State<SharedWallet> {
                 try {
                   final int amount = int.parse(_amountController.text);
 
-                  final olderValue =
-                      await extractOlderWithPrivateKey(widget.descriptor);
-
-                  _txToSend = await walletService.createPartialTx(
+                  final result = await walletService.createPartialTx(
+                    _descriptor.toString(),
+                    widget.mnemonic,
                     recipientAddressStr,
                     BigInt.from(amount),
-                    wallet,
-                    olderValue,
                     isMultiSig,
                   );
+
+                  setState(() {
+                    _txToSend = result;
+                  });
 
                   // Show a success message
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -437,16 +444,19 @@ class SharedWalletState extends State<SharedWallet> {
                   final String recipientAddressStr = _recipientController.text;
                   final int amount = int.parse(_amountController.text);
 
-                  final olderValue =
-                      await extractOlderWithPrivateKey(widget.descriptor);
+                  // print(widget.descriptor);
 
-                  _txToSend = await walletService.createPartialTx(
+                  final result = await walletService.createPartialTx(
+                    _descriptor.toString(),
+                    widget.mnemonic,
                     recipientAddressStr,
                     BigInt.from(amount),
-                    wallet,
-                    olderValue,
                     isMultiSig,
                   );
+
+                  setState(() {
+                    _txToSend = result;
+                  });
 
                   // Show a success message
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -515,9 +525,11 @@ class SharedWalletState extends State<SharedWallet> {
                   // print("Decoded Transaction: $decoded");
                   // print("Mnemonic: " + widget.mnemonic);
 
-                  await walletService.signBroadcastTx(psbtString, wallet);
-
-                  print('Banana: $_txToSend');
+                  await walletService.signBroadcastTx(
+                    psbtString,
+                    _descriptor.toString(),
+                    widget.mnemonic,
+                  );
 
                   // Show a success message
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -527,11 +539,27 @@ class SharedWalletState extends State<SharedWallet> {
                     ),
                   );
                 } catch (e) {
+                  // Assuming `e` is the exception
+                  final errorMessage = e.toString();
+
+                  // Using a regular expression to extract the parts
+                  final regex = RegExp(r'Error:\s(.+?)\spsbt:\s(.+)');
+                  final match = regex.firstMatch(errorMessage);
+
+                  if (match != null) {
+                    _error = match.group(1) ??
+                        "Unknown error"; // Extract the error part
+                    _txToSend = match.group(2) ?? ""; // Extract the PSBT part
+                  } else {
+                    // Handle cases where the format doesn't match
+                    _error = "Unexpected error format: $e";
+                    _txToSend = "";
+                  }
                   // Show error message in a snackbar
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        e.toString(),
+                        _error.toString(),
                         style: TextStyle(color: Colors.white),
                       ),
                       backgroundColor: Colors.red,
@@ -654,11 +682,7 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   Future<void> _syncWallet() async {
-    final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
-    final externalWalletPolicy = wallet.policies(KeychainKind.externalChain);
-
-    // debugPrintPrettyJson(internalWalletPolicy!.asString());
-    // debugPrintPrettyJson(externalWalletPolicy!.asString());
+    _descriptor = widget.descriptor;
 
     if (kDebugMode) {
       print('Descriptor: ${widget.descriptor}');
@@ -671,7 +695,7 @@ class SharedWalletState extends State<SharedWallet> {
     if (connectivityResult.contains(ConnectivityResult.none)) {
       await _extractOlder(widget.descriptor);
 
-      String walletAddress = walletService.getAddress(wallet);
+      String walletAddress = walletService.getAddress(walletState!);
       setState(() {
         address = walletAddress;
       });
@@ -691,13 +715,14 @@ class SharedWalletState extends State<SharedWallet> {
         });
       }
     } else {
-      await walletService.syncWallet(wallet);
+      // print('walletState: $walletState');
+      await walletService.syncWallet(walletState!);
 
       await _fetchCurrentBlockHeight();
 
       await _extractOlder(widget.descriptor);
 
-      String walletAddress = walletService.getAddress(wallet);
+      String walletAddress = walletService.getAddress(walletState!);
       setState(() {
         address = walletAddress;
       });
@@ -904,6 +929,7 @@ class SharedWalletState extends State<SharedWallet> {
                         const SizedBox(width: 8),
                         // Scan To Send Button
                         CustomButton(
+                          // TODO: QRSCANNER
                           onPressed: () async {
                             // Handle scanning address functionality
                             // final recipientAddressStr = await Navigator.push(

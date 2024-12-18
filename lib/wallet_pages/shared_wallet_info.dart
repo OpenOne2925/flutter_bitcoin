@@ -1,6 +1,7 @@
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
@@ -15,7 +16,8 @@ class SharedWalletInfo extends StatefulWidget {
 
 class SharedWalletInfoState extends State<SharedWalletInfo> {
   String? mnemonic;
-  String? pubKey1;
+  String? receiving1Key;
+  String? change1Key;
   String? pubKey2;
   String? privKey;
 
@@ -23,7 +25,6 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
   int amount2 = 0;
 
   String? descriptorString;
-  String? descriptorString1;
 
   Descriptor? descriptorWallet;
   Descriptor? internalDescriptorWallet;
@@ -35,6 +36,7 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
   bool walletCreated = false; // To avoid multiple wallet creations
   bool boxOpened = false; // to ensure the box is opened only once
 
+  final WalletService _walletService = WalletService();
   late Box<dynamic> descriptorBox;
 
   @override
@@ -45,165 +47,51 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
       final Map<String, dynamic> args =
           ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>;
 
-      pubKey1 = args['pubKey1'];
-      pubKey2 = args['pubKey2'];
+      receiving1Key = args['receiving1Key'];
+      change1Key = args['change1Key'];
       privKey = args['privKey'];
+      pubKey2 = args['pubKey2'];
       amount1 = args['amount1'];
       amount2 = args['amount2'];
       mnemonic = args['mnemonic'];
 
-      // print('Public Key 1: $pubKey1');
-      // print('Public Key 2: $pubKey2');
-      // print('Private Key: $privKey');
-      // print('Amount 1: $amount1');
-      // print('Amount 2: $amount2');
-      // print('Mnemonic: $mnemonic');
-
-      createMultisigWallet(
-        pubKey1!,
-        pubKey2!,
-        privKey!,
-        amount1,
-        amount2,
-      );
+      createSharedWallet();
     }
   }
 
-  // String createDescriptor(List<String> publicKeys, int threshold) {
-  //   // Start building the descriptor
-  //   String descriptor = "wsh(multi(";
-
-  //   // Add the threshold (M) to the descriptor
-  //   descriptor += "$threshold";
-
-  //   // Dynamically add each public key to the descriptor
-  //   for (String pubKey in publicKeys) {
-  //     descriptor += ",$pubKey";
-  //   }
-
-  //   // Close the descriptor format
-  //   descriptor += "))";
-
-  //   return descriptor;
-  // }
-
-  Future<void> createMultisigWallet(
-    String pubKey1,
-    String pubKey2,
-    String privKey,
-    int amount1,
-    int amount2,
-  ) async {
-    setState(() {
-      isLoading = true;
-    });
-    // String pubKey3, String pubKey4, to add in the second step
-
+  Future<void> createSharedWallet() async {
     try {
-      // If needed this descriptor would just use the basic multisig setup for the change outputs, without any recovery clauses.
+      final user1Timelock = amount1;
+      final user2Timelock = amount2;
 
-      // final descriptor = "wsh(multi(2,$pubKey1,$pubKey2))";
-      // final descriptor1 = "wsh(multi(2,$pubKey2,$privKey1))";
+      final user2ReceivingPublicKey = pubKey2;
 
-      // createDescriptor(publicKeys, threshold);
+      // Regular expression to match the final '/0' before '/*'
+      final regex = RegExp(r'\/0(?=\/\*)');
 
-      String pubKeyDerived1 = pubKey1.replaceAll("*", "0/*");
-      String pubKeyDerived2 = pubKey2.replaceAll("*", "0/*");
+      // Replace the final '/0' with '/1'
+      final change2Key = pubKey2.toString().replaceFirst(regex, '/1');
 
-      String pubKey3 = pubKey1.replaceAll("*", "1/*");
-      String pubKey4 = pubKey2.replaceAll("*", "1/*");
-
-      String privKey1 = privKey.replaceAll("*", "0/*");
-      String privKey2 = privKey.replaceAll("*", "1/*");
-
-      // Descriptor with 2-of-2 multisig and recovery paths after a specified number of blocks
-      final descriptor =
-          "wsh(or_d(multi(2,$pubKeyDerived1,$pubKeyDerived2),or_i(and_v(v:older($amount1),pk($pubKey3)),and_v(v:older($amount2),pk($pubKey4)))))";
-
-      final descriptor1 =
-          "wsh(or_d(multi(2,$pubKeyDerived2,$privKey1),or_i(and_v(v:older($amount1),pk($privKey2)),and_v(v:older($amount2),pk($pubKey4)))))";
-
-      // print(descriptor);
-
-      // print(descriptor1);
-
-      final internalDescriptor = replaceAllDerivationPaths(descriptor);
-
-      // print('Ciaoooooooo' + internalDescriptor);
-
-      // Create the wallet using the descriptor
-      descriptorWallet = await Descriptor.create(
-        descriptor: descriptor,
-        network: Network.testnet, // Use Network.Mainnet for mainnet
+      final publicDescriptor = _walletService.createWalletDescriptor(
+        receiving1Key.toString(),
+        user2ReceivingPublicKey.toString(),
+        user1Timelock,
+        user2Timelock,
+        change1Key.toString(),
+        change2Key.toString(),
       );
 
-      internalDescriptorWallet = await Descriptor.create(
-        descriptor: internalDescriptor,
-        network: Network.testnet, // Use Network.Mainnet for mainnet
-      );
-
-      descriptorWallet1 = await Descriptor.create(
-        descriptor: descriptor1,
-        network: Network.testnet, // Use Network.Mainnet for mainnet
-      );
-
-      descriptorString = descriptorWallet!.asString();
-      // descriptorString1 = await descriptorWallet1!.asString();
-
-      // descriptorString1 = await descriptorWallet1!.asStringPrivate();
-
-      descriptorString1 = descriptor1;
-
-      // print(descriptor);
-      // print(descriptor1);
-
-      // print(descriptorString);
-
-      // print(descriptorString1);
-
-      // final internalDescriptorString =
-      //     await internalDescriptorWallet!.asStringPrivate();
-
-      // print(internalDescriptorString);
-
-      await Wallet.create(
-        descriptor: descriptorWallet!,
-        changeDescriptor: internalDescriptorWallet,
-        network: Network.testnet,
-        databaseConfig: const DatabaseConfig.memory(),
-      );
-
-      // print('DescriptorString: $descriptorString');
-      // print('DescriptorString1: $descriptorString1');
-
-      // print("Shared Wallet Created!");
+      setState(() {
+        descriptorString = publicDescriptor;
+      });
     } catch (e) {
-      // print("Error creating wallet: $e");
-      throw ("Error creating wallet: $e");
+      // print("Error creating or fetching balance for wallet: $e");
+      throw ("Error creating or fetching balance for wallet: $e");
     } finally {
       setState(() {
         isLoading = false;
-        walletCreated = true; // Ensure wallet is only created once
       });
     }
-  }
-
-  String replaceAllDerivationPaths(String descriptor) {
-    // Define the regular expression to match the derivation path [fingerprint/84'/1'/0'/0/0]
-    final pattern = RegExp(r"\[\w{8}/84\'/1\'/0\'/0/\d\]");
-
-    // Replace all occurrences of the matched pattern with [fingerprint/84'/1'/0'/1/0]
-    String modifiedDescriptor = descriptor.replaceAllMapped(pattern, (match) {
-      // Extract the original matched string
-      String matchedPath = match.group(0)!;
-
-      // Modify the part that needs to be changed from /0/ to /1/
-      String newPath = matchedPath.replaceFirst("/0/", "/1/");
-
-      return newPath; // Return the new modified path
-    });
-
-    return modifiedDescriptor; // Return the fully modified descriptor
   }
 
   @override
@@ -219,7 +107,7 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
               _buildInfoCard('Your Mnemonic', mnemonic!),
               _buildInfoCard(
                 'Public Key 1',
-                pubKey1!,
+                receiving1Key!,
                 secondaryContent: amount1.toString(),
               ),
               _buildInfoCard(
@@ -229,12 +117,12 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
               ),
               _buildInfoCard(
                 'Descriptor',
-                descriptorWallet != null
+                descriptorString != null
                     ? descriptorString!
                     : 'Not created yet',
               ),
-              // _buildInfoCard('Amount 1', amount1.toString()),
-              // _buildInfoCard('Amount 2', amount2.toString()),
+              _buildInfoCard('Amount 1', amount1.toString()),
+              _buildInfoCard('Amount 2', amount2.toString()),
               const SizedBox(height: 16),
               CustomButton(
                 onPressed: () {
@@ -242,7 +130,7 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
                     context,
                     MaterialPageRoute(
                       builder: (context) => SharedWallet(
-                        descriptor: descriptorString1!,
+                        descriptor: descriptorString!,
                         mnemonic: mnemonic!,
                       ),
                     ),
@@ -254,32 +142,6 @@ class SharedWalletInfoState extends State<SharedWalletInfo> {
                 iconColor: Colors.orange, // Color for the icon
                 label: 'Next',
               ),
-              // ElevatedButton(
-              //   onPressed: isLoading
-              //       ? null
-              //       : () async {
-              //           // Ensure the wallet is created before navigating
-              //           // print(descriptorString1!);
-              //           Navigator.push(
-              //             context,
-              //             MaterialPageRoute(
-              //               builder: (context) => SharedWallet(
-              //                 descriptor: descriptorString1!,
-              //                 mnemonic: mnemonic!,
-              //               ),
-              //             ),
-              //           );
-              //         },
-              //   style: customButtonStyle(),
-              //   child: const Row(
-              //     mainAxisSize: MainAxisSize.min,
-              //     children: [
-              //       Icon(Icons.currency_bitcoin),
-              //       SizedBox(width: 8),
-              //       Text('Next'),
-              //     ],
-              //   ),
-              // ),
             ],
           ),
         ),

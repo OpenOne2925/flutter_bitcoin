@@ -38,64 +38,6 @@ class WalletService {
 
   final secureStorage = FlutterSecureStorage();
 
-  Future<Mnemonic> generateMnemonicHandler() async {
-    return await Mnemonic.create(WordCount.words12);
-  }
-
-  Future<DescriptorSecretKey> getSecretKeyfromMnemonic(String mnemonic) async {
-    final mnemonicObj = await Mnemonic.fromString(mnemonic);
-
-    // Create a descriptor secret key (this holds the seed/private key)
-    final descriptorSecretKey = await DescriptorSecretKey.create(
-      network: Network.testnet, // Use Network.Mainnet for main Bitcoin network
-      mnemonic: mnemonicObj,
-      password: '',
-    );
-
-    // debugPrint(descriptorSecretKey);
-
-    // Define your derivation path (for example, BIP84 path for Testnet)
-    String derivationPathString =
-        "m/84'/1'/0'/0/0"; // For Testnet (m/84'/0'/0'/0/0 for Mainnet)
-
-    // Create the derivation path object
-    final derivationPath =
-        await DerivationPath.create(path: derivationPathString);
-
-    // debugPrint(derivationPath);
-
-    // Specify the derivation path, e.g., "m/84'/1'/0'/0/0" for testnet or "m/84'/0'/0'/0/0" for mainnet
-    final derivedSecretKey = await descriptorSecretKey.derive(derivationPath);
-
-    return derivedSecretKey;
-  }
-
-  Future<DescriptorSecretKey> getInternalSecretKeyfromMnemonic(
-      String mnemonic) async {
-    final mnemonicObj = await Mnemonic.fromString(mnemonic);
-
-    // Create a descriptor secret key (this holds the seed/private key)
-    final descriptorSecretKey = await DescriptorSecretKey.create(
-      network: Network.testnet,
-      mnemonic: mnemonicObj,
-      password: '',
-    );
-
-    // debugPrint(descriptorSecretKey);
-
-    String derivationPathString = "m/84'/1'/0'/1/0";
-
-    // Create the derivation path object
-    final derivationPath =
-        await DerivationPath.create(path: derivationPathString);
-
-    // debugPrint(derivationPath);
-
-    final derivedSecretKey = await descriptorSecretKey.derive(derivationPath);
-
-    return derivedSecretKey;
-  }
-
   Future<List<Descriptor>> getDescriptors(String mnemonic) async {
     final descriptors = <Descriptor>[];
     try {
@@ -145,64 +87,6 @@ class WalletService {
       // debugPrint(res);
 
       return res;
-    } on Exception catch (e) {
-      // debugPrint("Error: ${e.toString()}");
-      throw Exception('Failed to create wallet (Error: ${e.toString()})');
-    }
-  }
-
-  Future<Wallet> createSharedWallet(
-    String descriptorStr,
-    String internalDescriptor,
-    String mnemonic,
-    Network network,
-    String? password,
-  ) async {
-    try {
-      final List<ConnectivityResult> connectivityResult =
-          await (Connectivity().checkConnectivity());
-      if (!connectivityResult.contains(ConnectivityResult.none)) {
-        await blockchainInit();
-      }
-
-      // final mnemonicM = await Mnemonic.fromString(mnemonic);
-      // final internalDescriptorD = await DescriptorSecretKey.create(
-      //     network: network, mnemonic: mnemonicM);
-
-      // final internalDescriptorTrue = await Descriptor.newBip84(
-      //   secretKey: internalDescriptorD,
-      //   network: network,
-      //   keychain: KeychainKind.internalChain,
-      // );
-
-      final descriptorWallet = await Descriptor.create(
-        descriptor: descriptorStr,
-        network: network, // Use Network.Mainnet for mainnet
-      );
-
-      // final internalDescriptorWallet = await bdk.Descriptor.newBip84(
-      //   secretKey: await getInternalSecretKeyfromMnemonic(mnemonic),
-      //   network: network,
-      //   keychain: bdk.KeychainKind.Internal,
-      // );
-
-      // debugPrint('Ciaooooooooo ' + internalDescriptor);
-
-      final internalDescriptorWallet = await Descriptor.create(
-        descriptor: internalDescriptor,
-        network: network,
-      );
-
-      // debugPrint('Ciaoooooooooooooo');
-
-      final wallet = await Wallet.create(
-        descriptor: descriptorWallet,
-        changeDescriptor: internalDescriptorWallet,
-        network: network,
-        databaseConfig: const DatabaseConfig.memory(),
-      );
-
-      return wallet;
     } on Exception catch (e) {
       // debugPrint("Error: ${e.toString()}");
       throw Exception('Failed to create wallet (Error: ${e.toString()})');
@@ -305,6 +189,34 @@ class WalletService {
     return wallet;
   }
 
+  String createWalletDescriptor(
+    String primaryReceivingSecret,
+    String secondaryReceivingPublic,
+    int primaryTimelock,
+    int secondaryTimelock,
+    String primaryChangePublic,
+    String secondaryChangePublic,
+  ) {
+    // Define the multi-sig condition based on timelock priority
+    String multi = (primaryTimelock < secondaryTimelock)
+        ? 'multi(2,$primaryReceivingSecret,$secondaryReceivingPublic)'
+        : 'multi(2,$secondaryReceivingPublic,$primaryReceivingSecret)';
+
+    // Define the timelock conditions for Bob and Alice
+    String timelockPerro =
+        'and_v(v:older($secondaryTimelock),pk($secondaryChangePublic))';
+    String timelockGato =
+        'and_v(v:older($primaryTimelock),pk($primaryChangePublic))';
+
+    // Combine the timelock conditions
+    String timelockCondition = (primaryTimelock < secondaryTimelock)
+        ? 'or_i($timelockGato,$timelockPerro)'
+        : 'or_i($timelockPerro,$timelockGato)';
+
+    // Return the final walletDescriptor
+    return 'wsh(or_d($multi,$timelockCondition))';
+  }
+
   Future<void> saveLocalData(Wallet wallet) async {
     String currentAddress = getAddress(wallet);
 
@@ -350,19 +262,9 @@ class WalletService {
       // Build the transaction
       final txBuilder = TxBuilder();
 
-      // Create recipient address
-      // final recipientAddress =
-      //     await Address.create(address: recipientAddressStr);
-      // final recipientScript = await recipientAddress.scriptPubKey();
-
-      // Create the change address
-      // final changeAddress = await Address.create(address: changeAddressStr);
-      // final changeScript = await changeAddress.scriptPubKey();
-
       final recipientAddress = await Address.fromString(
           s: recipientAddressStr, network: wallet.network());
       final recipientScript = recipientAddress.scriptPubkey();
-      // final feeRate = await estimateFeeRate(25, blockchain);
 
       final changeAddress = await Address.fromString(
           s: changeAddressStr, network: wallet.network());
@@ -398,14 +300,160 @@ class WalletService {
     }
   }
 
+  String replacePubKeyWithPrivKeyMultiSig(
+      String descriptor, String pubKey, String privKey) {
+    // Extract the derivation path and pubkey portion for dynamic matching
+    final regexPathPub = RegExp.escape('${pubKey.split(']')[0]}]') +
+        r'tpub[A-Za-z0-9]+\/\d+\/\*';
+
+    // Create a regex to match the exact pubKey
+    final regex = RegExp(regexPathPub);
+
+    // Replace only the matching public key with the private key
+    return descriptor.replaceFirstMapped(regex, (match) {
+      return privKey;
+    });
+  }
+
+  String replacePubKeyWithPrivKeyOlder(
+      String descriptor, String pubKey, String privKey) {
+    // Extract the derivation path prefix and ensure we match tpub keys with trailing paths
+    final regexPathPub = RegExp(
+      RegExp.escape('${pubKey.split(']')[0]}]') +
+          r'tpub[A-Za-z0-9]+\/(\d+)\/\*',
+    );
+
+    int matchCounter = 0;
+
+    // Replace all matches dynamically
+    return descriptor.replaceAllMapped(regexPathPub, (match) {
+      matchCounter++;
+      // Capture the derivation index (e.g., "0" or "1")
+
+      // Update the path for the second match to use "/1/*"
+      if (matchCounter == 2) {
+        return '${privKey.substring(0, privKey.length - 4)}/1/*';
+      } else {
+        return pubKey;
+      }
+    });
+  }
+
+  Future<(DescriptorSecretKey, DescriptorPublicKey)> deriveDescriptorKeys(
+    DerivationPath hardenedPath,
+    DerivationPath unHardenedPath,
+    Mnemonic mnemonic,
+  ) async {
+    // Create the root secret key from the mnemonic
+    final secretKey = await DescriptorSecretKey.create(
+      network: Network.testnet,
+      mnemonic: mnemonic,
+    );
+
+    // Derive the key at the hardened path
+    final derivedSecretKey = await secretKey.derive(hardenedPath);
+
+    // Extend the derived secret key further using the unhardened path
+    final derivedExtendedSecretKey =
+        await derivedSecretKey.extend(unHardenedPath);
+
+    // Convert the derived secret key to its public counterpart
+    final publicKey = derivedSecretKey.toPublic();
+
+    // Extend the public key using the same unhardened path
+    final derivedExtendedPublicKey =
+        await publicKey.extend(path: unHardenedPath);
+
+    return (derivedExtendedSecretKey, derivedExtendedPublicKey);
+  }
+
+  Future<int> extractOlderWithPrivateKey(String descriptor) async {
+    // Adjusted regex to match only "older" values followed by "pk(...tprv...)"
+    final regExp =
+        RegExp(r'older\((\d+)\).*?pk\(\[.*?](tp(?:rv|ub)[a-zA-Z0-9]+)');
+    final matches = regExp.allMatches(descriptor);
+
+    int older = 0;
+
+    for (var match in matches) {
+      String olderValue = match.group(1)!; // Extract the older value
+      String keyType = match.group(2)!; // Capture whether it's tprv or tpub
+
+      // Only process the match if it's a private key (tprv)
+      if (keyType.startsWith("tprv")) {
+        debugPrint(
+            'Found older value associated with private key: $olderValue');
+        older = int.parse(olderValue);
+      }
+    }
+
+    return older;
+  }
+
   // Method to create a PSBT for a multisig transaction, this psbt is signed by the first user
   Future<String?> createPartialTx(
+    String descriptor,
+    String mnemonic,
     String recipientAddressStr,
     BigInt amount,
-    Wallet wallet,
-    int olderValue,
     bool multiSig,
   ) async {
+    Map<String, Uint32List>? multiSigPath;
+    Map<String, Uint32List>? timeLockPath;
+
+    // print('Bool: $multiSig');
+    Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
+
+    final hardenedDerivationPath =
+        await DerivationPath.create(path: "m/84h/1h/0h");
+
+    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+
+    final (receivingSecretKey, receivingPublicKey) = await deriveDescriptorKeys(
+      hardenedDerivationPath,
+      receivingDerivationPath,
+      trueMnemonic,
+    );
+
+    if (multiSig) {
+      descriptor = replacePubKeyWithPrivKeyMultiSig(
+        descriptor,
+        receivingPublicKey.toString(),
+        receivingSecretKey.toString(),
+      );
+
+      wallet = await Wallet.create(
+        descriptor: await Descriptor.create(
+          descriptor: descriptor,
+          network: Network.testnet,
+        ),
+        network: Network.testnet,
+        databaseConfig: const DatabaseConfig.memory(),
+      );
+    } else {
+      descriptor = replacePubKeyWithPrivKeyOlder(
+        descriptor,
+        receivingPublicKey.toString(),
+        receivingSecretKey.toString(),
+      );
+
+      // print('Timelock Descriptor: $descriptor');
+
+      // print('PubKey: ${receivingPublicKey.toString()}');
+      // print('PrivKey: ${receivingSecretKey.toString()}');
+
+      wallet = await Wallet.create(
+        descriptor: await Descriptor.create(
+          descriptor: descriptor,
+          network: Network.testnet,
+        ),
+        network: Network.testnet,
+        databaseConfig: const DatabaseConfig.memory(),
+      );
+    }
+
+    final olderValue = await extractOlderWithPrivateKey(descriptor);
+
     await syncWallet(wallet);
 
     final utxos = wallet.getBalance();
@@ -417,7 +465,7 @@ class WalletService {
     final totalSpending = amount + BigInt.from(feeRate);
     debugPrint("Total Spending: $totalSpending");
 
-    // Filter out unconfirmed UTXOs
+    // Check If there are enough funds available
     if (utxos.confirmed < totalSpending) {
       // Exit early if no confirmed UTXOs are available
       throw Exception(
@@ -436,103 +484,106 @@ class WalletService {
           s: recipientAddressStr, network: wallet.network());
       final recipientScript = recipientAddress.scriptPubkey();
 
-      final internalChangeAddress = wallet.getInternalAddress(
+      var internalChangeAddress = wallet.getInternalAddress(
           addressIndex: const AddressIndex.peek(index: 0));
+
       final changeScript = internalChangeAddress.address.scriptPubkey();
 
-      final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
+      // final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
       final externalWalletPolicy = wallet.policies(KeychainKind.externalChain);
 
-      debugPrintPrettyJson(internalWalletPolicy!.asString());
-      debugPrintPrettyJson(externalWalletPolicy!.asString());
+      // debugPrintPrettyJson(internalWalletPolicy!.asString());
+      // debugPrintPrettyJson(externalWalletPolicy!.asString());
 
-      String policyString = externalWalletPolicy!.asString();
+      if (multiSig) {
+        multiSigPath = {
+          externalWalletPolicy!.id():
+              Uint32List.fromList([0]), // Returns the MULTISIG path
+        };
 
-      // Regular expression to capture both "id" and "type" fields
-      RegExp idTypePattern = RegExp(r'"id":\s*"(\w+)",\s*"type":\s*"(\w+)"');
-      List<Map<String, String>> idTypePairs = [];
+        debugPrint("Generated multiSigPath: $multiSigPath");
+      } else {
+        String policyString = externalWalletPolicy!.asString();
 
-      // Extract both ID and type pairs
-      for (final match in idTypePattern.allMatches(policyString)) {
-        String id = match.group(1)!;
-        String type = match.group(2)!;
-        idTypePairs.add({"id": id, "type": type});
+        // Regular expression to capture both "id" and "type" fields
+        RegExp idTypePattern = RegExp(r'"id":\s*"(\w+)",\s*"type":\s*"(\w+)"');
+        List<Map<String, String>> idTypePairs = [];
+
+        // Extract both ID and type pairs
+        for (final match in idTypePattern.allMatches(policyString)) {
+          String id = match.group(1)!;
+          String type = match.group(2)!;
+          idTypePairs.add({"id": id, "type": type});
+        }
+
+        debugPrint("Extracted ID and Type pairs: $idTypePairs");
+
+        RegExp timeLockPattern = RegExp(
+            r'"id":\s*"(\w+)",\s*"type":\s*"RELATIVETIMELOCK",\s*"value":\s*(\d+)');
+        List<Map<String, String>> timeLockPairs = [];
+
+        // Extract IDs, types, and values
+        for (final match in timeLockPattern.allMatches(policyString)) {
+          String id = match.group(1)!; // Extract the "id"
+          String value = match.group(2)!; // Extract the "value" as a string
+          timeLockPairs.add({"id": id, "value": value});
+        }
+
+        // Extract only the IDs where the value is olderValue
+        String timeLockId = timeLockPairs.firstWhere(
+            (pair) => pair["value"] == olderValue.toString())["id"]!;
+
+        debugPrint("TimeLock ID: $timeLockId");
+
+        // Extract only the IDs where the type is "THRESH"
+        List<String> threshIds = idTypePairs
+            .where((pair) => pair["type"] == "THRESH")
+            .map((pair) => pair["id"]!)
+            .toList();
+
+        // threshIds.removeWhere((id) => id == timeLockId);
+
+        debugPrint("THRESH IDs: $threshIds");
+
+        // Extract IDs using a regular expression
+        RegExp idPattern = RegExp(r'"id":\s*"(\w+)"');
+        List<String> ids = [];
+
+        for (final match in idPattern.allMatches(policyString)) {
+          ids.add(match.group(1)!);
+        }
+
+        debugPrint("Extracted IDs: $ids");
+
+        int index = ids.indexOf(timeLockId);
+
+        String? previousId = ids[index - 1];
+
+        debugPrint("Previous ID: $previousId");
+
+        int timeLockIndex = threshIds.indexOf(previousId);
+
+        debugPrint('timeLock Index: $timeLockIndex');
+        int correctIndex = 0;
+
+        if (timeLockIndex == 3) {
+          correctIndex = 1;
+        } else if (timeLockIndex == 2) {
+          correctIndex = 0;
+        }
+
+        // Use IDs as needed
+        timeLockPath = {
+          threshIds[0]: Uint32List.fromList(
+              [1]), // Top-level THRESH (selects second item)
+          threshIds[1]: Uint32List.fromList(
+              [correctIndex]), // Nested THRESH containing timelock
+          threshIds[timeLockIndex]: Uint32List.fromList(
+              [0, 1]) // Satisfies both timelock and signature
+        };
+
+        debugPrint("Generated timeLockPath: $timeLockPath");
       }
-
-      debugPrint("Extracted ID and Type pairs: $idTypePairs");
-
-      RegExp timeLockPattern = RegExp(
-          r'"id":\s*"(\w+)",\s*"type":\s*"RELATIVETIMELOCK",\s*"value":\s*(\d+)');
-      List<Map<String, String>> timeLockPairs = [];
-
-      // Extract IDs, types, and values
-      for (final match in timeLockPattern.allMatches(policyString)) {
-        String id = match.group(1)!; // Extract the "id"
-        String value = match.group(2)!; // Extract the "value" as a string
-        timeLockPairs.add({"id": id, "value": value});
-      }
-
-      // Extract only the IDs where the value is olderValue
-      String timeLockId = timeLockPairs
-          .firstWhere((pair) => pair["value"] == olderValue.toString())["id"]!;
-
-      debugPrint("TimeLock ID: $timeLockId");
-
-      // Extract only the IDs where the type is "THRESH"
-      List<String> threshIds = idTypePairs
-          .where((pair) => pair["type"] == "THRESH")
-          .map((pair) => pair["id"]!)
-          .toList();
-
-      // threshIds.removeWhere((id) => id == timeLockId);
-
-      debugPrint("THRESH IDs: $threshIds");
-
-      // Extract IDs using a regular expression
-      RegExp idPattern = RegExp(r'"id":\s*"(\w+)"');
-      List<String> ids = [];
-
-      for (final match in idPattern.allMatches(policyString)) {
-        ids.add(match.group(1)!);
-      }
-
-      debugPrint("Extracted IDs: $ids");
-
-      int index = ids.indexOf(timeLockId);
-
-      String? previousId = ids[index - 1];
-
-      debugPrint("Previous ID: $previousId");
-
-      int timeLockIndex = threshIds.indexOf(previousId);
-
-      debugPrint('timeLock Index: $timeLockIndex');
-      int correctIndex = 0;
-
-      if (timeLockIndex == 3) {
-        correctIndex = 1;
-      } else if (timeLockIndex == 2) {
-        correctIndex = 0;
-      }
-
-      // Use IDs as needed
-      Map<String, Uint32List> timeLockPath = {
-        threshIds[0]:
-            Uint32List.fromList([1]), // Top-level THRESH (selects second item)
-        threshIds[1]: Uint32List.fromList(
-            [correctIndex]), // Nested THRESH containing timelock
-        threshIds[timeLockIndex]:
-            Uint32List.fromList([0, 1]) // Satisfies both timelock and signature
-      };
-
-      debugPrint("Generated timeLockPath: $timeLockPath");
-
-      Map<String, Uint32List> multiSigPath = {
-        externalWalletPolicy.id():
-            Uint32List.fromList([0]), // Returns the MULTISIG path
-      };
-
-      debugPrint("Generated multiSigPath: $multiSigPath");
 
       // Build the transaction:
       (PartiallySignedTransaction, TransactionDetails) txBuilderResult;
@@ -540,9 +591,10 @@ class WalletService {
       if (multiSig) {
         debugPrint('MultiSig Builder');
         txBuilderResult = await txBuilder
+            // .enableRbf()
             .addRecipient(recipientScript, amount) // Send to recipient
             .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-            .policyPath(KeychainKind.internalChain, multiSigPath)
+            .policyPath(KeychainKind.internalChain, multiSigPath!)
             .policyPath(KeychainKind.externalChain, multiSigPath)
             .feeRate(
                 feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
@@ -577,9 +629,11 @@ class WalletService {
       } else {
         debugPrint('TimeLock Builder');
         txBuilderResult = await txBuilder
+            // .enableRbf()
+            // .enableRbfWithSequence(olderValue)
             .addRecipient(recipientScript, amount) // Send to recipient
             .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-            .policyPath(KeychainKind.internalChain, timeLockPath)
+            .policyPath(KeychainKind.internalChain, timeLockPath!)
             .policyPath(KeychainKind.externalChain, timeLockPath)
             .feeRate(
                 feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
@@ -588,8 +642,8 @@ class WalletService {
 
         debugPrint('Transaction Built');
 
-        // debugPrint('PSBT Before Signing: ');
-        // debugPrintInChunks(txBuilderResult.$1.toString());
+        debugPrint('PSBT Before Signing: ');
+        debugPrintInChunks(txBuilderResult.$1.toString());
 
         final signed = await wallet.sign(
           psbt: txBuilderResult.$1,
@@ -609,8 +663,8 @@ class WalletService {
           debugPrint('Signing returned false');
         }
 
-        // debugPrint('PSBT After Signing: ');
-        // debugPrintInChunks(txBuilderResult.$1.toString());
+        debugPrint('PSBT After Signing: ');
+        debugPrintInChunks(txBuilderResult.$1.toString());
       }
 
       try {
@@ -632,6 +686,7 @@ class WalletService {
           for (var input in await tx.input()) {
             debugPrint("Input sequence number: ${input.sequence}");
           }
+
           final isLockTime = await tx.isLockTimeEnabled();
           debugPrint('LockTime enabled: $isLockTime');
           final lockTime = await tx.lockTime();
@@ -665,7 +720,39 @@ class WalletService {
   }
 
   // This method takes a PSBT, signs it with the second user and then broadcasts it
-  Future<String> signBroadcastTx(String psbtString, Wallet wallet) async {
+  Future<String> signBroadcastTx(
+    String psbtString,
+    String descriptor,
+    String mnemonic,
+  ) async {
+    Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
+
+    final hardenedDerivationPath =
+        await DerivationPath.create(path: "m/84h/1h/0h");
+
+    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+
+    final (receivingSecretKey, receivingPublicKey) = await deriveDescriptorKeys(
+      hardenedDerivationPath,
+      receivingDerivationPath,
+      trueMnemonic,
+    );
+
+    descriptor = replacePubKeyWithPrivKeyMultiSig(
+      descriptor,
+      receivingPublicKey.toString(),
+      receivingSecretKey.toString(),
+    );
+
+    wallet = await Wallet.create(
+      descriptor: await Descriptor.create(
+        descriptor: descriptor,
+        network: Network.testnet,
+      ),
+      network: Network.testnet,
+      databaseConfig: const DatabaseConfig.memory(),
+    );
+
     await syncWallet(wallet);
 
     // Convert the psbt String to a PartiallySignedTransaction
@@ -699,8 +786,8 @@ class WalletService {
       debugPrint('Extracting');
 
       final lockTime = await tx.lockTime();
-
       print('LockTime: $lockTime');
+
       for (var input in await tx.input()) {
         debugPrint("Input sequence number: ${input.sequence}");
       }
@@ -715,7 +802,7 @@ class WalletService {
     } on Exception catch (e) {
       print("Error: ${e.toString()}");
 
-      throw Exception("Error: ${e.toString()}");
+      throw Exception("Error: ${e.toString()} psbt: $psbt");
     }
   }
 
@@ -758,7 +845,7 @@ class WalletService {
 
       // debugPrint('FeeRate: $feeRate');
 
-      return feeRate + 4;
+      return feeRate;
     } else {
       throw Exception('Failed to fetch available balance');
     }

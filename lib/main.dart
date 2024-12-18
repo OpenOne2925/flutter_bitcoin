@@ -12,6 +12,7 @@ import 'package:flutter_wallet/wallet_pages/shared_wallet_info.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet_page.dart';
 import 'package:flutter_wallet/utilities/theme_provider.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
+import 'package:flutter_wallet/wallet_pages/shared_wallet_tests.dart';
 import 'package:flutter_wallet/wallet_pages/wallet_page.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
@@ -95,6 +96,7 @@ class MyApp extends StatelessWidget {
               '/create_shared': (context) => const CreateSharedWallet(),
               '/import_shared': (context) => const ImportSharedWallet(),
               '/shared_wallet_info': (context) => const SharedWalletInfo(),
+              // '/shared_wallet_tests': (context) => const SharedWalletTests(),
             },
           );
         },

@@ -1,3 +1,4 @@
+import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -18,9 +19,11 @@ class CreateSharedWallet extends StatefulWidget {
 class CreateSharedWalletState extends State<CreateSharedWallet> {
   String? publicKey;
 
-  String? _pubKey;
   String? _pubKey2;
-  String? _privKey;
+
+  String? receiving1Key;
+  String? change1Key;
+  String? privateKey;
 
   bool isLoading = false; // For loading state during wallet creation
   bool walletCreated = false; // To avoid multiple wallet creations
@@ -64,7 +67,6 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
     if (existingDescriptor != null) {
       // print('Wallet with this mnemonic already exists.');
-      // descriptorString1 = existingDescriptor;
 
       if (!mounted) return;
 
@@ -93,22 +95,16 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
         ),
       );
     } else {
-      // print('Public Key 1: $_pubKey');
-      // print('Public Key 2: $_pubKey2');
-      // print('Private Key: $_privKey');
-      // print('Amount 1: $amount1');
-      // print('Amount 2: $amount2');
-      // print('Mnemonic: $_mnemonic');
-
       if (!mounted) return;
 
       Navigator.pushNamed(
         context,
         '/shared_wallet_info',
         arguments: {
-          'pubKey1': _pubKey,
+          'receiving1Key': receiving1Key,
+          'change1Key': change1Key,
+          'privKey': privateKey,
           'pubKey2': _pubKey2,
-          'privKey': _privKey,
           'amount1': amount1,
           'amount2': amount2,
           'mnemonic': _mnemonic,
@@ -117,216 +113,49 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     }
   }
 
-  // String createDescriptor(
-  //   List<dynamic> publicKeys,
-  //   int threshold,
-  //   List<dynamic> amounts,
-  // ) {
-  //   // Start building the descriptor
-  //   String descriptor = "wsh(or_d(multi($threshold";
-
-  //   for (int i = 0; i < threshold; i++) {
-  //     String pubKey = publicKeys[i];
-  //     descriptor += ",$pubKey";
-  //   }
-
-  //   descriptor += "),or_i(";
-
-  //   for (int i = threshold; i < publicKeys.length; i++) {
-  //     String pubKey = publicKeys[i];
-  //     int olderValue = amounts[i];
-
-  //     descriptor += "and_v(v:pkh($pubKey),older($olderValue))";
-  //     if (i != publicKeys.length - 1) {}
-  //   }
-
-  //   // Close the descriptor format
-  //   descriptor += "))";
-
-  //   return descriptor;
-  // }
-
-  // Future<void> createMultisigWallet(List<Map<String, dynamic>> dataList) async {
-  //   setState(() {
-  //     isLoading = true;
-  //   });
-  //   // String pubKey3, String pubKey4, to add in the second step
-
-  //   try {
-  //     // If needed this descriptor would just use the basic multisig setup for the change outputs, without any recovery clauses.
-  //     final descriptor = "wsh(multi(2,$pubKey1,$pubKey2))";
-
-  //     // List<dynamic> publicKeys =
-  //     //     dataList.map((data) => data['user'] ?? '').toList();
-
-  //     // int threshold = publicKeys.length;
-
-  //     // List<dynamic> amounts =
-  //     dataList.map((data) => data['amount'] ?? '').toList();
-
-  //     final descriptor1 = "wsh(multi(2,$pubKey2,$privKey1))";
-  //     // final descriptor = createDescriptor(publicKeys, threshold, amounts);
-
-  //     // print(descriptor);
-
-  //     // Create the wallet using the descriptor
-  //     descriptorWallet = await Descriptor.create(
-  //       descriptor: descriptor,
-  //       network: Network.Testnet, // Use Network.Mainnet for mainnet
-  //     );
-  //     descriptorWallet1 = await Descriptor.create(
-  //       descriptor: descriptor1,
-  //       network: Network.Testnet, // Use Network.Mainnet for mainnet
-  //     );
-
-  //     descriptorString = await descriptorWallet!.asString();
-  //     descriptorString1 = await descriptorWallet1!.asString();
-
-  //     // descriptorString = await descriptorWallet!.asStringPrivate();
-
-  //     // print(descriptorString);
-
-  //     // Create wallets from the descriptors
-  //     _wallet = await Wallet.create(
-  //       descriptor: descriptorWallet1!,
-  //       changeDescriptor: descriptorWallet1,
-  //       network: Network.Testnet,
-  //       databaseConfig: const DatabaseConfig.memory(),
-  //     );
-
-  //     print("Shared Wallet Created!");
-  //   } catch (e) {
-  //     print("Error creating wallet: $e");
-  //   } finally {
-  //     setState(() {
-  //       isLoading = false;
-  //       walletCreated = true; // Ensure wallet is only created once
-  //     });
-  //   }
-  // }
-
   Future<void> _generatePublicKey() async {
     var walletBox = Hive.box('walletBox');
+
     String savedMnemonic = walletBox.get('walletMnemonic');
 
-    var secretKey =
-        await _walletService.getSecretKeyfromMnemonic(savedMnemonic);
+    final mnemonic = await Mnemonic.fromString(savedMnemonic);
 
-    var futurePubKey = secretKey.toPublic();
-    var pubKey = futurePubKey.toString();
+    final hardenedDerivationPath =
+        await DerivationPath.create(path: "m/84h/1h/0h");
 
-    var privKey = secretKey.asString();
+    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
 
-    // print(pubKey);
-    // print(privKey);
+    final (receivingSecretKey, receivingPublicKey) =
+        await _walletService.deriveDescriptorKeys(
+      hardenedDerivationPath,
+      receivingDerivationPath,
+      mnemonic,
+    );
+
+    // print('Receiving: $receivingPublicKey');
+
+    // Regular expression to match the final '/0' before '/*'
+    final regex = RegExp(r'\/0(?=\/\*)');
+
+    // Replace the final '/0' with '/1'
+    final changePublicKey =
+        receivingPublicKey.toString().replaceFirst(regex, '/1');
+
+    // print('Change: $changePublicKey');
 
     setState(() {
-      publicKey = pubKey;
-      _pubKeyController.text = pubKey;
-      _pubKey = pubKey;
-      _privKey = privKey;
+      receiving1Key = receivingPublicKey.toString();
+      _pubKeyController.text = receivingPublicKey.toString();
+      change1Key = changePublicKey.toString();
+      privateKey = receivingSecretKey.toString();
       _mnemonic = savedMnemonic;
     });
   }
-
-  // // Function to show the dialog and get input from the user
-  // Future<void> _showInputDialog() async {
-  //   await showDialog(
-  //     context: context,
-  //     builder: (context) {
-  //       return AlertDialog(
-  //         title: const Text('Enter Data'),
-  //         content: Column(
-  //           mainAxisSize: MainAxisSize.min,
-  //           children: [
-  //             TextField(
-  //               controller: _field1Controller,
-  //               decoration: const InputDecoration(labelText: 'User'),
-  //             ),
-  //             TextField(
-  //               controller: _field2Controller,
-  //               decoration: const InputDecoration(labelText: 'Amount'),
-  //               keyboardType: TextInputType.number,
-  //             ),
-  //           ],
-  //         ),
-  //         actions: [
-  //           TextButton(
-  //             onPressed: () {
-  //               Navigator.of(context).pop(); // Close dialog without action
-  //             },
-  //             child: const Text('Cancel'),
-  //           ),
-  //           TextButton(
-  //             onPressed: () {
-  //               // Save the data to the list and close the dialog
-  //               setState(() {
-  //                 _dataList.add({
-  //                   'user': _field1Controller.text,
-  //                   'amount': int.parse(_field2Controller.text),
-  //                 });
-  //               });
-
-  //               // Clear the controllers for the next input
-  //               _field1Controller.clear();
-  //               _field2Controller.clear();
-
-  //               Navigator.of(context).pop(); // Close dialog
-  //             },
-  //             child: const Text('Submit'),
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
 
   @override
   Widget build(BuildContext context) {
     return BaseScaffold(
       title: const Text('Create Shared Wallet'),
-      // body: Padding(
-      //   padding: const EdgeInsets.all(16.0),
-      //   child: Column(
-      //     children: [
-      //       ElevatedButton(
-      //         onPressed: () {
-      //           _showInputDialog(); // Show the dialog when the button is pressed
-      //         },
-      //         child: const Text('Add Data'),
-      //       ),
-      //       const SizedBox(height: 20),
-      //       Expanded(
-      //         child: ListView.builder(
-      //           itemCount: _dataList.length,
-      //           itemBuilder: (context, index) {
-      //             return Card(
-      //               elevation: 3,
-      //               margin: const EdgeInsets.symmetric(vertical: 8),
-      //               child: Padding(
-      //                 padding: const EdgeInsets.all(16.0),
-      //                 child: Column(
-      //                   crossAxisAlignment: CrossAxisAlignment.start,
-      //                   children: [
-      //                     Text('User: ${_dataList[index]['user']}'),
-      //                     Text('Amount: ${_dataList[index]['amount']}'),
-      //                   ],
-      //                 ),
-      //               ),
-      //             );
-      //           },
-      //         ),
-      //       ),
-      //       ElevatedButton(
-      //         onPressed: () {
-      //           createMultisigWallet(
-      //               _dataList); // Show the dialog when the button is pressed
-      //         },
-      //         child: const Text('Print Data'),
-      //       ),
-      //     ],
-      //   ),
-      // ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
@@ -401,7 +230,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               TextFormField(
                 controller: _pubKeyController,
                 onChanged: (value) {
-                  _pubKey = value;
+                  receiving1Key = value;
                 },
                 decoration: CustomTextFieldStyles.textFieldDecoration(
                   context: context,

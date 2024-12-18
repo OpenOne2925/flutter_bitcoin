@@ -19,7 +19,8 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
   String? publicKey;
   String? _descriptor;
   String? _mnemonic;
-  String pubKey = "";
+  String receivingKey = "";
+  String changeKey = "";
   String privKey = "";
   String _status = 'Idle';
 
@@ -36,71 +37,34 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
 
     String savedMnemonic = walletBox.get('walletMnemonic');
 
+    final mnemonic = await Mnemonic.fromString(savedMnemonic);
+
+    final hardenedDerivationPath =
+        await DerivationPath.create(path: "m/84h/1h/0h");
+
+    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+    final changeDerivationPath = await DerivationPath.create(path: "m/1");
+
+    final (receivingSecretKey, receivingPublicKey) =
+        await _walletService.deriveDescriptorKeys(
+      hardenedDerivationPath,
+      receivingDerivationPath,
+      mnemonic,
+    );
+    final (changeSecretKey, changePublicKey) =
+        await _walletService.deriveDescriptorKeys(
+      hardenedDerivationPath,
+      changeDerivationPath,
+      mnemonic,
+    );
+
     _mnemonic = savedMnemonic;
 
-    var secretKey =
-        await _walletService.getSecretKeyfromMnemonic(savedMnemonic);
-
-    var futurePubKey = secretKey.toPublic();
-    pubKey = futurePubKey.toString();
-
     setState(() {
-      publicKey = pubKey;
+      receivingKey = receivingPublicKey.toString();
+      changeKey = changePublicKey.toString();
     });
   }
-
-  // Future<void> _generateWallet() async {
-  //   var walletBox = Hive.box('walletBox');
-
-  //   String savedMnemonic = walletBox.get('walletMnemonic');
-
-  //   _mnemonic = savedMnemonic;
-
-  //   var secretKey =
-  //       await _walletService.getSecretKeyfromMnemonic(savedMnemonic);
-
-  //   var futurePubKey = await secretKey.asPublic();
-  //   pubKey = futurePubKey.toString();
-
-  //   privKey = secretKey.asString();
-
-  //   final regExp = RegExp(r'\[[^\]]+\]tpub[0-9A-Za-z]+/\*');
-  //   // Find all matches of the content inside the square brackets and the tpub keys
-  //   final matches = regExp.allMatches(_descriptor!);
-
-  //   // print(_descriptor);
-
-  //   int i = 0;
-
-  //   for (var match in matches) {
-  //     i++;
-  //     // print('Matched Content: ${match.group(0)}');
-  //     if (pubKey != match.group(0)) {
-  //       pubKey = match.group(0)!;
-  //       // print(pubKey);
-
-  //       if (i == 1) {
-  //         _descriptor = "wsh(multi(2,$privKey,$pubKey))";
-  //       } else {
-  //         _descriptor = "wsh(multi(2,$pubKey,$privKey))";
-  //       }
-
-  //       break;
-  //     }
-  //   }
-
-  //   // print(_descriptor);
-
-  //   await _walletService.createSharedWallet(
-  //     _descriptor!,
-  //     Network.Testnet,
-  //     null,
-  //   );
-
-  //   setState(() {
-  //     _status = 'Wallet is being generated...';
-  //   });
-  // }
 
   void _navigateToSharedWallet() {
     Navigator.push(
@@ -114,90 +78,8 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
     );
   }
 
-  Future<void> _generateWallet() async {
-    var walletBox = Hive.box('walletBox');
-
-    String savedMnemonic = walletBox.get('walletMnemonic');
-
-    _mnemonic = savedMnemonic;
-
-    var secretKey =
-        await _walletService.getSecretKeyfromMnemonic(savedMnemonic);
-
-    var futurePubKey = secretKey.toPublic();
-    pubKey = futurePubKey.toString();
-
-    String pubKey1 = pubKey.replaceAll("*", "0/*");
-    String pubKey2 = pubKey.replaceAll("*", "1/*");
-
-    pubKey = pubKey.replaceAll("/*", "");
-
-    privKey = secretKey.asString();
-
-    String privKey1 = privKey.replaceAll("*", "0/*");
-    String privKey2 = privKey.replaceAll("*", "1/*");
-
-    final regExp = RegExp(r'\[[^\]]+\]tpub[0-9A-Za-z]+');
-    // Find all matches of the content inside the square brackets and the tpub keys
-    final matches = regExp.allMatches(_descriptor!);
-
-    // Define a regular expression to capture the numbers inside "after(...)"
-    final regExpAmount = RegExp(r'older\((\d+)\)');
-
-    // Find all matches in the descriptor string
-    final matchesAmount = regExpAmount.allMatches(_descriptor!);
-
-    // Extract the amounts
-    String amount1 = matchesAmount.elementAt(0).group(1) ?? '';
-    String amount2 = matchesAmount.elementAt(1).group(1) ?? '';
-
-    // print('Descriptor Matched: $_descriptor');
-
-    int i = 0;
-
-    for (var match in matches) {
-      i++;
-      // // print('Public Key: $pubKey');
-      // print('Matched Content: ${match.group(0)}');
-      if (pubKey != match.group(0)) {
-        pubKey = match.group(0)!;
-        // print('Ora' + pubKey);
-        pubKey1 = "$pubKey/0/*";
-        pubKey2 = "$pubKey/1/*";
-
-        // print(pubKey1);
-        // print(pubKey2);
-
-        if (i == 1) {
-          _descriptor =
-              "wsh(or_d(multi(2,$privKey1,$pubKey1),or_i(and_v(v:older($amount1),pk($pubKey2)),and_v(v:older($amount2),pk($privKey2)))))";
-          // print(privKey1);
-          // print(privKey2);
-          // _descriptor = "wsh(multi(2,$privKey,$pubKey))";
-        } else {
-          _descriptor =
-              "wsh(or_d(multi(2,$pubKey1,$privKey1),or_i(and_v(v:older($amount1),pk($privKey2)),and_v(v:older($amount2),pk($pubKey2)))))";
-          // _descriptor =
-          //     "wsh(or_d(pk($privKey1),and_v(v:older($amount1),pk($privKey2))))";
-
-          // print(privKey1);
-          // print(privKey2);
-          // _descriptor = "wsh(multi(2,$pubKey,$privKey))";
-        }
-
-        break;
-      }
-    }
-
-    // print('Final Descriptor: $_descriptor');
-
-    setState(() {
-      _status = 'Wallet is being generated...';
-    });
-  }
-
   Future<bool> _isValidDescriptor(String descriptorStr) async {
-    // Add your descriptor validation logic here
+    // TODO: Add your descriptor validation logic here
     // For example, check if it meets some specific pattern or length
 
     bool isValid = true;
@@ -302,8 +184,8 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Text(
-                      'Public Key: $publicKey',
+                    child: SelectableText(
+                      'Public Key: $receivingKey',
                       style: TextStyle(
                         fontSize: 16,
                         color: Theme.of(context)
@@ -346,11 +228,10 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
             // Import Shared Wallet button with form validation
             CustomButton(
               onPressed: () async {
+                _generatePublicKey();
                 // Validate the form before proceeding
                 if (_formKey.currentState!.validate()) {
-                  _generateWallet();
                   await Future.delayed(const Duration(milliseconds: 500));
-                  if (!mounted) return;
 
                   _navigateToSharedWallet();
                 } else {
