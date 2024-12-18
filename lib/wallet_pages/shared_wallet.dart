@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:typed_data';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
+import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/utilities/qr_scanner_page.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:hive/hive.dart';
@@ -72,8 +74,6 @@ class SharedWalletState extends State<SharedWallet> {
 
     walletService = WalletService();
 
-    // createSharedWallet();
-
     openBoxAndCheckWallet();
   }
 
@@ -114,7 +114,7 @@ class SharedWalletState extends State<SharedWallet> {
     // print('Retrieved descriptor: $existingDescriptor');
 
     if (existingDescriptor != null) {
-      print('Wallet with this mnemonic already exists.');
+      // print('Wallet with this mnemonic already exists.');
       loadWallet();
     } else {
       createWalletFromDescriptor();
@@ -214,7 +214,7 @@ class SharedWalletState extends State<SharedWallet> {
 
       await createSharedWallet();
 
-      descriptorBox.put('wallet_${widget.mnemonic}', widget.descriptor);
+      descriptorBox.put(widget.mnemonic, widget.descriptor);
 
       await walletService.saveLocalData(walletState!);
 
@@ -269,19 +269,43 @@ class SharedWalletState extends State<SharedWallet> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: Colors.grey[900], // Dark background color for dialog
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0), // Rounded corners
+          ),
           title: const Text('Send Bitcoin'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Recipient: $recipientAddressStr'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _amountController,
-                decoration: const InputDecoration(
-                  labelText: 'Amount (Sats)',
-                  hintText: 'Enter amount in satoshis',
+              Container(
+                padding: const EdgeInsets.all(8.0),
+                decoration: BoxDecoration(
+                  color: Colors.grey[800], // Slightly darker background
+                  borderRadius: BorderRadius.circular(8.0), // Rounded corners
                 ),
-                keyboardType: TextInputType.number,
+                child: Text(
+                  'Recipient: $recipientAddressStr',
+                  style: TextStyle(
+                    color: Colors.orange, // Text color for emphasis
+                    fontSize: 16.0, // Slightly larger font size
+                    fontWeight: FontWeight.bold, // Bold text
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _amountController, // Use the controller here
+                decoration: CustomTextFieldStyles.textFieldDecoration(
+                  context: context,
+                  labelText: 'Amount',
+                  hintText: 'Enter Amount (Sats)',
+                ),
+                style: TextStyle(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface, // Dynamic text color
+                ),
+                keyboardType: TextInputType.number, // Numeric input
               ),
               const SizedBox(height: 16),
               // Add the CheckboxListTile widget here
@@ -296,14 +320,47 @@ class SharedWalletState extends State<SharedWallet> {
                 controlAffinity:
                     ListTileControlAffinity.leading, // Checkbox on the left
               ),
+              const SizedBox(height: 16),
+              InkwellButton(
+                onTap: () async {
+                  try {
+                    final int availableBalance =
+                        await walletService.getAvailableBalance(address);
+
+                    final int sendAllBalance =
+                        await walletService.calculateSendAllBalance(
+                      recipientAddress: recipientAddressStr,
+                      wallet: walletState!,
+                      availableBalance: availableBalance,
+                      walletService: walletService,
+                    );
+
+                    _amountController.text = sendAllBalance.toString();
+                    // print('Final Send All Balance: $sendAllBalance');
+                  } catch (e) {
+                    print('Error: $e');
+                    _amountController.text = 'No balance Available';
+                  }
+                },
+                label: 'Send All',
+                icon: Icons.account_balance_wallet_rounded,
+                backgroundColor: Colors.orange,
+                textColor: Colors.white,
+                iconColor: Colors.white,
+              ),
             ],
           ),
           actions: [
-            TextButton(
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.orange,
-              ),
-              onPressed: () async {
+            InkwellButton(
+              onTap: () {
+                Navigator.of(context).pop(); // Close dialog
+              },
+              label: 'Cancel',
+              backgroundColor: Colors.white,
+              textColor: Colors.black,
+            ),
+            InkwellButton(
+              onTap: () async {
                 try {
                   final int amount = int.parse(_amountController.text);
 
@@ -319,7 +376,6 @@ class SharedWalletState extends State<SharedWallet> {
                     _txToSend = result;
                   });
 
-                  // Show a success message
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Transaction created successfully.'),
@@ -327,7 +383,6 @@ class SharedWalletState extends State<SharedWallet> {
                     ),
                   );
                 } catch (e) {
-                  // Show error message in a snackbar
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -341,7 +396,9 @@ class SharedWalletState extends State<SharedWallet> {
 
                 Navigator.of(context).pop();
               },
-              child: const Text('Submit'),
+              label: 'Submit',
+              backgroundColor: Colors.orange,
+              textColor: Colors.white,
             ),
           ],
         );
@@ -358,6 +415,10 @@ class SharedWalletState extends State<SharedWallet> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: Colors.grey[900], // Dark background color for dialog
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0), // Rounded corners
+          ),
           title: const Text('Sending Menu'),
           content: StatefulBuilder(
             builder: (BuildContext context, StateSetter setState) {
@@ -402,49 +463,53 @@ class SharedWalletState extends State<SharedWallet> {
                         ListTileControlAffinity.leading, // Checkbox on the left
                   ),
                   const SizedBox(height: 16),
-                  CustomButton(
-                    onPressed: () async {
-                      final int availableBalance =
-                          await walletService.getAvailableBalance(address);
-                      final int feeRate = await walletService.getFeeRate();
-                      final sendAllBalance = availableBalance - feeRate;
+                  InkwellButton(
+                    onTap: () async {
+                      try {
+                        final int availableBalance =
+                            await walletService.getAvailableBalance(address);
+                        final String recipientAddress =
+                            _recipientController.text.toString();
 
-                      if (sendAllBalance > 0) {
+                        final int sendAllBalance =
+                            await walletService.calculateSendAllBalance(
+                          recipientAddress: recipientAddress,
+                          wallet: walletState!,
+                          availableBalance: availableBalance,
+                          walletService: walletService,
+                        );
+
                         _amountController.text = sendAllBalance.toString();
-                      } else {
+                        // print('Final Send All Balance: $sendAllBalance');
+                      } catch (e) {
+                        print('Error: $e');
                         _amountController.text = 'No balance Available';
                       }
                     },
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.orange,
-                    icon: Icons.send_rounded,
-                    iconColor: Colors.black,
                     label: 'Send All',
+                    icon: Icons.account_balance_wallet_rounded,
+                    backgroundColor: Colors.orange,
+                    textColor: Colors.white,
+                    iconColor: Colors.white,
                   ),
                 ],
               );
             },
           ),
           actions: [
-            TextButton(
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.white,
-              ),
-              onPressed: () {
+            InkwellButton(
+              onTap: () {
                 Navigator.of(context).pop(); // Close dialog
               },
-              child: const Text('Cancel'),
+              label: 'Cancel',
+              backgroundColor: Colors.white,
+              textColor: Colors.black,
             ),
-            TextButton(
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.orange,
-              ),
-              onPressed: () async {
+            InkwellButton(
+              onTap: () async {
                 try {
                   final String recipientAddressStr = _recipientController.text;
                   final int amount = int.parse(_amountController.text);
-
-                  // print(widget.descriptor);
 
                   final result = await walletService.createPartialTx(
                     _descriptor.toString(),
@@ -458,7 +523,6 @@ class SharedWalletState extends State<SharedWallet> {
                     _txToSend = result;
                   });
 
-                  // Show a success message
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Transaction created successfully.'),
@@ -466,7 +530,6 @@ class SharedWalletState extends State<SharedWallet> {
                     ),
                   );
                 } catch (e) {
-                  // Show error message in a snackbar
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -480,7 +543,9 @@ class SharedWalletState extends State<SharedWallet> {
 
                 Navigator.of(context).pop();
               },
-              child: const Text('Submit'),
+              label: 'Submit',
+              backgroundColor: Colors.orange,
+              textColor: Colors.white,
             ),
           ],
         );
@@ -583,41 +648,97 @@ class SharedWalletState extends State<SharedWallet> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Receive Bitcoin'),
-          content: SingleChildScrollView(
+          backgroundColor: Colors.grey[900], // Dark background for the dialog
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0), // Rounded corners
+          ),
+          title: Text(
+            'Receive Bitcoin',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.orange, // Highlighted title color
+            ),
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 300.0, // Ensure content does not exceed this width
+            ),
             child: Column(
               mainAxisSize:
                   MainAxisSize.min, // Minimize the height of the Column
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Wrap the QR code in a SizedBox or Container with defined constraints
-                SizedBox(
-                  width: 200, // Explicitly set width and height for the QR code
-                  height: 200,
+                // QR Code Container
+                Container(
+                  width: 200, // Explicit width
+                  height: 200, // Explicit height
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(
+                        16.0), // Rounded QR code container
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(),
+                        blurRadius: 8.0,
+                        spreadRadius: 2.0,
+                        offset: const Offset(0, 4), // Subtle shadow for QR code
+                      ),
+                    ],
+                  ),
                   child: QrImageView(
                     data: address,
                     version: QrVersions.auto,
+                    size: 180.0, // Ensure QR code is smaller than the container
                     backgroundColor: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 16),
                 // Display the actual address below the QR code
-                SelectableText(
-                  address,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        address,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.white70, // Softer text color
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8), // Space between text and icon
+                    IconButton(
+                      icon: const Icon(
+                        Icons.copy,
+                        color: Colors.orange, // Highlighted icon color
+                      ),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: address));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Address copied to clipboard!'),
+                            backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.orange,
-              ),
-              onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
+            InkwellButton(
+              onTap: () {
+                Navigator.of(context).pop(); // Close dialog
               },
-              child: const Text('Close'),
+              label: 'Cancel',
+              backgroundColor: Colors.white,
+              textColor: Colors.black,
             ),
           ],
         );
@@ -684,9 +805,8 @@ class SharedWalletState extends State<SharedWallet> {
   Future<void> _syncWallet() async {
     _descriptor = widget.descriptor;
 
-    if (kDebugMode) {
-      print('Descriptor: ${widget.descriptor}');
-    }
+    // print('Descriptor: ${widget.descriptor}');
+
     final List<ConnectivityResult> connectivityResult =
         await (Connectivity().checkConnectivity());
 
@@ -754,11 +874,30 @@ class SharedWalletState extends State<SharedWallet> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Enter PIN'),
+          backgroundColor: Colors.grey[900], // Dark background for the dialog
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0), // Rounded corners
+          ),
+          title: const Text(
+            'Enter PIN',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.orange,
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Please enter your 6-digit PIN:'),
+              const Text(
+                'Please enter your 6-digit PIN:',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white70,
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: pinController, // Controller to capture PIN input
@@ -778,25 +917,39 @@ class SharedWalletState extends State<SharedWallet> {
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () {
+            InkwellButton(
+              onTap: () {
                 Navigator.of(context).pop(); // Close the dialog without action
               },
-              child: const Text('Cancel'),
+              label: 'Cancel',
+              backgroundColor: Colors.white,
+              textColor: Colors.black,
+              icon: Icons.cancel_rounded,
+              iconColor: Colors.black,
             ),
-            ElevatedButton(
-              onPressed: () {
+            InkwellButton(
+              onTap: () {
                 String pin = pinController.text;
                 if (pin.length == 6) {
-                  verifyPin(pinController);
+                  verifyPin(pinController); // Call the verification function
                 } else {
                   // Show an error if the PIN is invalid
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Invalid PIN')),
+                    const SnackBar(
+                      content: Text(
+                        'Invalid PIN',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               },
-              child: const Text('Confirm'),
+              label: 'Confirm',
+              backgroundColor: Colors.orange,
+              textColor: Colors.white,
+              icon: Icons.check_rounded,
+              iconColor: Colors.white,
             ),
           ],
         );
@@ -817,20 +970,141 @@ class SharedWalletState extends State<SharedWallet> {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: const Text('Your Mnemonic'),
+            backgroundColor: Colors.grey[900], // Dark background for the dialog
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20.0), // Rounded corners
+            ),
+            title: const Text(
+              'Your Private Data',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.orange, // Highlighted title color
+              ),
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SelectableText(savedMnemonic),
+                const Text(
+                  'Here is your saved mnemonic:',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white70, // Softer text color
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    borderRadius: BorderRadius.circular(8.0), // Rounded edges
+                    border: Border.all(
+                      color: Colors.orange, // Border color for emphasis
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: SelectableText(
+                          savedMnemonic,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.white70, // Softer text color
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8), // Space between text and icon
+                      IconButton(
+                        icon: const Icon(
+                          Icons.copy,
+                          color: Colors.orange, // Highlighted icon color
+                        ),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: address));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content:
+                                  const Text('Address copied to clipboard!'),
+                              backgroundColor: Colors.green,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Here is your saved descriptor:',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white70, // Softer text color
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    borderRadius: BorderRadius.circular(8.0), // Rounded edges
+                    border: Border.all(
+                      color: Colors.orange, // Border color for emphasis
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _descriptor.toString(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.white70, // Softer text color
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8), // Space between text and icon
+                      IconButton(
+                        icon: const Icon(
+                          Icons.copy,
+                          color: Colors.orange, // Highlighted icon color
+                        ),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: address));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content:
+                                  const Text('Address copied to clipboard!'),
+                              backgroundColor: Colors.green,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
             actions: [
-              TextButton(
-                onPressed: () {
+              InkwellButton(
+                onTap: () {
                   Navigator.of(context)
                       .pop(); // Close the dialog without action
                 },
-                child: const Text('Cancel'),
+                label: 'Close',
+                backgroundColor: Colors.orange,
+                textColor: Colors.white,
+                icon: Icons.close,
               ),
             ],
           );
@@ -909,7 +1183,7 @@ class SharedWalletState extends State<SharedWallet> {
                       foregroundColor: Colors.black,
                       icon: Icons.remove_red_eye, // Icon for the new button
                       iconColor: Colors.orange,
-                      label: 'Mnemonic',
+                      label: 'Private Data',
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -929,20 +1203,19 @@ class SharedWalletState extends State<SharedWallet> {
                         const SizedBox(width: 8),
                         // Scan To Send Button
                         CustomButton(
-                          // TODO: QRSCANNER
                           onPressed: () async {
                             // Handle scanning address functionality
-                            // final recipientAddressStr = await Navigator.push(
-                            //   context,
-                            //   MaterialPageRoute(
-                            //       builder: (context) => const QRScannerPage()),
-                            // );
+                            final recipientAddressStr = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const QRScannerPage()),
+                            );
 
                             // If a valid Bitcoin address was scanned, show the transaction dialog
-                            // if (recipientAddressStr != null) {
-                            //   // Show the transaction dialog after the scanning
-                            //   _showTransactionDialog(recipientAddressStr);
-                            // }
+                            if (recipientAddressStr != null) {
+                              // Show the transaction dialog after the scanning
+                              _showTransactionDialog(recipientAddressStr);
+                            }
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:

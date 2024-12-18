@@ -93,7 +93,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
         ),
         onTap: () {
           Navigator.of(context).pushNamedAndRemoveUntil(
-              '/ca_wallet_page', (Route<dynamic> route) => false);
+              '/wallet_page', (Route<dynamic> route) => false);
         },
       ),
     );
@@ -107,6 +107,8 @@ class BaseScaffoldState extends State<BaseScaffold> {
     for (int i = 0; i < (_descriptorBox?.length ?? 0); i++) {
       final mnemonic = _descriptorBox?.keyAt(i);
       final descriptor = _descriptorBox?.getAt(i);
+
+      // print('mnemonic: $mnemonic');
 
       // Create a new card for each shared wallet
       sharedWalletCards.add(

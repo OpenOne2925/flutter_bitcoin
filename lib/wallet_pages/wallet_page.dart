@@ -1,9 +1,11 @@
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
+import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/utilities/qr_scanner_page.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
@@ -211,29 +213,87 @@ class WalletPageState extends State<WalletPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: Colors.grey[900], // Dark background color for dialog
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0), // Rounded corners
+          ),
           title: const Text('Send Bitcoin'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Recipient: $recipientAddressStr'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _amountController,
-                decoration: const InputDecoration(
-                  labelText: 'Amount (Sats)',
-                  hintText: 'Enter amount in satoshis',
+              Container(
+                padding: const EdgeInsets.all(8.0),
+                decoration: BoxDecoration(
+                  color: Colors.grey[800], // Slightly darker background
+                  borderRadius: BorderRadius.circular(8.0), // Rounded corners
                 ),
-                keyboardType: TextInputType.number,
+                child: Text(
+                  'Recipient: $recipientAddressStr',
+                  style: TextStyle(
+                    color: Colors.orange, // Text color for emphasis
+                    fontSize: 16.0, // Slightly larger font size
+                    fontWeight: FontWeight.bold, // Bold text
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _amountController, // Use the controller here
+                decoration: CustomTextFieldStyles.textFieldDecoration(
+                  context: context,
+                  labelText: 'Amount',
+                  hintText: 'Enter Amount (Sats)',
+                ),
+                style: TextStyle(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface, // Dynamic text color
+                ),
+                keyboardType: TextInputType.number, // Numeric input
+              ),
+              InkwellButton(
+                onTap: () async {
+                  try {
+                    final int availableBalance =
+                        await walletService.getAvailableBalance(address);
+
+                    final int sendAllBalance =
+                        await walletService.calculateSendAllBalance(
+                      recipientAddress: recipientAddressStr,
+                      wallet: wallet,
+                      availableBalance: availableBalance,
+                      walletService: walletService,
+                    );
+
+                    _amountController.text = sendAllBalance.toString();
+                    print('Final Send All Balance: $sendAllBalance');
+                  } catch (e) {
+                    print('Error: $e');
+                    _amountController.text = 'No balance Available';
+                  }
+                },
+                label: 'Send All',
+                icon: Icons.account_balance_wallet_rounded,
+                backgroundColor: Colors.orange,
+                textColor: Colors.white,
+                iconColor: Colors.white,
               ),
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () async {
+            InkwellButton(
+              onTap: () {
+                Navigator.of(context).pop(); // Close dialog
+              },
+              label: 'Cancel',
+              backgroundColor: Colors.white,
+              textColor: Colors.black,
+            ),
+            InkwellButton(
+              onTap: () async {
                 try {
                   final int amount = int.parse(_amountController.text);
-                  final String changeAddressStr =
-                      address; // Your change address
+                  final String changeAddressStr = address;
 
                   await walletService.sendTx(
                     recipientAddressStr,
@@ -262,10 +322,11 @@ class WalletPageState extends State<WalletPage> {
                   );
                 }
 
-                // Close the dialog after submitting
                 Navigator.of(context).pop();
               },
-              child: const Text('Submit'),
+              label: 'Submit',
+              backgroundColor: Colors.orange,
+              textColor: Colors.white,
             ),
           ],
         );
@@ -326,42 +387,48 @@ class WalletPageState extends State<WalletPage> {
               const SizedBox(height: 16),
 
               // "Send All" Button
-              CustomButton(
-                onPressed: () async {
-                  final int availableBalance =
-                      await walletService.getAvailableBalance(address);
-                  final int feeRate = await walletService.getFeeRate();
-                  final sendAllBalance = availableBalance - feeRate;
+              InkwellButton(
+                onTap: () async {
+                  try {
+                    final int availableBalance =
+                        await walletService.getAvailableBalance(address);
+                    final String recipientAddress =
+                        _recipientController.text.toString();
 
-                  if (sendAllBalance > 0) {
+                    final int sendAllBalance =
+                        await walletService.calculateSendAllBalance(
+                      recipientAddress: recipientAddress,
+                      wallet: wallet,
+                      availableBalance: availableBalance,
+                      walletService: walletService,
+                    );
+
                     _amountController.text = sendAllBalance.toString();
-                  } else {
+                    print('Final Send All Balance: $sendAllBalance');
+                  } catch (e) {
+                    print('Error: $e');
                     _amountController.text = 'No balance Available';
                   }
                 },
-                backgroundColor: Colors.white, // White background
-                foregroundColor: Colors.orange, // Bitcoin orange color for text
-                icon: Icons.percent, // Icon you want to use
-                iconColor: Colors.black, // Color for the icon
                 label: 'Send All',
+                icon: Icons.account_balance_wallet_rounded,
+                backgroundColor: Colors.orange,
+                textColor: Colors.white,
+                iconColor: Colors.white,
               ),
             ],
           ),
           actions: [
-            TextButton(
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.white, // Button text color
-              ),
-              onPressed: () {
+            InkwellButton(
+              onTap: () {
                 Navigator.of(context).pop(); // Close dialog
               },
-              child: const Text('Cancel'),
+              label: 'Cancel',
+              backgroundColor: Colors.white,
+              textColor: Colors.black,
             ),
-            TextButton(
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.orange, // Button text color
-              ),
-              onPressed: () async {
+            InkwellButton(
+              onTap: () async {
                 try {
                   final String recipientAddressStr = _recipientController.text;
                   final int amount = int.parse(_amountController.text);
@@ -396,7 +463,9 @@ class WalletPageState extends State<WalletPage> {
 
                 Navigator.of(context).pop();
               },
-              child: const Text('Submit'),
+              label: 'Submit',
+              backgroundColor: Colors.orange,
+              textColor: Colors.white,
             ),
           ],
         );
@@ -410,38 +479,97 @@ class WalletPageState extends State<WalletPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Receive Bitcoin'),
-          content: SingleChildScrollView(
+          backgroundColor: Colors.grey[900], // Dark background for the dialog
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0), // Rounded corners
+          ),
+          title: Text(
+            'Receive Bitcoin',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.orange, // Highlighted title color
+            ),
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: 300.0, // Ensure content does not exceed this width
+            ),
             child: Column(
               mainAxisSize:
                   MainAxisSize.min, // Minimize the height of the Column
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Wrap the QR code in a SizedBox or Container with defined constraints
-                SizedBox(
-                  width: 200, // Explicitly set width and height for the QR code
-                  height: 200,
+                // QR Code Container
+                Container(
+                  width: 200, // Explicit width
+                  height: 200, // Explicit height
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(
+                        16.0), // Rounded QR code container
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(),
+                        blurRadius: 8.0,
+                        spreadRadius: 2.0,
+                        offset: const Offset(0, 4), // Subtle shadow for QR code
+                      ),
+                    ],
+                  ),
                   child: QrImageView(
                     data: address,
                     version: QrVersions.auto,
+                    size: 180.0, // Ensure QR code is smaller than the container
                     backgroundColor: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 16),
                 // Display the actual address below the QR code
-                SelectableText(
-                  address,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        address,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.white70, // Softer text color
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8), // Space between text and icon
+                    IconButton(
+                      icon: const Icon(
+                        Icons.copy,
+                        color: Colors.orange, // Highlighted icon color
+                      ),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: address));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Address copied to clipboard!'),
+                            backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog
+            InkwellButton(
+              onTap: () {
+                Navigator.of(context).pop(); // Close dialog
               },
-              child: const Text('Close'),
+              label: 'Cancel',
+              backgroundColor: Colors.white,
+              textColor: Colors.black,
             ),
           ],
         );
@@ -458,11 +586,30 @@ class WalletPageState extends State<WalletPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Enter PIN'),
+          backgroundColor: Colors.grey[900], // Dark background for the dialog
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0), // Rounded corners
+          ),
+          title: const Text(
+            'Enter PIN',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.orange,
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Please enter your 6-digit PIN:'),
+              const Text(
+                'Please enter your 6-digit PIN:',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white70,
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: pinController, // Controller to capture PIN input
@@ -482,25 +629,39 @@ class WalletPageState extends State<WalletPage> {
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () {
+            InkwellButton(
+              onTap: () {
                 Navigator.of(context).pop(); // Close the dialog without action
               },
-              child: const Text('Cancel'),
+              label: 'Cancel',
+              backgroundColor: Colors.white,
+              textColor: Colors.black,
+              icon: Icons.cancel_rounded,
+              iconColor: Colors.black,
             ),
-            ElevatedButton(
-              onPressed: () {
+            InkwellButton(
+              onTap: () {
                 String pin = pinController.text;
                 if (pin.length == 6) {
-                  verifyPin(pinController);
+                  verifyPin(pinController); // Call the verification function
                 } else {
                   // Show an error if the PIN is invalid
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Invalid PIN')),
+                    const SnackBar(
+                      content: Text(
+                        'Invalid PIN',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               },
-              child: const Text('Confirm'),
+              label: 'Confirm',
+              backgroundColor: Colors.orange,
+              textColor: Colors.white,
+              icon: Icons.check_rounded,
+              iconColor: Colors.white,
             ),
           ],
         );
@@ -521,20 +682,87 @@ class WalletPageState extends State<WalletPage> {
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: const Text('Your Mnemonic'),
+            backgroundColor: Colors.grey[900], // Dark background for the dialog
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20.0), // Rounded corners
+            ),
+            title: const Text(
+              'Your Mnemonic',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.orange, // Highlighted title color
+              ),
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SelectableText(savedMnemonic),
+                const Text(
+                  'Here is your saved mnemonic:',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white70, // Softer text color
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    borderRadius: BorderRadius.circular(8.0), // Rounded edges
+                    border: Border.all(
+                      color: Colors.orange, // Border color for emphasis
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: SelectableText(
+                          savedMnemonic,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.white70, // Softer text color
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8), // Space between text and icon
+                      IconButton(
+                        icon: const Icon(
+                          Icons.copy,
+                          color: Colors.orange, // Highlighted icon color
+                        ),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: address));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content:
+                                  const Text('Address copied to clipboard!'),
+                              backgroundColor: Colors.green,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
             actions: [
-              TextButton(
-                onPressed: () {
+              InkwellButton(
+                onTap: () {
                   Navigator.of(context)
                       .pop(); // Close the dialog without action
                 },
-                child: const Text('Cancel'),
+                label: 'Close',
+                backgroundColor: Colors.orange,
+                textColor: Colors.white,
+                icon: Icons.close,
               ),
             ],
           );
@@ -561,7 +789,12 @@ class WalletPageState extends State<WalletPage> {
               child: ListView(
                 padding: const EdgeInsets.all(8.0),
                 children: [
-                  _buildInfoBox('Address', address, () {}),
+                  _buildInfoBox(
+                    'Address',
+                    address,
+                    () {},
+                    showCopyButton: true,
+                  ),
                   Row(
                     children: [
                       Expanded(
@@ -592,7 +825,7 @@ class WalletPageState extends State<WalletPage> {
                       backgroundColor: Colors.white,
                       foregroundColor: Colors.orange,
                       icon: Icons.remove_red_eye, // Icon for the new button
-                      iconColor: Colors.orange,
+                      iconColor: Colors.black,
                       label: 'Mnemonic',
                     ),
                     const SizedBox(height: 16),
@@ -614,14 +847,14 @@ class WalletPageState extends State<WalletPage> {
                         // Scan to Send Button
                         CustomButton(
                           onPressed: () async {
-                            // final recipientAddressStr = await Navigator.push(
-                            //   context,
-                            //   MaterialPageRoute(
-                            //       builder: (context) => const QRScannerPage()),
-                            // );
-                            // if (recipientAddressStr != null) {
-                            //   _showTransactionDialog(recipientAddressStr);
-                            // }
+                            final recipientAddressStr = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const QRScannerPage()),
+                            );
+                            if (recipientAddressStr != null) {
+                              _showTransactionDialog(recipientAddressStr);
+                            }
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:
@@ -654,8 +887,9 @@ class WalletPageState extends State<WalletPage> {
     );
   }
 
-// Box for displaying general wallet info with onTap functionality
-  Widget _buildInfoBox(String title, String data, VoidCallback onTap) {
+  // Box for displaying general wallet info with onTap functionality
+  Widget _buildInfoBox(String title, String data, VoidCallback onTap,
+      {bool showCopyButton = false}) {
     return GestureDetector(
       onTap: onTap, // Detects tap and calls the passed function
       child: Card(
@@ -679,12 +913,34 @@ class WalletPageState extends State<WalletPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              SelectableText(
-                data,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.black, // Black text to match theme
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      data,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black, // Black text to match theme
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (showCopyButton) // Display copy button if true
+                    IconButton(
+                      icon: const Icon(Icons.copy, color: Colors.orange),
+                      tooltip: 'Copy to clipboard',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: data));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Copied to clipboard"),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                    ),
+                ],
               ),
             ],
           ),

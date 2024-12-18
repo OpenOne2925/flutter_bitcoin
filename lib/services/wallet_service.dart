@@ -59,7 +59,7 @@ class WalletService {
       }
       return descriptors;
     } on Exception catch (e) {
-      // debugPrint("Error: ${e.toString()}");
+      // print("Error: ${e.toString()}");
       throw ("Error: ${e.toString()}");
     }
   }
@@ -84,11 +84,11 @@ class WalletService {
       // var addressInfo =
       //     await res.getAddress(addressIndex: const AddressIndex());
 
-      // debugPrint(res);
+      // print(res);
 
       return res;
     } on Exception catch (e) {
-      // debugPrint("Error: ${e.toString()}");
+      // print("Error: ${e.toString()}");
       throw Exception('Failed to create wallet (Error: ${e.toString()})');
     }
   }
@@ -97,7 +97,7 @@ class WalletService {
     // await syncWallet(wallet);
     Balance balance = wallet.getBalance();
 
-    // debugPrint(balance.total);
+    // print(balance.total);
 
     return balance.total;
   }
@@ -105,14 +105,14 @@ class WalletService {
   Future<int> getLedgerBalance(String address) async {
     final memPoolUrl = '$baseUrl/address/$address';
 
-    // debugPrint(address);
+    // print(address);
 
     final response = await http.get(Uri.parse(memPoolUrl));
 
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(response.body);
 
-      // debugPrint(response.body);
+      // print(response.body);
 
       // Ledger Balance: chain_stats
       // (founded txo_sum - spent_txo_sum)
@@ -121,12 +121,12 @@ class WalletService {
       int chainSpentTxoSum =
           jsonResponse['chain_stats']['spent_txo_sum'] as int;
 
-      // debugPrint(chainSpentTxoSum);
-      // debugPrint(chainFundedTxoSum);
+      // print(chainSpentTxoSum);
+      // print(chainFundedTxoSum);
 
       int ledgerJsonBalance = chainFundedTxoSum - chainSpentTxoSum;
 
-      // debugPrint("Ledger Balance: " + ledgerJsonBalance.toString());
+      // print("Ledger Balance: " + ledgerJsonBalance.toString());
 
       return ledgerJsonBalance;
     } else {
@@ -142,7 +142,7 @@ class WalletService {
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(response.body);
 
-      // debugPrint(response.body);
+      // print(response.body);
 
       // Available Balance: mempool_stats
       // Ledger Balance + (founded_txo_sum - spent_txo_sum)
@@ -156,7 +156,7 @@ class WalletService {
       int availableJsonBalance =
           (ledgerJsonBalance + (memFundedTxoSum - memSpentTxoSum));
 
-      // debugPrint("Available Balance: " + availableJsonBalance.toString());
+      // print("Available Balance: " + availableJsonBalance.toString());
 
       return availableJsonBalance;
     } else {
@@ -168,7 +168,7 @@ class WalletService {
     var walletBox = Hive.box('walletBox');
     String? savedMnemonic = walletBox.get('walletMnemonic');
 
-    // debugPrint(savedMnemonic);
+    // print(savedMnemonic);
 
     if (savedMnemonic != null) {
       // Restore the wallet using the saved mnemonic
@@ -177,7 +177,7 @@ class WalletService {
         Network.testnet,
         null, // Use a saved password if required
       );
-      // debugPrint(wallet);
+      // print(wallet);
       return wallet;
     } else {
       wallet = await createOrRestoreWallet(
@@ -256,7 +256,7 @@ class WalletService {
     await syncWallet(wallet);
 
     // final utxos = await wallet.getBalance();
-    // debugPrint("Available UTXOs: ${utxos.total}");
+    // print("Available UTXOs: ${utxos.total}");
 
     try {
       // Build the transaction
@@ -295,7 +295,7 @@ class WalletService {
         await blockchain.broadcast(transaction: tx);
       }
     } on Exception catch (e) {
-      // debugPrint("Error: ${e.toString()}");
+      // print("Error: ${e.toString()}");
       throw Exception('Failed to send Transaction (Error: ${e.toString()})');
     }
   }
@@ -381,8 +381,7 @@ class WalletService {
 
       // Only process the match if it's a private key (tprv)
       if (keyType.startsWith("tprv")) {
-        debugPrint(
-            'Found older value associated with private key: $olderValue');
+        print('Found older value associated with private key: $olderValue');
         older = int.parse(olderValue);
       }
     }
@@ -457,13 +456,13 @@ class WalletService {
     await syncWallet(wallet);
 
     final utxos = wallet.getBalance();
-    debugPrint("Available UTXOs: ${utxos.confirmed}");
+    print("Available UTXOs: ${utxos.confirmed}");
 
     final unspent = wallet.listUnspent();
     final feeRate = await getFeeRate();
 
     final totalSpending = amount + BigInt.from(feeRate);
-    debugPrint("Total Spending: $totalSpending");
+    print("Total Spending: $totalSpending");
 
     // Check If there are enough funds available
     if (utxos.confirmed < totalSpending) {
@@ -473,7 +472,7 @@ class WalletService {
     }
 
     for (var utxo in unspent) {
-      debugPrint('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
+      print('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
     }
 
     try {
@@ -492,8 +491,8 @@ class WalletService {
       // final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
       final externalWalletPolicy = wallet.policies(KeychainKind.externalChain);
 
-      // debugPrintPrettyJson(internalWalletPolicy!.asString());
-      // debugPrintPrettyJson(externalWalletPolicy!.asString());
+      // printPrettyJson(internalWalletPolicy!.asString());
+      // printPrettyJson(externalWalletPolicy!.asString());
 
       if (multiSig) {
         multiSigPath = {
@@ -501,7 +500,7 @@ class WalletService {
               Uint32List.fromList([0]), // Returns the MULTISIG path
         };
 
-        debugPrint("Generated multiSigPath: $multiSigPath");
+        print("Generated multiSigPath: $multiSigPath");
       } else {
         String policyString = externalWalletPolicy!.asString();
 
@@ -516,7 +515,7 @@ class WalletService {
           idTypePairs.add({"id": id, "type": type});
         }
 
-        debugPrint("Extracted ID and Type pairs: $idTypePairs");
+        print("Extracted ID and Type pairs: $idTypePairs");
 
         RegExp timeLockPattern = RegExp(
             r'"id":\s*"(\w+)",\s*"type":\s*"RELATIVETIMELOCK",\s*"value":\s*(\d+)');
@@ -533,7 +532,7 @@ class WalletService {
         String timeLockId = timeLockPairs.firstWhere(
             (pair) => pair["value"] == olderValue.toString())["id"]!;
 
-        debugPrint("TimeLock ID: $timeLockId");
+        print("TimeLock ID: $timeLockId");
 
         // Extract only the IDs where the type is "THRESH"
         List<String> threshIds = idTypePairs
@@ -543,7 +542,7 @@ class WalletService {
 
         // threshIds.removeWhere((id) => id == timeLockId);
 
-        debugPrint("THRESH IDs: $threshIds");
+        print("THRESH IDs: $threshIds");
 
         // Extract IDs using a regular expression
         RegExp idPattern = RegExp(r'"id":\s*"(\w+)"');
@@ -553,17 +552,17 @@ class WalletService {
           ids.add(match.group(1)!);
         }
 
-        debugPrint("Extracted IDs: $ids");
+        print("Extracted IDs: $ids");
 
         int index = ids.indexOf(timeLockId);
 
         String? previousId = ids[index - 1];
 
-        debugPrint("Previous ID: $previousId");
+        print("Previous ID: $previousId");
 
         int timeLockIndex = threshIds.indexOf(previousId);
 
-        debugPrint('timeLock Index: $timeLockIndex');
+        print('timeLock Index: $timeLockIndex');
         int correctIndex = 0;
 
         if (timeLockIndex == 3) {
@@ -582,14 +581,14 @@ class WalletService {
               [0, 1]) // Satisfies both timelock and signature
         };
 
-        debugPrint("Generated timeLockPath: $timeLockPath");
+        print("Generated timeLockPath: $timeLockPath");
       }
 
       // Build the transaction:
       (PartiallySignedTransaction, TransactionDetails) txBuilderResult;
 
       if (multiSig) {
-        debugPrint('MultiSig Builder');
+        print('MultiSig Builder');
         txBuilderResult = await txBuilder
             // .enableRbf()
             .addRecipient(recipientScript, amount) // Send to recipient
@@ -601,10 +600,10 @@ class WalletService {
             .drainTo(changeScript) // Specify the address to send the change
             .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
-        debugPrint('Transaction Built');
+        print('Transaction Built');
 
-        // debugPrint('PSBT Before Signing: ');
-        // debugPrintInChunks(txBuilderResult.$1.toString());
+        // print('PSBT Before Signing: ');
+        // printInChunks(txBuilderResult.$1.toString());
 
         final signed = await wallet.sign(
           psbt: txBuilderResult.$1,
@@ -619,15 +618,15 @@ class WalletService {
         );
 
         if (signed) {
-          debugPrint('Signing returned true');
+          print('Signing returned true');
         } else {
-          debugPrint('Signing returned false');
+          print('Signing returned false');
         }
 
-        // debugPrint('PSBT After Signing: ');
-        // debugPrintInChunks(txBuilderResult.$1.toString());
+        // print('PSBT After Signing: ');
+        // printInChunks(txBuilderResult.$1.toString());
       } else {
-        debugPrint('TimeLock Builder');
+        print('TimeLock Builder');
         txBuilderResult = await txBuilder
             // .enableRbf()
             // .enableRbfWithSequence(olderValue)
@@ -640,10 +639,10 @@ class WalletService {
             .drainTo(changeScript) // Specify the address to send the change
             .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
-        debugPrint('Transaction Built');
+        print('Transaction Built');
 
-        debugPrint('PSBT Before Signing: ');
-        debugPrintInChunks(txBuilderResult.$1.toString());
+        print('PSBT Before Signing: ');
+        printInChunks(txBuilderResult.$1.toString());
 
         final signed = await wallet.sign(
           psbt: txBuilderResult.$1,
@@ -658,42 +657,42 @@ class WalletService {
         );
 
         if (signed) {
-          debugPrint('Signing returned true');
+          print('Signing returned true');
         } else {
-          debugPrint('Signing returned false');
+          print('Signing returned false');
         }
 
-        debugPrint('PSBT After Signing: ');
-        debugPrintInChunks(txBuilderResult.$1.toString());
+        print('PSBT After Signing: ');
+        printInChunks(txBuilderResult.$1.toString());
       }
 
       try {
         if (multiSig) {
-          debugPrint('MultiSig Broadcast');
+          print('MultiSig Broadcast');
 
           final psbtString = base64Encode(txBuilderResult.$1.serialize());
 
-          // debugPrint('Encoded: ');
-          // debugPrintInChunks(psbtString);
+          // print('Encoded: ');
+          // printInChunks(psbtString);
 
           return psbtString;
         } else {
-          debugPrint('TimeLock Broadcast');
+          print('TimeLock Broadcast');
 
-          debugPrint('Sending');
+          print('Sending');
           final tx = txBuilderResult.$1.extractTx();
 
           for (var input in await tx.input()) {
-            debugPrint("Input sequence number: ${input.sequence}");
+            print("Input sequence number: ${input.sequence}");
           }
 
           final isLockTime = await tx.isLockTimeEnabled();
-          debugPrint('LockTime enabled: $isLockTime');
+          print('LockTime enabled: $isLockTime');
           final lockTime = await tx.lockTime();
-          debugPrint('LockTime: $lockTime');
+          print('LockTime: $lockTime');
 
           await blockchain.broadcast(transaction: tx);
-          debugPrint('Transaction sent');
+          print('Transaction sent');
           return null;
         }
       } catch (broadcastError) {
@@ -706,17 +705,17 @@ class WalletService {
     }
   }
 
-  void debugPrintInChunks(String text, {int chunkSize = 800}) {
+  void printInChunks(String text, {int chunkSize = 800}) {
     for (int i = 0; i < text.length; i += chunkSize) {
-      debugPrint(text.substring(
+      print(text.substring(
           i, i + chunkSize > text.length ? text.length : i + chunkSize));
     }
   }
 
-  void debugPrintPrettyJson(String jsonString) {
+  void printPrettyJson(String jsonString) {
     final jsonObject = json.decode(jsonString);
     const encoder = JsonEncoder.withIndent('  ');
-    debugPrintInChunks(encoder.convert(jsonObject));
+    printInChunks(encoder.convert(jsonObject));
   }
 
   // This method takes a PSBT, signs it with the second user and then broadcasts it
@@ -758,7 +757,7 @@ class WalletService {
     // Convert the psbt String to a PartiallySignedTransaction
     final psbt = await PartiallySignedTransaction.fromString(psbtString);
 
-    debugPrintInChunks('Transaction Not Signed: $psbt');
+    printInChunks('Transaction Not Signed: $psbt');
 
     try {
       final signed = await wallet.sign(
@@ -774,35 +773,89 @@ class WalletService {
       );
 
       if (signed) {
-        debugPrint('Signing returned true');
+        print('Signing returned true');
       } else {
-        debugPrint('Signing returned false');
+        print('Signing returned false');
         // throw Exception('Not signed');
       }
 
-      debugPrintInChunks('Transaction after Signing: $psbt');
+      printInChunks('Transaction after Signing: $psbt');
 
       final tx = psbt.extractTx();
-      debugPrint('Extracting');
+      print('Extracting');
 
       final lockTime = await tx.lockTime();
       print('LockTime: $lockTime');
 
       for (var input in await tx.input()) {
-        debugPrint("Input sequence number: ${input.sequence}");
+        print("Input sequence number: ${input.sequence}");
       }
 
       final currentHeight = await blockchain.getHeight();
-      debugPrint('Current height: $currentHeight');
+      print('Current height: $currentHeight');
 
       await blockchain.broadcast(transaction: tx);
-      debugPrint('Transaction sent');
+      print('Transaction sent');
 
       return psbt.toString();
     } on Exception catch (e) {
       print("Error: ${e.toString()}");
 
       throw Exception("Error: ${e.toString()} psbt: $psbt");
+    }
+  }
+
+  Future<int> calculateSendAllBalance({
+    required String recipientAddress,
+    required Wallet wallet,
+    required int availableBalance,
+    required WalletService walletService,
+  }) async {
+    try {
+      final int feeRate = await walletService.getFeeRate();
+
+      final recipient = await Address.fromString(
+        s: recipientAddress,
+        network: Network.testnet,
+      );
+      final recipientScript = recipient.scriptPubkey();
+
+      final externalWalletPolicy = wallet.policies(KeychainKind.externalChain);
+      final path = {
+        externalWalletPolicy!.id(): Uint32List.fromList([0]), // MULTISIG path
+      };
+
+      final txBuilder = TxBuilder();
+
+      await txBuilder
+          .addRecipient(recipientScript, BigInt.from(availableBalance))
+          .policyPath(KeychainKind.internalChain, path)
+          .policyPath(KeychainKind.externalChain, path)
+          .feeRate(feeRate.toDouble())
+          .finish(wallet);
+
+      return availableBalance; // If no exception occurs, return available balance
+    } catch (e) {
+      // Handle insufficient funds
+      if (e.toString().contains("InsufficientFundsException")) {
+        final RegExp regex = RegExp(r'Needed: (\d+),');
+        final match = regex.firstMatch(e.toString());
+        if (match != null) {
+          final int neededAmount = int.parse(match.group(1)!);
+          final int fee = neededAmount - availableBalance;
+          final int sendAllBalance = availableBalance - fee;
+
+          if (sendAllBalance > 0) {
+            return sendAllBalance; // Return adjusted send all balance
+          } else {
+            throw Exception('No balance available after fee deduction');
+          }
+        } else {
+          throw Exception('Failed to extract Needed amount from exception');
+        }
+      } else {
+        throw e; // Re-throw unhandled exceptions
+      }
     }
   }
 
@@ -821,11 +874,10 @@ class WalletService {
             ),
           ),
         );
-        debugPrint("Connected to Electrum server: $url");
+        print("Connected to Electrum server: $url");
         return;
       } catch (e) {
-        debugPrint(
-            "Failed to connect to Electrum server: $url, trying next...");
+        print("Failed to connect to Electrum server: $url, trying next...");
       }
     }
     throw Exception("Failed to connect to any Electrum server.");
@@ -839,11 +891,11 @@ class WalletService {
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(response.body);
 
-      // debugPrint(response.body);
+      // print(response.body);
 
       int feeRate = jsonResponse['halfHourFee'];
 
-      // debugPrint('FeeRate: $feeRate');
+      // print('FeeRate: $feeRate');
 
       return feeRate;
     } else {
@@ -875,7 +927,7 @@ class WalletService {
             'Failed to load transactions. Status Code: ${response.statusCode}');
       }
     } catch (e) {
-      // debugPrint('Error: $e');
+      // print('Error: $e');
       throw Exception('Failed to fetch transactions: $e');
     }
   }

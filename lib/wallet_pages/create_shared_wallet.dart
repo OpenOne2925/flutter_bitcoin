@@ -58,15 +58,15 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     // Open the encrypted box using Hive
     descriptorBox = Hive.box('descriptorBox');
 
-    // print('Retrieving descriptor with key: wallet_${_mnemonic}');
+    // print('Retrieving descriptor with key: $_mnemonic');
 
     // After the box is opened, proceed with checking for the existing wallet
-    var existingDescriptor = descriptorBox.get('wallet_$_mnemonic');
+    var existingDescriptor = descriptorBox.get(_mnemonic);
 
-    print('Retrieved descriptor: $existingDescriptor');
+    // print('Retrieved descriptor: $existingDescriptor');
 
     if (existingDescriptor != null) {
-      // print('Wallet with this mnemonic already exists.');
+      // print('Wallet with this mnemonic: $_mnemonic already exists.');
 
       if (!mounted) return;
 
