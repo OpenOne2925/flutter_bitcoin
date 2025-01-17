@@ -2,17 +2,16 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/wallet_pages/ca_wallet_page.dart';
 import 'package:flutter_wallet/wallet_pages/create_shared_wallet.dart';
 import 'package:flutter_wallet/wallet_pages/import_shared_wallet.dart';
 import 'package:flutter_wallet/utilities/pin_setup_page.dart';
 import 'package:flutter_wallet/utilities/pin_verification_page.dart';
+import 'package:flutter_wallet/wallet_pages/policy_test.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet_info.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet_page.dart';
 import 'package:flutter_wallet/utilities/theme_provider.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
-import 'package:flutter_wallet/wallet_pages/shared_wallet_tests.dart';
 import 'package:flutter_wallet/wallet_pages/wallet_page.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
@@ -85,7 +84,7 @@ class MyApp extends StatelessWidget {
           return MaterialApp(
             title: 'Wallet',
             theme: themeProvider.themeData,
-            initialRoute: _determineInitialRoute(),
+            initialRoute: '/create_shared', // _determineInitialRoute(),
             routes: {
               '/wallet_page': (context) => const WalletPage(),
               '/ca_wallet_page': (context) => const CAWalletPage(),
@@ -96,7 +95,7 @@ class MyApp extends StatelessWidget {
               '/create_shared': (context) => const CreateSharedWallet(),
               '/import_shared': (context) => const ImportSharedWallet(),
               '/shared_wallet_info': (context) => const SharedWalletInfo(),
-              // '/shared_wallet_tests': (context) => const SharedWalletTests(),
+              '/policy_test': (context) => PolicyTest(),
             },
           );
         },

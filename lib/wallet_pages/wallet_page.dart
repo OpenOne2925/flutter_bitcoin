@@ -551,7 +551,7 @@ class WalletPageState extends State<WalletPage> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: const Text('Address copied to clipboard!'),
-                            backgroundColor: Colors.green,
+                            backgroundColor: Colors.white,
                             duration: const Duration(seconds: 2),
                           ),
                         );
@@ -737,12 +737,12 @@ class WalletPageState extends State<WalletPage> {
                           color: Colors.orange, // Highlighted icon color
                         ),
                         onPressed: () {
-                          Clipboard.setData(ClipboardData(text: address));
+                          Clipboard.setData(ClipboardData(text: savedMnemonic));
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content:
-                                  const Text('Address copied to clipboard!'),
-                              backgroundColor: Colors.green,
+                                  const Text('Mnemonic copied to clipboard!'),
+                              backgroundColor: Colors.white,
                               duration: const Duration(seconds: 2),
                             ),
                           );

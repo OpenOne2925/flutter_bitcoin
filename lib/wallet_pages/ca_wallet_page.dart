@@ -1,7 +1,6 @@
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
@@ -24,6 +23,8 @@ class CAWalletPageState extends State<CAWalletPage> {
   final TextEditingController _mnemonicController = TextEditingController();
 
   final WalletService _walletService = WalletService();
+
+  final Network network = Network.testnet;
 
   // Call createOrRestoreWallet from WalletService
   Future<void> _createWallet() async {
@@ -49,8 +50,8 @@ class CAWalletPageState extends State<CAWalletPage> {
       // Save wallet information locally using Hive
       var walletBox = Hive.box('walletBox');
       walletBox.put('walletMnemonic', _mnemonic);
-      walletBox.put('walletNetwork',
-          Network.testnet.toString()); // or serialize this properly
+      walletBox.put(
+          'walletNetwork', network.toString()); // or serialize this properly
 
       if (!mounted) return;
 
@@ -62,8 +63,8 @@ class CAWalletPageState extends State<CAWalletPage> {
       );
     } else {
       // print('No es possibile');
-      final wallet = await _walletService.createOrRestoreWallet(
-          _mnemonic!, Network.testnet, null);
+      final wallet =
+          await _walletService.createOrRestoreWallet(_mnemonic!, null);
 
       // print(wallet);
 
@@ -75,13 +76,17 @@ class CAWalletPageState extends State<CAWalletPage> {
       // Save wallet information locally using Hive
       var walletBox = Hive.box('walletBox');
       walletBox.put('walletMnemonic', _mnemonic);
-      walletBox.put('walletNetwork',
-          Network.testnet.toString()); // or serialize this properly
+      walletBox.put(
+          'walletNetwork', network.toString()); // or serialize this properly
 
       if (!mounted) return;
 
       // Navigate to the wallet page or update the UI
-      Navigator.pushNamed(context, '/wallet_page', arguments: wallet);
+      Navigator.pushReplacementNamed(
+        context,
+        '/wallet_page',
+        arguments: wallet,
+      );
 
       // setState(() {
       //   _status = 'Error: ${e.toString()}';
@@ -102,8 +107,10 @@ class CAWalletPageState extends State<CAWalletPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BaseScaffold(
-      title: const Text('Create or Restore Wallet'),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create or Restore Wallet'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

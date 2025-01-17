@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:typed_data';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/services.dart';
@@ -33,8 +32,6 @@ class SharedWallet extends StatefulWidget {
 }
 
 class SharedWalletState extends State<SharedWallet> {
-  late WalletService walletService;
-
   String address = '';
   String? _txToSend;
   String? _error = 'No Errors, for now';
@@ -59,14 +56,11 @@ class SharedWalletState extends State<SharedWallet> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
 
-  // late Wallet wallet;
   late WalletData? _walletData;
+  late Wallet wallet;
+  late WalletService walletService;
 
   final WalletStorageService _walletStorageService = WalletStorageService();
-
-  String? gatoDescriptorString;
-
-  late Wallet? walletState;
 
   @override
   void initState() {
@@ -77,30 +71,23 @@ class SharedWalletState extends State<SharedWallet> {
     openBoxAndCheckWallet();
   }
 
-  Future<void> createSharedWallet() async {
-    final wallet = await Wallet.create(
-      descriptor: await Descriptor.create(
-        descriptor: widget.descriptor,
-        network: Network.testnet,
-      ),
-      network: Network.testnet,
-      databaseConfig: const DatabaseConfig.memory(),
-    );
-
-    setState(() {
-      // balance = wallet.getBalance().total.toInt();
-      address = wallet
-          .getAddress(
-            addressIndex: const AddressIndex.peek(index: 0),
-          )
-          .address
-          .toString();
-      _descriptor = widget.descriptor;
-      walletState = wallet;
-    });
-  }
-
   final secureStorage = FlutterSecureStorage();
+
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  /// METHODS
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
 
   Future<void> openBoxAndCheckWallet() async {
     // Open the box
@@ -125,13 +112,24 @@ class SharedWalletState extends State<SharedWallet> {
 
   Future<void> loadWallet() async {
     try {
-      await createSharedWallet();
+      wallet = await walletService.createSharedWallet(widget.descriptor);
+
+      setState(() {
+        // balance = wallet.getBalance().total.toInt();
+        address = wallet
+            .getAddress(
+              addressIndex: const AddressIndex.peek(index: 0),
+            )
+            .address
+            .toString();
+        _descriptor = widget.descriptor;
+      });
 
       final List<ConnectivityResult> connectivityResult =
           await (Connectivity().checkConnectivity());
 
       if (connectivityResult.contains(ConnectivityResult.none)) {
-        String walletAddress = walletService.getAddress(walletState!);
+        String walletAddress = walletService.getAddress(wallet);
         setState(() {
           address = walletAddress;
         });
@@ -157,7 +155,7 @@ class SharedWalletState extends State<SharedWallet> {
         //   address = wallAddress;
         // });
 
-        await walletService.saveLocalData(walletState!);
+        await walletService.saveLocalData(wallet);
 
         // Fetch the balance of the wallet
         final availableBalance =
@@ -190,36 +188,18 @@ class SharedWalletState extends State<SharedWallet> {
     }
   }
 
-  String replaceAllDerivationPaths(String descriptor) {
-    // Define the regular expression to match the derivation path [fingerprint/84'/1'/0'/0/0]
-    final pattern = RegExp(r"\[\w{8}/84\'/1\'/0\'/0/\d\]");
-
-    // Replace all occurrences of the matched pattern with [fingerprint/84'/1'/0'/1/0]
-    String modifiedDescriptor = descriptor.replaceAllMapped(pattern, (match) {
-      // Extract the original matched string
-      String matchedPath = match.group(0)!;
-
-      // Modify the part that needs to be changed from /0/ to /1/
-      String newPath = matchedPath.replaceFirst("/0/", "/1/");
-
-      return newPath; // Return the new modified path
-    });
-
-    return modifiedDescriptor; // Return the fully modified descriptor
-  }
-
   Future<void> createWalletFromDescriptor() async {
     try {
       // print('DescriptorWidget: ${widget.descriptor}');
 
-      await createSharedWallet();
+      wallet = await walletService.createSharedWallet(widget.descriptor);
 
       descriptorBox.put(widget.mnemonic, widget.descriptor);
 
-      await walletService.saveLocalData(walletState!);
+      await walletService.saveLocalData(wallet);
 
       // Fetch the wallet's receive address
-      final wallAddress = walletService.getAddress(walletState!);
+      final wallAddress = walletService.getAddress(wallet);
       setState(() {
         address = wallAddress;
       });
@@ -262,8 +242,55 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   // Method to handle scanned QR Codes
-  void _showTransactionDialog(String recipientAddressStr) {
-    bool isMultiSig = false;
+  void _showTransactionDialog(String recipientAddressStr) async {
+    Map<String, dynamic>? selectedPath; // Variable to store the selected path
+    int? selectedIndex; // Variable to store the selected path
+
+    List<Map<String, dynamic>> availablePaths = []; // List to store the paths
+
+    if (!mounted) return;
+
+    final externalWalletPolicy = wallet.policies(KeychainKind.externalChain)!;
+
+    walletService.printPrettyJson(externalWalletPolicy.toString());
+
+    final Map<String, dynamic> policy =
+        jsonDecode(externalWalletPolicy.asString());
+
+    // print('Bool: $multiSig');
+    Mnemonic trueMnemonic = await Mnemonic.fromString(widget.mnemonic);
+
+    final hardenedDerivationPath =
+        await DerivationPath.create(path: "m/84h/1h/0h");
+
+    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+
+    final (receivingSecretKey, receivingPublicKey) =
+        await walletService.deriveDescriptorKeys(
+      hardenedDerivationPath,
+      receivingDerivationPath,
+      trueMnemonic,
+    );
+
+    // Extract the content inside square brackets
+    final RegExp regex = RegExp(r'\[([^\]]+)\]');
+    final Match? match = regex.firstMatch(receivingPublicKey.asString());
+
+    final String targetFingerprint = match!.group(1)!.split('/')[0];
+    print("Fingerprint: $targetFingerprint");
+
+    // Fetch the paths before showing the dialog
+    final paths = walletService.extractAllPathsToFingerprint(
+      policy,
+      targetFingerprint,
+    );
+
+    print(paths);
+
+    if (paths.isNotEmpty) {
+      availablePaths = paths;
+      selectedPath = availablePaths[0]; // Default to the first path
+    }
 
     showDialog(
       context: context,
@@ -308,17 +335,73 @@ class SharedWalletState extends State<SharedWallet> {
                 keyboardType: TextInputType.number, // Numeric input
               ),
               const SizedBox(height: 16),
-              // Add the CheckboxListTile widget here
-              CheckboxListTile(
-                title: const Text("MultiSig Transaction"),
-                value: isMultiSig,
-                onChanged: (bool? newValue) {
+              // Dropdown for selecting the spending path
+              DropdownButtonFormField<Map<String, dynamic>>(
+                value: selectedPath,
+                items: availablePaths
+                    .asMap()
+                    .entries
+                    .map(
+                      (entry) => DropdownMenuItem<Map<String, dynamic>>(
+                        value: entry.value,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 12), // Add padding for better spacing
+                          decoration: BoxDecoration(
+                            color: selectedPath == entry.value
+                                ? Colors.orange
+                                    .withOpacity(0.2) // Highlight selected item
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(
+                                8), // Rounded corners for each item
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "IDs: ${entry.value['ids'].join(' > ')}",
+                                style: const TextStyle(
+                                    fontSize: 14, color: Colors.white),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "Indexes: ${entry.value['indexes'].join(' > ')}",
+                                style: const TextStyle(
+                                    fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (Map<String, dynamic>? newValue) {
                   setState(() {
-                    isMultiSig = newValue ?? false;
+                    selectedPath = newValue; // Update the selected path
+                    selectedIndex =
+                        availablePaths.indexOf(newValue!); // Update the index
                   });
                 },
-                controlAffinity:
-                    ListTileControlAffinity.leading, // Checkbox on the left
+                decoration: InputDecoration(
+                  labelText: 'Select Spending Path',
+                  labelStyle: const TextStyle(color: Colors.white),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.white),
+                    borderRadius:
+                        BorderRadius.circular(12), // Match dialog theme
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.orange),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                dropdownColor:
+                    Colors.grey[850], // Match the dialog background color
+                style: const TextStyle(
+                    color: Colors.white), // Text color inside dropdown
+                icon: const Icon(Icons.arrow_drop_down,
+                    color: Colors.white), // Dropdown icon color
               ),
               const SizedBox(height: 16),
               InkwellButton(
@@ -330,7 +413,7 @@ class SharedWalletState extends State<SharedWallet> {
                     final int sendAllBalance =
                         await walletService.calculateSendAllBalance(
                       recipientAddress: recipientAddressStr,
-                      wallet: walletState!,
+                      wallet: wallet,
                       availableBalance: availableBalance,
                       walletService: walletService,
                     );
@@ -369,7 +452,8 @@ class SharedWalletState extends State<SharedWallet> {
                     widget.mnemonic,
                     recipientAddressStr,
                     BigInt.from(amount),
-                    isMultiSig,
+                    selectedIndex,
+                    availablePaths,
                   );
 
                   setState(() {
@@ -407,9 +491,54 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   Future<void> _sendTx() async {
-    bool isMultiSig = false;
+    Map<String, dynamic>? selectedPath; // Variable to store the selected path
+    int? selectedIndex; // Variable to store the selected path
+
+    List<Map<String, dynamic>> availablePaths = []; // List to store the paths
 
     if (!mounted) return;
+
+    final externalWalletPolicy = wallet.policies(KeychainKind.externalChain)!;
+
+    walletService.printPrettyJson(externalWalletPolicy.toString());
+
+    final Map<String, dynamic> policy =
+        jsonDecode(externalWalletPolicy.asString());
+
+    // print('Bool: $multiSig');
+    Mnemonic trueMnemonic = await Mnemonic.fromString(widget.mnemonic);
+
+    final hardenedDerivationPath =
+        await DerivationPath.create(path: "m/84h/1h/0h");
+
+    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+
+    final (receivingSecretKey, receivingPublicKey) =
+        await walletService.deriveDescriptorKeys(
+      hardenedDerivationPath,
+      receivingDerivationPath,
+      trueMnemonic,
+    );
+
+    // Extract the content inside square brackets
+    final RegExp regex = RegExp(r'\[([^\]]+)\]');
+    final Match? match = regex.firstMatch(receivingPublicKey.asString());
+
+    final String targetFingerprint = match!.group(1)!.split('/')[0];
+    print("Fingerprint: $targetFingerprint");
+
+    // Fetch the paths before showing the dialog
+    final paths = walletService.extractAllPathsToFingerprint(
+      policy,
+      targetFingerprint,
+    );
+
+    print(paths);
+
+    if (paths.isNotEmpty) {
+      availablePaths = paths;
+      selectedPath = availablePaths[0]; // Default to the first path
+    }
 
     showDialog(
       context: context,
@@ -450,18 +579,76 @@ class SharedWalletState extends State<SharedWallet> {
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 16),
-                  // Add the CheckboxListTile widget here
-                  CheckboxListTile(
-                    title: const Text("MultiSig Transaction"),
-                    value: isMultiSig,
-                    onChanged: (bool? newValue) {
+                  // Dropdown for selecting the spending path
+                  DropdownButtonFormField<Map<String, dynamic>>(
+                    value: selectedPath,
+                    items: availablePaths
+                        .asMap()
+                        .entries
+                        .map(
+                          (entry) => DropdownMenuItem<Map<String, dynamic>>(
+                            value: entry.value,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                  horizontal:
+                                      12), // Add padding for better spacing
+                              decoration: BoxDecoration(
+                                color: selectedPath == entry.value
+                                    ? Colors.orange.withOpacity(
+                                        0.2) // Highlight selected item
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(
+                                    8), // Rounded corners for each item
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "IDs: ${entry.value['ids'].join(' > ')}",
+                                    style: const TextStyle(
+                                        fontSize: 14, color: Colors.white),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Indexes: ${entry.value['indexes'].join(' > ')}",
+                                    style: const TextStyle(
+                                        fontSize: 12, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (Map<String, dynamic>? newValue) {
                       setState(() {
-                        isMultiSig = newValue ?? false;
+                        selectedPath = newValue; // Update the selected path
+                        selectedIndex = availablePaths
+                            .indexOf(newValue!); // Update the index
                       });
                     },
-                    controlAffinity:
-                        ListTileControlAffinity.leading, // Checkbox on the left
+                    decoration: InputDecoration(
+                      labelText: 'Select Spending Path',
+                      labelStyle: const TextStyle(color: Colors.white),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Colors.white),
+                        borderRadius:
+                            BorderRadius.circular(12), // Match dialog theme
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Colors.orange),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    dropdownColor:
+                        Colors.grey[850], // Match the dialog background color
+                    style: const TextStyle(
+                        color: Colors.white), // Text color inside dropdown
+                    icon: const Icon(Icons.arrow_drop_down,
+                        color: Colors.white), // Dropdown icon color
                   ),
+
                   const SizedBox(height: 16),
                   InkwellButton(
                     onTap: () async {
@@ -474,13 +661,12 @@ class SharedWalletState extends State<SharedWallet> {
                         final int sendAllBalance =
                             await walletService.calculateSendAllBalance(
                           recipientAddress: recipientAddress,
-                          wallet: walletState!,
+                          wallet: wallet,
                           availableBalance: availableBalance,
                           walletService: walletService,
                         );
 
                         _amountController.text = sendAllBalance.toString();
-                        // print('Final Send All Balance: $sendAllBalance');
                       } catch (e) {
                         print('Error: $e');
                         _amountController.text = 'No balance Available';
@@ -516,7 +702,8 @@ class SharedWalletState extends State<SharedWallet> {
                     widget.mnemonic,
                     recipientAddressStr,
                     BigInt.from(amount),
-                    isMultiSig,
+                    selectedIndex, // Use the selected path
+                    availablePaths,
                   );
 
                   setState(() {
@@ -554,6 +741,50 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   void _signTransaction() async {
+    Map<String, dynamic>? selectedPath; // Variable to store the selected path
+    int? selectedIndex; // Variable to store the selected path
+
+    List<Map<String, dynamic>> availablePaths = []; // List to store the paths
+
+    if (!mounted) return;
+
+    final externalWalletPolicy = wallet.policies(KeychainKind.externalChain)!;
+    final Map<String, dynamic> policy =
+        jsonDecode(externalWalletPolicy.asString());
+
+    // print('Bool: $multiSig');
+    Mnemonic trueMnemonic = await Mnemonic.fromString(widget.mnemonic);
+
+    final hardenedDerivationPath =
+        await DerivationPath.create(path: "m/84h/1h/0h");
+
+    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+
+    final (receivingSecretKey, receivingPublicKey) =
+        await walletService.deriveDescriptorKeys(
+      hardenedDerivationPath,
+      receivingDerivationPath,
+      trueMnemonic,
+    );
+
+    // Extract the content inside square brackets
+    final RegExp regex = RegExp(r'\[([^\]]+)\]');
+    final Match? match = regex.firstMatch(receivingPublicKey.asString());
+
+    final String targetFingerprint = match!.group(1)!.split('/')[0];
+    print("Fingerprint: $targetFingerprint");
+
+    // Fetch the paths before showing the dialog
+    final paths = walletService.extractAllPathsToFingerprint(
+      policy,
+      targetFingerprint,
+    );
+
+    if (paths.isNotEmpty) {
+      availablePaths = paths;
+      selectedPath = availablePaths[0]; // Default to the first path
+    }
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -574,6 +805,76 @@ class SharedWalletState extends State<SharedWallet> {
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
+
+              const SizedBox(height: 16),
+              // Dropdown for selecting the spending path
+              DropdownButtonFormField<Map<String, dynamic>>(
+                value: selectedPath,
+                items: availablePaths
+                    .asMap()
+                    .entries
+                    .map(
+                      (entry) => DropdownMenuItem<Map<String, dynamic>>(
+                        value: entry.value,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 12), // Add padding for better spacing
+                          decoration: BoxDecoration(
+                            color: selectedPath == entry.value
+                                ? Colors.orange
+                                    .withOpacity(0.2) // Highlight selected item
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(
+                                8), // Rounded corners for each item
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "IDs: ${entry.value['ids'].join(' > ')}",
+                                style: const TextStyle(
+                                    fontSize: 14, color: Colors.white),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "Indexes: ${entry.value['indexes'].join(' > ')}",
+                                style: const TextStyle(
+                                    fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (Map<String, dynamic>? newValue) {
+                  setState(() {
+                    selectedPath = newValue; // Update the selected path
+                    selectedIndex =
+                        availablePaths.indexOf(newValue!); // Update the index
+                  });
+                },
+                decoration: InputDecoration(
+                  labelText: 'Select Spending Path',
+                  labelStyle: const TextStyle(color: Colors.white),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.white),
+                    borderRadius:
+                        BorderRadius.circular(12), // Match dialog theme
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Colors.orange),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                dropdownColor:
+                    Colors.grey[850], // Match the dialog background color
+                style: const TextStyle(
+                    color: Colors.white), // Text color inside dropdown
+                icon: const Icon(Icons.arrow_drop_down,
+                    color: Colors.white), // Dropdown icon color
+              ),
             ],
           ),
           actions: [
@@ -590,11 +891,16 @@ class SharedWalletState extends State<SharedWallet> {
                   // print("Decoded Transaction: $decoded");
                   // print("Mnemonic: " + widget.mnemonic);
 
-                  await walletService.signBroadcastTx(
+                  final result = await walletService.signBroadcastTx(
                     psbtString,
                     _descriptor.toString(),
                     widget.mnemonic,
+                    selectedIndex,
                   );
+
+                  setState(() {
+                    _txToSend = result;
+                  });
 
                   // Show a success message
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -720,7 +1026,7 @@ class SharedWalletState extends State<SharedWallet> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: const Text('Address copied to clipboard!'),
-                            backgroundColor: Colors.green,
+                            backgroundColor: Colors.white,
                             duration: const Duration(seconds: 2),
                           ),
                         );
@@ -748,7 +1054,7 @@ class SharedWalletState extends State<SharedWallet> {
 
   Future<void> _extractOlder(String descriptor) async {
     final regExp =
-        RegExp(r'older\((\d+)\).*?pk\(\[.*?](tp(?:rv|ub)[a-zA-Z0-9]+)');
+        RegExp(r'older\((\d+)\).*?pk\(\[.*?]([tx]p(?:rv|ub)[a-zA-Z0-9]+)');
     final matches = regExp.allMatches(descriptor);
 
     // Clear the list before populating it with new values
@@ -766,46 +1072,48 @@ class SharedWalletState extends State<SharedWallet> {
     });
   }
 
-  Future<int> extractOlderWithPrivateKey(String descriptor) async {
-    // Adjusted regex to match only "older" values followed by "pk(...tprv...)"
-    final regExp =
-        RegExp(r'older\((\d+)\).*?pk\(\[.*?](tp(?:rv|ub)[a-zA-Z0-9]+)');
-    final matches = regExp.allMatches(descriptor);
+  Map<String, List<Map<String, dynamic>>> extractAllPathsAndIdsForFingerprint(
+      Map<String, dynamic> policy, String targetFingerprint) {
+    Map<String, List<Map<String, dynamic>>> resultPaths = {};
 
-    int older = 0;
+    void traverse(dynamic node, List<int> currentPath, List<String> idPath) {
+      if (node == null) return;
 
-    for (var match in matches) {
-      String olderValue = match.group(1)!; // Extract the older value
-      String keyType = match.group(2)!; // Capture whether it's tprv or tpub
+      // Check if the node contains the target fingerprint
+      if (node['keys'] != null) {
+        for (var key in node['keys']) {
+          if (key['fingerprint'] == targetFingerprint) {
+            // Add the path and IDs to the result
+            resultPaths.putIfAbsent(node['id'], () => []).add({
+              'path': Uint32List.fromList(currentPath),
+              'ids': [...idPath, node['id']],
+            });
+          }
+        }
+      }
 
-      // Only process the match if it's a private key (tprv)
-      if (keyType.startsWith("tprv")) {
-        debugPrint(
-            'Found older value associated with private key: $olderValue');
-        older = int.parse(olderValue);
+      // Recursively traverse children if the node has items
+      if (node['items'] != null) {
+        for (int i = 0; i < node['items'].length; i++) {
+          traverse(
+            node['items'][i],
+            [...currentPath, i],
+            [...idPath, node['id']],
+          );
+        }
       }
     }
 
-    return older;
-  }
+    // Start traversing from the root policy
+    traverse(policy, [], []);
 
-  void debugPrintPrettyJson(String jsonString) {
-    final jsonObject = json.decode(jsonString);
-    const encoder = JsonEncoder.withIndent('  ');
-    debugPrintInChunks(encoder.convert(jsonObject));
-  }
-
-  void debugPrintInChunks(String text, {int chunkSize = 800}) {
-    for (int i = 0; i < text.length; i += chunkSize) {
-      debugPrint(text.substring(
-          i, i + chunkSize > text.length ? text.length : i + chunkSize));
-    }
+    return resultPaths;
   }
 
   Future<void> _syncWallet() async {
     _descriptor = widget.descriptor;
 
-    // print('Descriptor: ${widget.descriptor}');
+    walletService.printInChunks(_descriptor.toString());
 
     final List<ConnectivityResult> connectivityResult =
         await (Connectivity().checkConnectivity());
@@ -815,7 +1123,7 @@ class SharedWalletState extends State<SharedWallet> {
     if (connectivityResult.contains(ConnectivityResult.none)) {
       await _extractOlder(widget.descriptor);
 
-      String walletAddress = walletService.getAddress(walletState!);
+      String walletAddress = walletService.getAddress(wallet);
       setState(() {
         address = walletAddress;
       });
@@ -836,13 +1144,13 @@ class SharedWalletState extends State<SharedWallet> {
       }
     } else {
       // print('walletState: $walletState');
-      await walletService.syncWallet(walletState!);
+      await walletService.syncWallet(wallet);
 
       await _fetchCurrentBlockHeight();
 
       await _extractOlder(widget.descriptor);
 
-      String walletAddress = walletService.getAddress(walletState!);
+      String walletAddress = walletService.getAddress(wallet);
       setState(() {
         address = walletAddress;
       });
@@ -1025,12 +1333,12 @@ class SharedWalletState extends State<SharedWallet> {
                           color: Colors.orange, // Highlighted icon color
                         ),
                         onPressed: () {
-                          Clipboard.setData(ClipboardData(text: address));
+                          Clipboard.setData(ClipboardData(text: savedMnemonic));
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content:
-                                  const Text('Address copied to clipboard!'),
-                              backgroundColor: Colors.green,
+                                  const Text('Mnemonic copied to clipboard!'),
+                              backgroundColor: Colors.white,
                               duration: const Duration(seconds: 2),
                             ),
                           );
@@ -1079,12 +1387,13 @@ class SharedWalletState extends State<SharedWallet> {
                           color: Colors.orange, // Highlighted icon color
                         ),
                         onPressed: () {
-                          Clipboard.setData(ClipboardData(text: address));
+                          Clipboard.setData(
+                              ClipboardData(text: _descriptor.toString()));
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content:
-                                  const Text('Address copied to clipboard!'),
-                              backgroundColor: Colors.green,
+                                  const Text('Descriptor copied to clipboard!'),
+                              backgroundColor: Colors.white,
                               duration: const Duration(seconds: 2),
                             ),
                           );
@@ -1116,6 +1425,22 @@ class SharedWalletState extends State<SharedWallet> {
       );
     }
   }
+
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  /// MAIN WIDGET
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
 
   @override
   Widget build(BuildContext context) {
@@ -1247,6 +1572,22 @@ class SharedWalletState extends State<SharedWallet> {
       ),
     );
   }
+
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  /// WIDGET BUILD HELPERS
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
 
   // Box for displaying general wallet info with onTap functionality
   Widget _buildInfoBox(String title, String data, VoidCallback onTap,

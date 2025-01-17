@@ -21,7 +21,7 @@ class SharedWalletPageState extends State<SharedWalletPage> {
           children: [
             CustomButton(
               onPressed: () {
-                Navigator.pushNamed(context, '/create_shared');
+                Navigator.pushNamed(context, '/create_shared_test');
               },
               backgroundColor: Colors.white, // White background
               foregroundColor: Colors.orange, // Bitcoin orange color for text

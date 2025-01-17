@@ -9,20 +9,81 @@ import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 
+/// WalletService Class
+///
+/// This class provides a comprehensive suite of tools for managing Bitcoin wallets
+/// using the bdk_flutter library. It supports both single and shared wallet functionalities,
+/// descriptor-based wallet management, transaction creation, and interaction with blockchain
+/// APIs like Mempool.space. The class also handles wallet synchronization, balance retrieval,
+/// and multi-signature (multisig) wallets.
+///
+/// INDEX:
+/// - Common Methods
+///   - isValidDescriptor: Validates a wallet descriptor.
+///   - getBalance: Retrieves the total balance from a wallet.
+///   - getLedgerBalance: Fetches the ledger balance for a given address.
+///   - getAvailableBalance: Fetches the available balance for a given address.
+///   - loadSavedWallet: Restores a wallet using a saved mnemonic.
+///   - syncWallet: Synchronizes a wallet with the blockchain.
+///   - getAddress: Retrieves the current receiving address from a wallet.
+///
+/// - Single Wallet
+///   - createOrRestoreWallet: Creates or restores a single-user wallet from a mnemonic.
+///   - calculateSendAllBalance: Computes the maximum amount that can be sent after deducting fees.
+///
+/// - Shared Wallet
+///   - createSharedWallet: Creates a wallet for multi-signature use.
+///   - createWalletDescriptor: Generates a descriptor for shared wallets with time-lock and multisig conditions.
+///
+/// - Transaction Management
+///   - sendTx: Creates, signs and broadcasts a single user transaction.
+///   - createPartialTx: Creates a partially signed Bitcoin transaction (PSBT) for shared wallets.
+///   - signBroadcastTx: Signs a PSBT with the second user and broadcasts it to the blockchain.
+///
+/// - Utilities
+///   - printInChunks: Prints long strings in chunks for readability.
+///   - printPrettyJson: Pretty-prints JSON strings for debugging.
+///
+/// - Blockchain Interaction
+///   - blockchainInit: Initializes a connection to the blockchain via an Electrum server.
+///   - getFeeRate: Retrieves the current recommended fee rate for transactions.
+///   - getTransactions: Fetches transaction history for a given address.
+///   - fetchCurrentBlockHeight: Fetches the current block height from the blockchain.
+///
+/// - Multi-signature Utilities
+///   - replacePubKeyWithPrivKeyMultiSig: Replaces public keys with private keys in a multisig descriptor.
+///   - replacePubKeyWithPrivKeyOlder: Replaces public keys with private keys in timelocked descriptors.
+///   - extractOlderWithPrivateKey: Extracts the "older" value from a descriptor and associates it with private keys.
+///
+/// - Descriptor Key Derivation
+///   - deriveDescriptorKeys: Derives descriptor secret and public keys based on a derivation path and mnemonic.
+///
+/// - Data Storage
+///   - saveLocalData: Saves wallet-related data, such as balances and transactions, to local storage.
+///
+/// This class is designed to be extensible and supports customization of Electrum servers,
+/// API endpoints, and wallet configuration.
+
 class WalletService {
   final WalletStorageService _walletStorageService = WalletStorageService();
 
   // Base URL for Mempool Space Testnet API
   final String baseUrl = 'https://mempool.space/testnet4/api';
 
+  // Base URL for Mempool Space Mainnet API
+  // final String baseUrl = 'https://mempool.space/api';
+
+  final Network network = Network.testnet;
+
   late Wallet wallet;
 
   List<String> electrumServers = [
-    "ssl://mempool.space:40002",
+    // "ssl://electrum.blockstream.info:50002", // TODO: MAINNET SERVER
+    "ssl://mempool.space:40002", // TODO: TESTNET4 SERVER
     "ssl://blockstream.info:993",
-    "ssl://tn.not.fyi:55002",
+    // "ssl://tn.not.fyi:55002", // Only for Testnet
     "ssl://electrum.blockonomics.co:51002",
-    "ssl://testnet.aranguren.org:51002"
+    // "ssl://testnet.aranguren.org:51002" // Only for Testnet
   ];
   late Blockchain blockchain;
 
@@ -38,59 +99,48 @@ class WalletService {
 
   final secureStorage = FlutterSecureStorage();
 
-  Future<List<Descriptor>> getDescriptors(String mnemonic) async {
-    final descriptors = <Descriptor>[];
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  /// Common Methods
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+
+  Future<bool> isValidDescriptor(String descriptorStr) async {
+    // TODO: Add your descriptor validation logic here
+    // For example, check if it meets some specific pattern or length
+
+    bool isValid = true;
+
     try {
-      for (var e in [KeychainKind.externalChain, KeychainKind.internalChain]) {
-        final mnemonicObj = await Mnemonic.fromString(mnemonic);
+      // Try creating the descriptor
+      final descriptor = await Descriptor.create(
+        descriptor: descriptorStr,
+        network: network,
+      );
 
-        final descriptorSecretKey = await DescriptorSecretKey.create(
-          network: Network.testnet,
-          mnemonic: mnemonicObj,
-        );
-
-        final descriptor = await Descriptor.newBip84(
-          secretKey: descriptorSecretKey,
-          network: Network.testnet,
-          keychain: e,
-        );
-
-        descriptors.add(descriptor);
-      }
-      return descriptors;
-    } on Exception catch (e) {
-      // print("Error: ${e.toString()}");
-      throw ("Error: ${e.toString()}");
-    }
-  }
-
-  Future<Wallet> createOrRestoreWallet(
-      String mnemonic, Network network, String? password) async {
-    try {
-      final descriptors = await getDescriptors(mnemonic);
-
-      final List<ConnectivityResult> connectivityResult =
-          await (Connectivity().checkConnectivity());
-      if (!connectivityResult.contains(ConnectivityResult.none)) {
-        await blockchainInit();
-      }
-
-      final res = await Wallet.create(
-        descriptor: descriptors[0],
-        changeDescriptor: descriptors[1],
+      // Try creating the wallet with the descriptor
+      await Wallet.create(
+        descriptor: descriptor,
         network: network,
         databaseConfig: const DatabaseConfig.memory(),
       );
-      // var addressInfo =
-      //     await res.getAddress(addressIndex: const AddressIndex());
-
-      // print(res);
-
-      return res;
-    } on Exception catch (e) {
-      // print("Error: ${e.toString()}");
-      throw Exception('Failed to create wallet (Error: ${e.toString()})');
+    } catch (e) {
+      // If any error occurs during creation, set isValid to false
+      isValid = false;
+      // print('Error creating wallet with descriptor: $e');
+      throw ('Error creating wallet with descriptor: $e');
     }
+
+    return isValid;
   }
 
   BigInt getBalance(Wallet wallet) {
@@ -174,7 +224,6 @@ class WalletService {
       // Restore the wallet using the saved mnemonic
       wallet = await createOrRestoreWallet(
         savedMnemonic,
-        Network.testnet,
         null, // Use a saved password if required
       );
       // print(wallet);
@@ -182,58 +231,16 @@ class WalletService {
     } else {
       wallet = await createOrRestoreWallet(
         mnemonic!,
-        Network.testnet,
         null,
       );
     }
     return wallet;
   }
 
-  String createWalletDescriptor(
-    String primaryReceivingSecret,
-    String secondaryReceivingPublic,
-    int primaryTimelock,
-    int secondaryTimelock,
-    String primaryChangePublic,
-    String secondaryChangePublic,
-  ) {
-    // Define the multi-sig condition based on timelock priority
-    String multi = (primaryTimelock < secondaryTimelock)
-        ? 'multi(2,$primaryReceivingSecret,$secondaryReceivingPublic)'
-        : 'multi(2,$secondaryReceivingPublic,$primaryReceivingSecret)';
-
-    // Define the timelock conditions for Bob and Alice
-    String timelockPerro =
-        'and_v(v:older($secondaryTimelock),pk($secondaryChangePublic))';
-    String timelockGato =
-        'and_v(v:older($primaryTimelock),pk($primaryChangePublic))';
-
-    // Combine the timelock conditions
-    String timelockCondition = (primaryTimelock < secondaryTimelock)
-        ? 'or_i($timelockGato,$timelockPerro)'
-        : 'or_i($timelockPerro,$timelockGato)';
-
-    // Return the final walletDescriptor
-    return 'wsh(or_d($multi,$timelockCondition))';
-  }
-
-  Future<void> saveLocalData(Wallet wallet) async {
-    String currentAddress = getAddress(wallet);
-
-    final walletData = WalletData(
-      address: currentAddress,
-      balance: int.parse(getBalance(wallet).toString()),
-      ledgerBalance: await getLedgerBalance(currentAddress),
-      availableBalance: await getAvailableBalance(currentAddress),
-      transactions: await getTransactions(currentAddress),
-    );
-
-    // Save the data to Hive
-    await _walletStorageService.saveWalletData(currentAddress, walletData);
-  }
-
   Future<void> syncWallet(Wallet wallet) async {
     await blockchainInit(); // Ensure blockchain is initialized before usage
+
+    print(wallet.getBalance().total.toInt());
 
     await wallet.sync(blockchain: blockchain);
   }
@@ -244,565 +251,6 @@ class WalletService {
     var addressInfo =
         wallet.getAddress(addressIndex: const AddressIndex.peek(index: 0));
     return addressInfo.address.asString();
-  }
-
-  // Method to create, sign and broadcast a single user transaction
-  Future<void> sendTx(
-    String recipientAddressStr,
-    BigInt amount,
-    Wallet wallet,
-    String changeAddressStr,
-  ) async {
-    await syncWallet(wallet);
-
-    // final utxos = await wallet.getBalance();
-    // print("Available UTXOs: ${utxos.total}");
-
-    try {
-      // Build the transaction
-      final txBuilder = TxBuilder();
-
-      final recipientAddress = await Address.fromString(
-          s: recipientAddressStr, network: wallet.network());
-      final recipientScript = recipientAddress.scriptPubkey();
-
-      final changeAddress = await Address.fromString(
-          s: changeAddressStr, network: wallet.network());
-      final changeScript = changeAddress.scriptPubkey();
-
-      final feeRate = await getFeeRate();
-
-      // Build the transaction:
-      // - Send `amount` to the recipient
-      // - Any remaining funds (change) will be sent to the change address
-      final txBuilderResult = await txBuilder
-          .enableRbf()
-          .addRecipient(recipientScript, amount) // Send to recipient
-          .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-          .feeRate(
-              feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
-          .drainTo(
-              changeScript) // Specify the custom address to send the change
-          .finish(wallet); // Finalize the transaction with wallet's UTXOs
-
-      // Sign the transaction
-      final isFinalized = await wallet.sign(psbt: txBuilderResult.$1);
-
-      // Broadcast the transaction only if it is finalized
-      if (isFinalized) {
-        final tx = txBuilderResult.$1.extractTx();
-        // Broadcast the transaction to the network only if it is finalized
-        await blockchain.broadcast(transaction: tx);
-      }
-    } on Exception catch (e) {
-      // print("Error: ${e.toString()}");
-      throw Exception('Failed to send Transaction (Error: ${e.toString()})');
-    }
-  }
-
-  String replacePubKeyWithPrivKeyMultiSig(
-      String descriptor, String pubKey, String privKey) {
-    // Extract the derivation path and pubkey portion for dynamic matching
-    final regexPathPub = RegExp.escape('${pubKey.split(']')[0]}]') +
-        r'tpub[A-Za-z0-9]+\/\d+\/\*';
-
-    // Create a regex to match the exact pubKey
-    final regex = RegExp(regexPathPub);
-
-    // Replace only the matching public key with the private key
-    return descriptor.replaceFirstMapped(regex, (match) {
-      return privKey;
-    });
-  }
-
-  String replacePubKeyWithPrivKeyOlder(
-      String descriptor, String pubKey, String privKey) {
-    // Extract the derivation path prefix and ensure we match tpub keys with trailing paths
-    final regexPathPub = RegExp(
-      RegExp.escape('${pubKey.split(']')[0]}]') +
-          r'tpub[A-Za-z0-9]+\/(\d+)\/\*',
-    );
-
-    int matchCounter = 0;
-
-    // Replace all matches dynamically
-    return descriptor.replaceAllMapped(regexPathPub, (match) {
-      matchCounter++;
-      // Capture the derivation index (e.g., "0" or "1")
-
-      // Update the path for the second match to use "/1/*"
-      if (matchCounter == 2) {
-        return '${privKey.substring(0, privKey.length - 4)}/1/*';
-      } else {
-        return pubKey;
-      }
-    });
-  }
-
-  Future<(DescriptorSecretKey, DescriptorPublicKey)> deriveDescriptorKeys(
-    DerivationPath hardenedPath,
-    DerivationPath unHardenedPath,
-    Mnemonic mnemonic,
-  ) async {
-    // Create the root secret key from the mnemonic
-    final secretKey = await DescriptorSecretKey.create(
-      network: Network.testnet,
-      mnemonic: mnemonic,
-    );
-
-    // Derive the key at the hardened path
-    final derivedSecretKey = await secretKey.derive(hardenedPath);
-
-    // Extend the derived secret key further using the unhardened path
-    final derivedExtendedSecretKey =
-        await derivedSecretKey.extend(unHardenedPath);
-
-    // Convert the derived secret key to its public counterpart
-    final publicKey = derivedSecretKey.toPublic();
-
-    // Extend the public key using the same unhardened path
-    final derivedExtendedPublicKey =
-        await publicKey.extend(path: unHardenedPath);
-
-    return (derivedExtendedSecretKey, derivedExtendedPublicKey);
-  }
-
-  Future<int> extractOlderWithPrivateKey(String descriptor) async {
-    // Adjusted regex to match only "older" values followed by "pk(...tprv...)"
-    final regExp =
-        RegExp(r'older\((\d+)\).*?pk\(\[.*?](tp(?:rv|ub)[a-zA-Z0-9]+)');
-    final matches = regExp.allMatches(descriptor);
-
-    int older = 0;
-
-    for (var match in matches) {
-      String olderValue = match.group(1)!; // Extract the older value
-      String keyType = match.group(2)!; // Capture whether it's tprv or tpub
-
-      // Only process the match if it's a private key (tprv)
-      if (keyType.startsWith("tprv")) {
-        print('Found older value associated with private key: $olderValue');
-        older = int.parse(olderValue);
-      }
-    }
-
-    return older;
-  }
-
-  // Method to create a PSBT for a multisig transaction, this psbt is signed by the first user
-  Future<String?> createPartialTx(
-    String descriptor,
-    String mnemonic,
-    String recipientAddressStr,
-    BigInt amount,
-    bool multiSig,
-  ) async {
-    Map<String, Uint32List>? multiSigPath;
-    Map<String, Uint32List>? timeLockPath;
-
-    // print('Bool: $multiSig');
-    Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
-
-    final hardenedDerivationPath =
-        await DerivationPath.create(path: "m/84h/1h/0h");
-
-    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
-
-    final (receivingSecretKey, receivingPublicKey) = await deriveDescriptorKeys(
-      hardenedDerivationPath,
-      receivingDerivationPath,
-      trueMnemonic,
-    );
-
-    if (multiSig) {
-      descriptor = replacePubKeyWithPrivKeyMultiSig(
-        descriptor,
-        receivingPublicKey.toString(),
-        receivingSecretKey.toString(),
-      );
-
-      wallet = await Wallet.create(
-        descriptor: await Descriptor.create(
-          descriptor: descriptor,
-          network: Network.testnet,
-        ),
-        network: Network.testnet,
-        databaseConfig: const DatabaseConfig.memory(),
-      );
-    } else {
-      descriptor = replacePubKeyWithPrivKeyOlder(
-        descriptor,
-        receivingPublicKey.toString(),
-        receivingSecretKey.toString(),
-      );
-
-      // print('Timelock Descriptor: $descriptor');
-
-      // print('PubKey: ${receivingPublicKey.toString()}');
-      // print('PrivKey: ${receivingSecretKey.toString()}');
-
-      wallet = await Wallet.create(
-        descriptor: await Descriptor.create(
-          descriptor: descriptor,
-          network: Network.testnet,
-        ),
-        network: Network.testnet,
-        databaseConfig: const DatabaseConfig.memory(),
-      );
-    }
-
-    final olderValue = await extractOlderWithPrivateKey(descriptor);
-
-    await syncWallet(wallet);
-
-    final utxos = wallet.getBalance();
-    print("Available UTXOs: ${utxos.confirmed}");
-
-    final unspent = wallet.listUnspent();
-    final feeRate = await getFeeRate();
-
-    final totalSpending = amount + BigInt.from(feeRate);
-    print("Total Spending: $totalSpending");
-
-    // Check If there are enough funds available
-    if (utxos.confirmed < totalSpending) {
-      // Exit early if no confirmed UTXOs are available
-      throw Exception(
-          "Not enough confirmed funds available. Please wait until your transactions confirm.");
-    }
-
-    for (var utxo in unspent) {
-      print('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
-    }
-
-    try {
-      // Build the transaction
-      final txBuilder = TxBuilder();
-
-      final recipientAddress = await Address.fromString(
-          s: recipientAddressStr, network: wallet.network());
-      final recipientScript = recipientAddress.scriptPubkey();
-
-      var internalChangeAddress = wallet.getInternalAddress(
-          addressIndex: const AddressIndex.peek(index: 0));
-
-      final changeScript = internalChangeAddress.address.scriptPubkey();
-
-      // final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
-      final externalWalletPolicy = wallet.policies(KeychainKind.externalChain);
-
-      // printPrettyJson(internalWalletPolicy!.asString());
-      // printPrettyJson(externalWalletPolicy!.asString());
-
-      if (multiSig) {
-        multiSigPath = {
-          externalWalletPolicy!.id():
-              Uint32List.fromList([0]), // Returns the MULTISIG path
-        };
-
-        print("Generated multiSigPath: $multiSigPath");
-      } else {
-        String policyString = externalWalletPolicy!.asString();
-
-        // Regular expression to capture both "id" and "type" fields
-        RegExp idTypePattern = RegExp(r'"id":\s*"(\w+)",\s*"type":\s*"(\w+)"');
-        List<Map<String, String>> idTypePairs = [];
-
-        // Extract both ID and type pairs
-        for (final match in idTypePattern.allMatches(policyString)) {
-          String id = match.group(1)!;
-          String type = match.group(2)!;
-          idTypePairs.add({"id": id, "type": type});
-        }
-
-        print("Extracted ID and Type pairs: $idTypePairs");
-
-        RegExp timeLockPattern = RegExp(
-            r'"id":\s*"(\w+)",\s*"type":\s*"RELATIVETIMELOCK",\s*"value":\s*(\d+)');
-        List<Map<String, String>> timeLockPairs = [];
-
-        // Extract IDs, types, and values
-        for (final match in timeLockPattern.allMatches(policyString)) {
-          String id = match.group(1)!; // Extract the "id"
-          String value = match.group(2)!; // Extract the "value" as a string
-          timeLockPairs.add({"id": id, "value": value});
-        }
-
-        // Extract only the IDs where the value is olderValue
-        String timeLockId = timeLockPairs.firstWhere(
-            (pair) => pair["value"] == olderValue.toString())["id"]!;
-
-        print("TimeLock ID: $timeLockId");
-
-        // Extract only the IDs where the type is "THRESH"
-        List<String> threshIds = idTypePairs
-            .where((pair) => pair["type"] == "THRESH")
-            .map((pair) => pair["id"]!)
-            .toList();
-
-        // threshIds.removeWhere((id) => id == timeLockId);
-
-        print("THRESH IDs: $threshIds");
-
-        // Extract IDs using a regular expression
-        RegExp idPattern = RegExp(r'"id":\s*"(\w+)"');
-        List<String> ids = [];
-
-        for (final match in idPattern.allMatches(policyString)) {
-          ids.add(match.group(1)!);
-        }
-
-        print("Extracted IDs: $ids");
-
-        int index = ids.indexOf(timeLockId);
-
-        String? previousId = ids[index - 1];
-
-        print("Previous ID: $previousId");
-
-        int timeLockIndex = threshIds.indexOf(previousId);
-
-        print('timeLock Index: $timeLockIndex');
-        int correctIndex = 0;
-
-        if (timeLockIndex == 3) {
-          correctIndex = 1;
-        } else if (timeLockIndex == 2) {
-          correctIndex = 0;
-        }
-
-        // Use IDs as needed
-        timeLockPath = {
-          threshIds[0]: Uint32List.fromList(
-              [1]), // Top-level THRESH (selects second item)
-          threshIds[1]: Uint32List.fromList(
-              [correctIndex]), // Nested THRESH containing timelock
-          threshIds[timeLockIndex]: Uint32List.fromList(
-              [0, 1]) // Satisfies both timelock and signature
-        };
-
-        print("Generated timeLockPath: $timeLockPath");
-      }
-
-      // Build the transaction:
-      (PartiallySignedTransaction, TransactionDetails) txBuilderResult;
-
-      if (multiSig) {
-        print('MultiSig Builder');
-        txBuilderResult = await txBuilder
-            // .enableRbf()
-            .addRecipient(recipientScript, amount) // Send to recipient
-            .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-            .policyPath(KeychainKind.internalChain, multiSigPath!)
-            .policyPath(KeychainKind.externalChain, multiSigPath)
-            .feeRate(
-                feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
-            .drainTo(changeScript) // Specify the address to send the change
-            .finish(wallet); // Finalize the transaction with wallet's UTXOs
-
-        print('Transaction Built');
-
-        // print('PSBT Before Signing: ');
-        // printInChunks(txBuilderResult.$1.toString());
-
-        final signed = await wallet.sign(
-          psbt: txBuilderResult.$1,
-          signOptions: const SignOptions(
-            trustWitnessUtxo: false,
-            allowAllSighashes: true,
-            removePartialSigs: false,
-            tryFinalize: false,
-            signWithTapInternalKey: true,
-            allowGrinding: true,
-          ),
-        );
-
-        if (signed) {
-          print('Signing returned true');
-        } else {
-          print('Signing returned false');
-        }
-
-        // print('PSBT After Signing: ');
-        // printInChunks(txBuilderResult.$1.toString());
-      } else {
-        print('TimeLock Builder');
-        txBuilderResult = await txBuilder
-            // .enableRbf()
-            // .enableRbfWithSequence(olderValue)
-            .addRecipient(recipientScript, amount) // Send to recipient
-            .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-            .policyPath(KeychainKind.internalChain, timeLockPath!)
-            .policyPath(KeychainKind.externalChain, timeLockPath)
-            .feeRate(
-                feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
-            .drainTo(changeScript) // Specify the address to send the change
-            .finish(wallet); // Finalize the transaction with wallet's UTXOs
-
-        print('Transaction Built');
-
-        print('PSBT Before Signing: ');
-        printInChunks(txBuilderResult.$1.toString());
-
-        final signed = await wallet.sign(
-          psbt: txBuilderResult.$1,
-          signOptions: const SignOptions(
-            trustWitnessUtxo: false,
-            allowAllSighashes: true,
-            removePartialSigs: true,
-            tryFinalize: true,
-            signWithTapInternalKey: true,
-            allowGrinding: true,
-          ),
-        );
-
-        if (signed) {
-          print('Signing returned true');
-        } else {
-          print('Signing returned false');
-        }
-
-        print('PSBT After Signing: ');
-        printInChunks(txBuilderResult.$1.toString());
-      }
-
-      try {
-        if (multiSig) {
-          print('MultiSig Broadcast');
-
-          final psbtString = base64Encode(txBuilderResult.$1.serialize());
-
-          // print('Encoded: ');
-          // printInChunks(psbtString);
-
-          return psbtString;
-        } else {
-          print('TimeLock Broadcast');
-
-          print('Sending');
-          final tx = txBuilderResult.$1.extractTx();
-
-          for (var input in await tx.input()) {
-            print("Input sequence number: ${input.sequence}");
-          }
-
-          final isLockTime = await tx.isLockTimeEnabled();
-          print('LockTime enabled: $isLockTime');
-          final lockTime = await tx.lockTime();
-          print('LockTime: $lockTime');
-
-          await blockchain.broadcast(transaction: tx);
-          print('Transaction sent');
-          return null;
-        }
-      } catch (broadcastError) {
-        throw Exception("Broadcasting error: ${broadcastError.toString()}");
-      }
-    } on Exception catch (e) {
-      print("Error: ${e.toString()}");
-
-      throw Exception("Error: ${e.toString()}");
-    }
-  }
-
-  void printInChunks(String text, {int chunkSize = 800}) {
-    for (int i = 0; i < text.length; i += chunkSize) {
-      print(text.substring(
-          i, i + chunkSize > text.length ? text.length : i + chunkSize));
-    }
-  }
-
-  void printPrettyJson(String jsonString) {
-    final jsonObject = json.decode(jsonString);
-    const encoder = JsonEncoder.withIndent('  ');
-    printInChunks(encoder.convert(jsonObject));
-  }
-
-  // This method takes a PSBT, signs it with the second user and then broadcasts it
-  Future<String> signBroadcastTx(
-    String psbtString,
-    String descriptor,
-    String mnemonic,
-  ) async {
-    Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
-
-    final hardenedDerivationPath =
-        await DerivationPath.create(path: "m/84h/1h/0h");
-
-    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
-
-    final (receivingSecretKey, receivingPublicKey) = await deriveDescriptorKeys(
-      hardenedDerivationPath,
-      receivingDerivationPath,
-      trueMnemonic,
-    );
-
-    descriptor = replacePubKeyWithPrivKeyMultiSig(
-      descriptor,
-      receivingPublicKey.toString(),
-      receivingSecretKey.toString(),
-    );
-
-    wallet = await Wallet.create(
-      descriptor: await Descriptor.create(
-        descriptor: descriptor,
-        network: Network.testnet,
-      ),
-      network: Network.testnet,
-      databaseConfig: const DatabaseConfig.memory(),
-    );
-
-    await syncWallet(wallet);
-
-    // Convert the psbt String to a PartiallySignedTransaction
-    final psbt = await PartiallySignedTransaction.fromString(psbtString);
-
-    printInChunks('Transaction Not Signed: $psbt');
-
-    try {
-      final signed = await wallet.sign(
-        psbt: psbt,
-        signOptions: const SignOptions(
-          trustWitnessUtxo: false,
-          allowAllSighashes: true,
-          removePartialSigs: true,
-          tryFinalize: true,
-          signWithTapInternalKey: true,
-          allowGrinding: true,
-        ),
-      );
-
-      if (signed) {
-        print('Signing returned true');
-      } else {
-        print('Signing returned false');
-        // throw Exception('Not signed');
-      }
-
-      printInChunks('Transaction after Signing: $psbt');
-
-      final tx = psbt.extractTx();
-      print('Extracting');
-
-      final lockTime = await tx.lockTime();
-      print('LockTime: $lockTime');
-
-      for (var input in await tx.input()) {
-        print("Input sequence number: ${input.sequence}");
-      }
-
-      final currentHeight = await blockchain.getHeight();
-      print('Current height: $currentHeight');
-
-      await blockchain.broadcast(transaction: tx);
-      print('Transaction sent');
-
-      return psbt.toString();
-    } on Exception catch (e) {
-      print("Error: ${e.toString()}");
-
-      throw Exception("Error: ${e.toString()} psbt: $psbt");
-    }
   }
 
   Future<int> calculateSendAllBalance({
@@ -816,7 +264,7 @@ class WalletService {
 
       final recipient = await Address.fromString(
         s: recipientAddress,
-        network: Network.testnet,
+        network: network,
       );
       final recipientScript = recipient.scriptPubkey();
 
@@ -854,7 +302,7 @@ class WalletService {
           throw Exception('Failed to extract Needed amount from exception');
         }
       } else {
-        throw e; // Re-throw unhandled exceptions
+        rethrow; // Re-throw unhandled exceptions
       }
     }
   }
@@ -870,7 +318,7 @@ class WalletService {
               timeout: 5,
               retry: 5,
               stopGap: BigInt.from(10),
-              validateDomain: false,
+              validateDomain: true,
             ),
           ),
         );
@@ -941,5 +389,705 @@ class WalletService {
     } else {
       throw Exception('Failed to fetch current block height');
     }
+  }
+
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  /// Single Wallet
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+
+  Future<Wallet> createOrRestoreWallet(
+      String mnemonic, String? password) async {
+    try {
+      final descriptors = await getDescriptors(mnemonic);
+
+      final List<ConnectivityResult> connectivityResult =
+          await (Connectivity().checkConnectivity());
+      if (!connectivityResult.contains(ConnectivityResult.none)) {
+        await blockchainInit();
+      }
+
+      final res = await Wallet.create(
+        descriptor: descriptors[0],
+        changeDescriptor: descriptors[1],
+        network: network,
+        databaseConfig: const DatabaseConfig.memory(),
+      );
+      // var addressInfo =
+      //     await res.getAddress(addressIndex: const AddressIndex());
+
+      // print(res);
+
+      return res;
+    } on Exception catch (e) {
+      // print("Error: ${e.toString()}");
+      throw Exception('Failed to create wallet (Error: ${e.toString()})');
+    }
+  }
+
+  Future<List<Descriptor>> getDescriptors(String mnemonic) async {
+    final descriptors = <Descriptor>[];
+    try {
+      for (var e in [KeychainKind.externalChain, KeychainKind.internalChain]) {
+        final mnemonicObj = await Mnemonic.fromString(mnemonic);
+
+        final descriptorSecretKey = await DescriptorSecretKey.create(
+          network: network,
+          mnemonic: mnemonicObj,
+        );
+
+        final descriptor = await Descriptor.newBip84(
+          secretKey: descriptorSecretKey,
+          network: network,
+          keychain: e,
+        );
+
+        descriptors.add(descriptor);
+      }
+      return descriptors;
+    } on Exception catch (e) {
+      // print("Error: ${e.toString()}");
+      throw ("Error: ${e.toString()}");
+    }
+  }
+
+  // Method to create, sign and broadcast a single user transaction
+  Future<void> sendTx(
+    String recipientAddressStr,
+    BigInt amount,
+    Wallet wallet,
+    String changeAddressStr,
+  ) async {
+    await syncWallet(wallet);
+
+    final utxos = wallet.getBalance();
+    print("Available UTXOs: ${utxos.total.toInt()}");
+    print(wallet.getAddress(addressIndex: AddressIndex.peek(index: 0)));
+
+    try {
+      // Build the transaction
+      final txBuilder = TxBuilder();
+
+      final recipientAddress = await Address.fromString(
+          s: recipientAddressStr, network: wallet.network());
+      final recipientScript = recipientAddress.scriptPubkey();
+
+      final changeAddress = await Address.fromString(
+          s: changeAddressStr, network: wallet.network());
+      final changeScript = changeAddress.scriptPubkey();
+
+      final feeRate = await getFeeRate();
+
+      // Build the transaction:
+      // - Send `amount` to the recipient
+      // - Any remaining funds (change) will be sent to the change address
+      final txBuilderResult = await txBuilder
+          .enableRbf()
+          .addRecipient(recipientScript, amount) // Send to recipient
+          .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
+          .feeRate(
+              feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
+          .drainTo(
+              changeScript) // Specify the custom address to send the change
+          .finish(wallet); // Finalize the transaction with wallet's UTXOs
+
+      // Sign the transaction
+      final isFinalized = await wallet.sign(psbt: txBuilderResult.$1);
+
+      // Broadcast the transaction only if it is finalized
+      if (isFinalized) {
+        final tx = txBuilderResult.$1.extractTx();
+        // Broadcast the transaction to the network only if it is finalized
+        await blockchain.broadcast(transaction: tx);
+      }
+    } on Exception catch (e) {
+      print("Error: ${e.toString()}");
+      throw Exception('Failed to send Transaction (Error: ${e.toString()})');
+    }
+  }
+
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  /// Shared Wallet
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+
+  Future<Wallet> createSharedWallet(String descriptor) async {
+    return wallet = await Wallet.create(
+      descriptor: await Descriptor.create(
+        descriptor: descriptor,
+        network: network,
+      ),
+      network: network,
+      databaseConfig: const DatabaseConfig.memory(),
+    );
+  }
+
+  String createWalletDescriptor(
+    String primaryReceivingSecret,
+    String secondaryReceivingPublic,
+    int primaryTimelock,
+    int secondaryTimelock,
+    String primaryChangePublic,
+    String secondaryChangePublic,
+  ) {
+    // Define the multi-sig condition based on timelock priority
+    String multi = (primaryTimelock < secondaryTimelock)
+        ? 'multi(2,$primaryReceivingSecret,$secondaryReceivingPublic)'
+        : 'multi(2,$secondaryReceivingPublic,$primaryReceivingSecret)';
+
+    // Define the timelock conditions for Perro and Gato
+    String timelockPerro =
+        'and_v(v:older($secondaryTimelock),pk($secondaryChangePublic))';
+    String timelockGato =
+        'and_v(v:older($primaryTimelock),pk($primaryChangePublic))';
+
+    // Combine the timelock conditions
+    String timelockCondition = (primaryTimelock < secondaryTimelock)
+        ? 'or_i($timelockGato,$timelockPerro)'
+        : 'or_i($timelockPerro,$timelockGato)';
+
+    // Return the final walletDescriptor
+    return 'wsh(or_d($multi,$timelockCondition))';
+  }
+
+  Future<void> saveLocalData(Wallet wallet) async {
+    String currentAddress = getAddress(wallet);
+
+    final walletData = WalletData(
+      address: currentAddress,
+      balance: int.parse(getBalance(wallet).toString()),
+      ledgerBalance: await getLedgerBalance(currentAddress),
+      availableBalance: await getAvailableBalance(currentAddress),
+      transactions: await getTransactions(currentAddress),
+    );
+
+    // Save the data to Hive
+    await _walletStorageService.saveWalletData(currentAddress, walletData);
+  }
+
+  String replacePubKeyWithPrivKeyMultiSig(
+      String descriptor, String pubKey, String privKey) {
+    // Extract the derivation path and pubkey portion for dynamic matching
+    final regexPathPub = RegExp(RegExp.escape('${pubKey.split(']')[0]}]') +
+        r'[tx]pub[A-Za-z0-9]+\/\d+\/\*'); // tpub for testnet and xpub for mainnet
+
+    // Replace only the matching public key with the private key
+    return descriptor.replaceFirstMapped(regexPathPub, (match) {
+      return privKey;
+    });
+  }
+
+  String replacePubKeyWithPrivKeyOlder(
+    int? chosenPath, // The specific index to target
+    String descriptor,
+    String pubKey,
+    String privKey,
+  ) {
+    print('------------Replacing------------');
+    printInChunks('Descriptor Before Replacement:\n$descriptor');
+    print('Chosen Path Index: $chosenPath');
+    print('Public Key: $pubKey');
+    print('Private Key: ${privKey.substring(0, privKey.length - 4)}');
+
+    // Extract the derivation path prefix and ensure we match tpub/xpub keys with trailing paths
+    final regexPathPub = RegExp(
+      RegExp.escape('${pubKey.split(']')[0]}]') +
+          r'[tx]pub[A-Za-z0-9]+\/(\d+)\/\*',
+    ); // Matches tpub for testnet and xpub for mainnet
+
+    int currentIndex = 0; // Tracks the current match index
+
+    // Replace only the match at the specified `chosenPath` index
+    final result = descriptor.replaceAllMapped(regexPathPub, (match) {
+      final trailingPath =
+          match.group(1); // Extract the trailing path (e.g., "0", "1", "2")
+
+      // Debugging info for each match
+      print('Match Found: ${match.group(0)}');
+      print('Trailing Path Extracted: $trailingPath');
+      print('Current Match Index: $currentIndex');
+
+      if (currentIndex == chosenPath) {
+        print(
+            'Replacing with Private Key: ${privKey.substring(0, privKey.length - 4)}/$trailingPath/*');
+        currentIndex++; // Increment the index for the next match
+        return '${privKey.substring(0, privKey.length - 4)}/$trailingPath/*';
+      } else {
+        print('Keeping Original Public Key: ${match.group(0)}');
+        currentIndex++; // Increment the index for the next match
+        return match
+            .group(0)!; // Keep the original matched string for other paths
+      }
+    });
+
+    printInChunks('Descriptor After Replacement:\n$result');
+    print('------------Replacement Complete------------');
+
+    return result;
+  }
+
+  Future<(DescriptorSecretKey, DescriptorPublicKey)> deriveDescriptorKeys(
+    DerivationPath hardenedPath,
+    DerivationPath unHardenedPath,
+    Mnemonic mnemonic,
+  ) async {
+    // Create the root secret key from the mnemonic
+    final secretKey = await DescriptorSecretKey.create(
+      network: network,
+      mnemonic: mnemonic,
+    );
+
+    // Derive the key at the hardened path
+    final derivedSecretKey = await secretKey.derive(hardenedPath);
+
+    // Extend the derived secret key further using the unhardened path
+    final derivedExtendedSecretKey =
+        await derivedSecretKey.extend(unHardenedPath);
+
+    // Convert the derived secret key to its public counterpart
+    final publicKey = derivedSecretKey.toPublic();
+
+    // Extend the public key using the same unhardened path
+    final derivedExtendedPublicKey =
+        await publicKey.extend(path: unHardenedPath);
+
+    return (derivedExtendedSecretKey, derivedExtendedPublicKey);
+  }
+
+  Future<int> extractOlderWithPrivateKey(String descriptor) async {
+    // Adjusted regex to match only "older" values followed by "pk(...tprv...)"
+    final regExp =
+        RegExp(r'older\((\d+)\).*?pk\(\[.*?]([tx]p(?:rv|ub)[a-zA-Z0-9]+)');
+    final matches = regExp.allMatches(descriptor);
+
+    int older = 0;
+
+    for (var match in matches) {
+      String olderValue = match.group(1)!; // Extract the older value
+      String keyType = match.group(2)!; // Capture whether it's tprv or tpub
+
+      // Only process the match if it's a private key (tprv)
+      if (keyType.startsWith("tprv") || keyType.startsWith("xprv")) {
+        print('Found older value associated with private key: $olderValue');
+        older = int.parse(olderValue);
+      }
+    }
+
+    return older;
+  }
+
+  // Function to traverse and extract both the id and the path to the fingerprint
+  List<Map<String, dynamic>> extractAllPathsToFingerprint(
+    Map<String, dynamic> policy,
+    String targetFingerprint,
+  ) {
+    List<Map<String, dynamic>> result = [];
+
+    void traverse(dynamic node, List<int> currentPath, List<String> idPath) {
+      if (node == null) return;
+
+      // Debugging: Print the current node and paths being processed
+      print('Traversing Node: ${node['id'] ?? 'No ID'}');
+      print('Current Path: $currentPath');
+      print('ID Path: $idPath');
+
+      // Check if the node itself has a matching fingerprint
+      if (node['fingerprint'] == targetFingerprint) {
+        print('Match Found in Node: ${node['id']}');
+        result.add({
+          'ids': [...idPath, node['id']],
+          'indexes': currentPath,
+        });
+      }
+
+      // Check if the node contains `keys` with matching fingerprints
+      if (node['keys'] != null) {
+        for (var key in node['keys']) {
+          print('Checking Key Fingerprint: ${key['fingerprint']}');
+          if (key['fingerprint'] == targetFingerprint) {
+            print('Match Found in Keys: Adding Path');
+            result.add({
+              'ids': [...idPath, node['id']],
+              'indexes': currentPath,
+            });
+          }
+        }
+      }
+
+      // Recursively traverse children if the node has `items`
+      if (node['items'] != null) {
+        for (int i = 0; i < node['items'].length; i++) {
+          print('Traversing Child at Index: $i');
+          traverse(
+            node['items'][i],
+            [...currentPath, i],
+            [...idPath, node['id']],
+          );
+        }
+      }
+    }
+
+    // Start traversing from the root policy
+    traverse(policy, [], []);
+
+    print('Final Result: $result');
+    return result;
+  }
+
+  // Method to create a PSBT for a multisig transaction, this psbt is signed by the first user
+  Future<String?> createPartialTx(
+    String descriptor,
+    String mnemonic,
+    String recipientAddressStr,
+    BigInt amount,
+    int? chosenPath,
+    List<Map<String, dynamic>> availablePaths,
+  ) async {
+    Map<String, Uint32List>? multiSigPath;
+    Map<String, Uint32List>? timeLockPath;
+
+    // print('Bool: $multiSig');
+    Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
+
+    final hardenedDerivationPath =
+        await DerivationPath.create(path: "m/84h/1h/0h");
+
+    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+
+    final (receivingSecretKey, receivingPublicKey) = await deriveDescriptorKeys(
+      hardenedDerivationPath,
+      receivingDerivationPath,
+      trueMnemonic,
+    );
+
+    print(receivingPublicKey);
+
+    // Extract the content inside square brackets
+    final RegExp regex = RegExp(r'\[([^\]]+)\]');
+    final Match? match = regex.firstMatch(receivingPublicKey.asString());
+
+    final String targetFingerprint = match!.group(1)!.split('/')[0];
+    print("Fingerprint: $targetFingerprint");
+
+    descriptor = (chosenPath == 0)
+        ? replacePubKeyWithPrivKeyMultiSig(
+            descriptor,
+            receivingPublicKey.toString(),
+            receivingSecretKey.toString(),
+          )
+        : replacePubKeyWithPrivKeyOlder(
+            chosenPath,
+            descriptor,
+            receivingPublicKey.toString(),
+            receivingSecretKey.toString(),
+          );
+
+    printInChunks('Sending Descriptor: $descriptor');
+
+    wallet = await createSharedWallet(descriptor);
+
+    await syncWallet(wallet);
+
+    final utxos = wallet.getBalance();
+    print("Available UTXOs: ${utxos.confirmed}");
+
+    final unspent = wallet.listUnspent();
+    final feeRate = await getFeeRate();
+
+    final totalSpending = amount + BigInt.from(feeRate);
+    print("Total Spending: $totalSpending");
+
+    // Check If there are enough funds available
+    if (utxos.confirmed < totalSpending) {
+      // Exit early if no confirmed UTXOs are available
+      throw Exception(
+          "Not enough confirmed funds available. Please wait until your transactions confirm.");
+    }
+
+    for (var utxo in unspent) {
+      print('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
+    }
+
+    try {
+      // Build the transaction
+      final txBuilder = TxBuilder();
+
+      final recipientAddress = await Address.fromString(
+          s: recipientAddressStr, network: wallet.network());
+      final recipientScript = recipientAddress.scriptPubkey();
+
+      var internalChangeAddress = wallet.getInternalAddress(
+          addressIndex: const AddressIndex.peek(index: 0));
+
+      final changeScript = internalChangeAddress.address.scriptPubkey();
+
+      // final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
+      final Policy externalWalletPolicy =
+          wallet.policies(KeychainKind.externalChain)!;
+
+      // print(externalWalletPolicy.contribution());
+
+      // printPrettyJson(internalWalletPolicy!.asString());
+      // printPrettyJson(externalWalletPolicy!.asString());
+
+      // const String targetFingerprint = "fb94d032";
+
+      final Map<String, dynamic> policy =
+          jsonDecode(externalWalletPolicy.asString());
+
+      final path = extractAllPathsToFingerprint(policy, targetFingerprint);
+
+      print(path);
+
+      if (chosenPath == 0) {
+        // First Path: Direct MULTISIG
+        multiSigPath = {
+          for (int i = 0; i < path[0]["ids"].length - 1; i++)
+            path[0]["ids"][i]: Uint32List.fromList([path[0]["indexes"][i]])
+        };
+
+        print("Generated multiSigPath: $multiSigPath");
+      } else {
+        timeLockPath = {
+          for (int i = 0; i < path[chosenPath!]["ids"].length - 1; i++)
+            path[chosenPath]["ids"][i]: Uint32List.fromList(i ==
+                    path[chosenPath]["ids"].length -
+                        2 // Check if it's the second-to-last item
+                ? [0, 1] // Select both indexes for the last `THRESH` node
+                : [path[chosenPath]["indexes"][i]])
+        };
+
+        print("Generated timeLockPath: $timeLockPath");
+      }
+
+      // Build the transaction:
+      (PartiallySignedTransaction, TransactionDetails) txBuilderResult;
+
+      if (chosenPath == 0) {
+        print('MultiSig Builder');
+        txBuilderResult = await txBuilder
+            // .enableRbf()
+            .addRecipient(recipientScript, amount) // Send to recipient
+            .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
+            .policyPath(KeychainKind.internalChain, multiSigPath!)
+            .policyPath(KeychainKind.externalChain, multiSigPath)
+            .feeRate(
+                feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
+            .drainTo(changeScript) // Specify the address to send the change
+            .finish(wallet); // Finalize the transaction with wallet's UTXOs
+
+        print('Transaction Built');
+      } else {
+        print('TimeLock Builder');
+        txBuilderResult = await txBuilder
+            // .enableRbf()
+            // .enableRbfWithSequence(olderValue)
+            .addRecipient(recipientScript, amount) // Send to recipient
+            .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
+            .policyPath(KeychainKind.internalChain, timeLockPath!)
+            .policyPath(KeychainKind.externalChain, timeLockPath)
+            .feeRate(
+                feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
+            .drainTo(changeScript) // Specify the address to send the change
+            .finish(wallet); // Finalize the transaction with wallet's UTXOs
+
+        print('Transaction Built');
+      }
+
+      try {
+        final signed = await wallet.sign(
+          psbt: txBuilderResult.$1,
+          signOptions: const SignOptions(
+            trustWitnessUtxo: false,
+            allowAllSighashes: true,
+            removePartialSigs: true,
+            tryFinalize: true,
+            signWithTapInternalKey: true,
+            allowGrinding: true,
+          ),
+        );
+
+        if (signed) {
+          print('Signing returned true');
+
+          print('Sending');
+          final tx = txBuilderResult.$1.extractTx();
+
+          for (var input in await tx.input()) {
+            print("Input sequence number: ${input.sequence}");
+          }
+
+          final isLockTime = await tx.isLockTimeEnabled();
+          print('LockTime enabled: $isLockTime');
+
+          final lockTime = await tx.lockTime();
+          print('LockTime: $lockTime');
+
+          await blockchain.broadcast(transaction: tx);
+          print('Transaction sent');
+
+          return null;
+        } else {
+          print('Signing returned false');
+
+          final psbtString = base64Encode(txBuilderResult.$1.serialize());
+
+          return psbtString;
+        }
+      } catch (broadcastError) {
+        print("Broadcasting error: ${broadcastError.toString()}");
+        throw Exception("Broadcasting error: ${broadcastError.toString()}");
+      }
+    } on Exception catch (e) {
+      print("Error: ${e.toString()}");
+
+      throw Exception("Error: ${e.toString()}");
+    }
+  }
+
+  // This method takes a PSBT, signs it with the second user and then broadcasts it
+  Future<String> signBroadcastTx(
+    String psbtString,
+    String descriptor,
+    String mnemonic,
+    int? chosenPath,
+  ) async {
+    Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
+
+    final hardenedDerivationPath =
+        await DerivationPath.create(path: "m/84h/1h/0h");
+
+    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+
+    final (receivingSecretKey, receivingPublicKey) = await deriveDescriptorKeys(
+      hardenedDerivationPath,
+      receivingDerivationPath,
+      trueMnemonic,
+    );
+
+    descriptor = (chosenPath == 0)
+        ? replacePubKeyWithPrivKeyMultiSig(
+            descriptor,
+            receivingPublicKey.toString(),
+            receivingSecretKey.toString(),
+          )
+        : replacePubKeyWithPrivKeyOlder(
+            chosenPath,
+            descriptor,
+            receivingPublicKey.toString(),
+            receivingSecretKey.toString(),
+          );
+
+    wallet = await Wallet.create(
+      descriptor: await Descriptor.create(
+        descriptor: descriptor,
+        network: network,
+      ),
+      network: network,
+      databaseConfig: const DatabaseConfig.memory(),
+    );
+
+    await syncWallet(wallet);
+
+    // Convert the psbt String to a PartiallySignedTransaction
+    final psbt = await PartiallySignedTransaction.fromString(psbtString);
+
+    printInChunks('Transaction Not Signed: $psbt');
+
+    try {
+      final signed = await wallet.sign(
+        psbt: psbt,
+        signOptions: const SignOptions(
+          trustWitnessUtxo: false,
+          allowAllSighashes: true,
+          removePartialSigs: true,
+          tryFinalize: true,
+          signWithTapInternalKey: true,
+          allowGrinding: true,
+        ),
+      );
+
+      if (signed) {
+        print('Signing returned true');
+        final tx = psbt.extractTx();
+        print('Extracting');
+
+        final lockTime = await tx.lockTime();
+        print('LockTime: $lockTime');
+
+        for (var input in await tx.input()) {
+          print("Input sequence number: ${input.sequence}");
+        }
+
+        final currentHeight = await blockchain.getHeight();
+        print('Current height: $currentHeight');
+
+        await blockchain.broadcast(transaction: tx);
+        print('Transaction sent');
+      } else {
+        print('Signing returned false');
+        // throw Exception('Not signed');
+        return psbt.toString();
+      }
+
+      // printInChunks('Transaction after Signing: $psbt');
+
+      return psbt.toString();
+    } on Exception catch (e) {
+      print("Error: ${e.toString()}");
+
+      throw Exception("Error: ${e.toString()} psbt: $psbt");
+    }
+  }
+
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  /// UTILITIES
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+  ///
+
+  void printInChunks(String text, {int chunkSize = 800}) {
+    for (int i = 0; i < text.length; i += chunkSize) {
+      print(text.substring(
+          i, i + chunkSize > text.length ? text.length : i + chunkSize));
+    }
+  }
+
+  void printPrettyJson(String jsonString) {
+    final jsonObject = json.decode(jsonString);
+    const encoder = JsonEncoder.withIndent('  ');
+    printInChunks(encoder.convert(jsonObject));
   }
 }

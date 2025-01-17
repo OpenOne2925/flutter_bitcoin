@@ -78,40 +78,9 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
     );
   }
 
-  Future<bool> _isValidDescriptor(String descriptorStr) async {
-    // TODO: Add your descriptor validation logic here
-    // For example, check if it meets some specific pattern or length
-
-    bool isValid = true;
-
-    Network network = Network.testnet;
-
-    try {
-      // Try creating the descriptor
-      final descriptor = await Descriptor.create(
-        descriptor: descriptorStr,
-        network: network,
-      );
-
-      // Try creating the wallet with the descriptor
-      await Wallet.create(
-        descriptor: descriptor,
-        network: network,
-        databaseConfig: const DatabaseConfig.memory(),
-      );
-    } catch (e) {
-      // If any error occurs during creation, set isValid to false
-      isValid = false;
-      // print('Error creating wallet with descriptor: $e');
-      throw ('Error creating wallet with descriptor: $e');
-    }
-
-    return isValid;
-  }
-
   // Asynchronous method to validate the descriptor
   Future<void> _validateDescriptor(String descriptor) async {
-    bool isValid = await _isValidDescriptor(descriptor);
+    bool isValid = await _walletService.isValidDescriptor(descriptor);
     setState(() {
       _isDescriptorValid = isValid;
     });
