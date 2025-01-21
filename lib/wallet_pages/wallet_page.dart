@@ -799,12 +799,12 @@ class WalletPageState extends State<WalletPage> {
                     children: [
                       Expanded(
                         child: _buildInfoBox(
-                            'Ledger Balance', '$ledBalance sats', () {}),
+                            'Ledger \nBalance', '$ledBalance sats', () {}),
                       ),
                       const SizedBox(width: 8), // Add space between the boxes
                       Expanded(
                         child: _buildInfoBox(
-                            'Available Balance', '$avBalance sats', () {}),
+                            'Available \nBalance', '$avBalance sats', () {}),
                       ),
                     ],
                   ),
@@ -1013,13 +1013,29 @@ class WalletPageState extends State<WalletPage> {
           )
         : null;
 
-    final amountReceived = firstVout != null
-        ? firstVout['value']?.toString() ?? 'Unknown Amount'
-        : 'Unknown Amount';
     final receiver =
         firstVout != null && firstVout['scriptpubkey_address'] != null
             ? firstVout['scriptpubkey_address'] ?? 'Unknown Receiver'
             : 'Unknown Receiver';
+
+    final fee = tx['fee'] ?? 0;
+
+    final isReceived = tx['vout'] != null &&
+        tx['vout'].any((vout) => vout['scriptpubkey_address'] == address);
+
+    final amount = isReceived
+        ? tx['vout']
+            .where((vout) => vout['scriptpubkey_address'] == address)
+            .fold<int>(
+              0,
+              (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+            )
+        : tx['vin'].fold<int>(
+              0,
+              (int sum, dynamic vin) =>
+                  sum + ((vin['prevout']?['value'] as int?) ?? 0),
+            ) -
+            fee;
 
     return Card(
       shape: RoundedRectangleBorder(
@@ -1036,7 +1052,7 @@ class WalletPageState extends State<WalletPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Amount: $amountReceived',
+                  'Amount: $amount',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -1059,301 +1075,222 @@ class WalletPageState extends State<WalletPage> {
     );
   }
 
-  void _showTransactionsDialog(BuildContext context, Map<String, dynamic> tx) {
-    final theme = Theme.of(context); // Get the current theme
-    final isDarkMode =
-        theme.brightness == Brightness.dark; // Check if it's dark mode
+  void _showTransactionsDialog(
+    BuildContext context,
+    Map<String, dynamic> transaction,
+  ) {
+    // Extract transaction details
+    final fee = transaction['fee'] ?? 0;
 
-    // Unwrap the transaction if it is wrapped inside an extra 'txid' key
-    if (tx.containsKey('txid') && tx['txid'] is Map) {
-      tx = tx['txid'];
-    }
+    final sender = (transaction['vin'] != null && transaction['vin'].isNotEmpty)
+        ? (transaction['vin'][0]['prevout']?['scriptpubkey_address'] ??
+            'Unknown Sender')
+        : 'Unknown Sender';
 
-    final otherVout = tx['vout'] != null && tx['vout'].isNotEmpty
-        ? tx['vout'].firstWhere(
-            (vout) => (vout['scriptpubkey_address'] !=
-                address), // Check if the address matches
-            orElse: () => null,
-          )
-        : null;
-
-    final fee = tx['fee'];
-
-    final amountSubtract = otherVout != null
-        ? otherVout['value']?.toString() ?? 'Unknown Amount'
-        : null;
-
-    List<Widget> vinWidgets = [];
-
-    // Safely access vin[0] and prevout for the amount sent and sender address
-    if (tx['vin'] != null && tx['vin'].isNotEmpty) {
-      for (var vin in tx['vin']) {
-        final amountSent = vin['prevout'] != null
-            ? vin['prevout']['value']?.toString() ?? 'Unknown Amount'
-            : 'Unknown Amount';
-        final sender = vin['prevout'] != null
-            ? vin['prevout']['scriptpubkey_address'] ?? 'Unknown Sender'
-            : 'Unknown Sender';
-
-        final amount = int.parse(amountSent) - int.parse(amountSubtract!) - fee;
-
-        vinWidgets.add(
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.person_outline, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        scrollDirection:
-                            Axis.horizontal, // Enable horizontal scrolling
-                        child: Text(
-                          'Sender: $sender',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: isDarkMode
-                                ? Colors.white70
-                                : Colors.black87, // Adapt to theme
-                          ),
-                          maxLines:
-                              1, // Optional: Prevent text from wrapping to multiple lines
-                          softWrap:
-                              false, // Ensure text doesn't wrap to the next line
-                          overflow: TextOverflow
-                              .visible, // Ensure overflow is handled by scrolling
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.attach_money, color: Colors.grey),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Amount Sent: $amount',
-                      style: TextStyle(
-                        color: isDarkMode
-                            ? Colors.white70
-                            : Colors.black87, // Adapt to theme
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Divider(), // Separate each vin with a line
-              ],
-            ),
-          ),
-        );
-      }
-    }
-
-    final blockTime = tx['status'] != null &&
-            tx['status']['confirmed'] != null &&
-            tx['status']['confirmed']
-        ? (tx['status']['block_time'] != null
-            ? DateTime.fromMillisecondsSinceEpoch(
-                tx['status']['block_time'] * 1000)
-            : 'Unknown Time')
-        : 'Unconfirmed Transaction';
-
-    final blockHeight = tx['status'] != null &&
-            tx['status']['confirmed'] != null &&
-            tx['status']['confirmed']
-        ? tx['status']['block_height']
-        : 0;
-
-    final confirmations = currentBlockHeight - blockHeight;
-
-    final firstVout = tx['vout'] != null && tx['vout'].isNotEmpty
-        ? tx['vout'].firstWhere(
-            (vout) => (vout['scriptpubkey_address'] ==
-                address), // Check if the address matches
-            orElse: () => null,
-          )
-        : null;
-
-    final amountReceived = firstVout != null
-        ? firstVout['value']?.toString() ?? 'Unknown Amount'
-        : 'Unknown Amount';
     final receiver =
-        firstVout != null && firstVout['scriptpubkey_address'] != null
-            ? firstVout['scriptpubkey_address'] ?? 'Unknown Receiver'
+        transaction['vout'] != null && transaction['vout'].isNotEmpty
+            ? (transaction['vout'].firstWhere(
+                  (vout) => vout['scriptpubkey_address'] == address,
+                  orElse: () => null,
+                )?['scriptpubkey_address'] ??
+                'Unknown Receiver')
             : 'Unknown Receiver';
 
+    final isReceived = transaction['vout'] != null &&
+        transaction['vout']
+            .any((vout) => vout['scriptpubkey_address'] == address);
+
+    final amount = isReceived
+        ? transaction['vout']
+            .where((vout) => vout['scriptpubkey_address'] == address)
+            .fold<int>(
+              0,
+              (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+            )
+        : transaction['vin'].fold<int>(
+              0,
+              (int sum, dynamic vin) =>
+                  sum + ((vin['prevout']?['value'] as int?) ?? 0),
+            ) -
+            fee;
+
+    final isConfirmed = transaction['status']?['confirmed'] ?? false;
+    final blockHeight =
+        isConfirmed ? transaction['status']['block_height'] : 'Unconfirmed';
+    final blockTime = isConfirmed
+        ? DateTime.fromMillisecondsSinceEpoch(
+            (transaction['status']['block_time'] ?? 0) * 1000,
+          ).toLocal()
+        : 'Unconfirmed';
+
+    // Build the dialog
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: isDarkMode
-              ? theme.colorScheme.surface
-              : Colors.white, // Adapt background color
-          title: Text(
+          backgroundColor: Colors.grey[900],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
+          title: const Text(
             'Transaction Details',
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: isDarkMode
-                  ? Colors.white
-                  : Colors.black87, // Adapt text color
+              color: Colors.orange,
             ),
           ),
           content: SingleChildScrollView(
-            child: ListBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Sender Information',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orangeAccent,
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12.0),
+                  padding: const EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[850],
+                    borderRadius: BorderRadius.circular(12.0),
+                    border: Border.all(color: Colors.orange),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Column(children: vinWidgets), // Display all vin entries
-
-                const SizedBox(height: 16),
-                const Text(
-                  'Receiver Information',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.person, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        scrollDirection:
-                            Axis.horizontal, // Enable horizontal scrolling
-                        child: Text(
-                          'Receiver: $receiver',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: isDarkMode
-                                ? Colors.white70
-                                : Colors.black87, // Adapt to theme
-                          ),
-                          maxLines:
-                              1, // Optional: Prevent text from wrapping to multiple lines
-                          softWrap:
-                              false, // Ensure text doesn't wrap to the next line
-                          overflow: TextOverflow
-                              .visible, // Ensure overflow is handled by scrolling
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isReceived
+                            ? 'Received Transaction'
+                            : 'Sent Transaction',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.orange,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.attach_money, color: Colors.grey),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Amount Received: $amountReceived',
-                      style: TextStyle(
-                        color: isDarkMode
-                            ? Colors.white70
-                            : Colors.black87, // Adapt text color
-                        fontSize: 14,
+                      const SizedBox(height: 8),
+                      const Text(
+                        "Sender Information",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Divider(),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    const Icon(Icons.monetization_on, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Fee: $fee',
-                      style: TextStyle(
-                        color: isDarkMode
-                            ? Colors.white70
-                            : Colors.black87, // Adapt text color
-                        fontSize: 14,
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(
+                              text: sender)); // Copy text to clipboard
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Copied to clipboard: $sender'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          ); // Optional feedback
+                        },
+                        child: Text(
+                          sender,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.schedule, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Block Time: $blockTime',
-                      style: TextStyle(
-                        color: isDarkMode
-                            ? Colors.white70
-                            : Colors.black87, // Adapt text color
-                        fontSize: 14,
+                      const SizedBox(height: 8),
+                      const Text(
+                        "Receiver Information",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.airplanemode_active, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Block Height: $blockHeight',
-                      style: TextStyle(
-                        color: isDarkMode
-                            ? Colors.white70
-                            : Colors.black87, // Adapt text color
-                        fontSize: 14,
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(
+                              text: receiver)); // Copy text to clipboard
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Copied to clipboard: $receiver'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          ); // Optional feedback
+                        },
+                        child: Text(
+                          receiver,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.check_circle, color: Colors.grey),
-                    const SizedBox(width: 8),
-                    Text(
-                      confirmations < 6 && confirmations >= 0
-                          ? 'Confirmations: $confirmations'
-                          : 'Confirmed',
-                      style: TextStyle(
-                        color: isDarkMode
-                            ? Colors.white70
-                            : Colors.black87, // Adapt text color
-                        fontSize: 14,
+                      const SizedBox(height: 8),
+                      const Text(
+                        "Transaction Details",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        "Amount: ${amount.abs()} sats",
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      Text(
+                        "Fee: $fee sats",
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        "Confirmation Details",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        isConfirmed
+                            ? "Confirmed at block: $blockHeight"
+                            : "Status: Unconfirmed",
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      if (isConfirmed)
+                        Text(
+                          "Block Time: \n$blockTime",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(
-              child: Text(
-                'Close',
-                style: TextStyle(
-                  color: theme
-                      .colorScheme.secondary, // Use theme's secondary color
-                  fontSize: 16,
-                ),
-              ),
-              onPressed: () {
+            InkwellButton(
+              onTap: () {
                 Navigator.of(context).pop();
               },
+              label: 'Close',
+              backgroundColor: Colors.white,
+              textColor: Colors.black,
+              icon: Icons.cancel_rounded,
+              iconColor: Colors.black,
             ),
           ],
         );

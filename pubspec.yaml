@@ -45,6 +45,11 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   mobile_scanner: ^6.0.2
   google_fonts: ^6.2.1
+  lottie: ^3.3.1
+  file_saver: ^0.2.13
+  path_provider: ^2.1.5
+  permission_handler: ^11.3.1
+  file_picker: ^8.0.7
 
 dev_dependencies:
   flutter_test:
@@ -78,6 +83,12 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+  - assets/animations/lock_unlock.json
+  - assets/animations/idle.json
+  - assets/animations/creating_wallet.json
+  - assets/animations/success.json
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -359,23 +359,18 @@ class WalletService {
       // Send the GET request to the API
       final response = await http.get(Uri.parse(url));
 
-      // Check if the response was successful (status code 200)
+      // Check if the response was successful
       if (response.statusCode == 200) {
         // Parse the JSON response
         List<dynamic> transactionsJson = jsonDecode(response.body);
 
         // Cast to List<Map<String, dynamic>> for easier processing
-        List<Map<String, dynamic>> transactions =
-            List<Map<String, dynamic>>.from(transactionsJson);
-
-        // Return the list of transactions
-        return transactions;
+        return List<Map<String, dynamic>>.from(transactionsJson);
       } else {
         throw Exception(
             'Failed to load transactions. Status Code: ${response.statusCode}');
       }
     } catch (e) {
-      // print('Error: $e');
       throw Exception('Failed to fetch transactions: $e');
     }
   }
@@ -388,6 +383,78 @@ class WalletService {
       return int.parse(response.body); // The current block height
     } else {
       throw Exception('Failed to fetch current block height');
+    }
+  }
+
+  Future<int> fetchAverageBlockTime() async {
+    final url = '$baseUrl/v1/difficulty-adjustment';
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      // print('API Response: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        // Extract and validate `timeAvg`
+        final timeAvg = data['timeAvg'] ?? 0;
+        final avgBlockTime =
+            timeAvg > 10000 ? (timeAvg ~/ 1000) : timeAvg; // Adjust if in ms
+
+        // Sanity check
+        if (avgBlockTime < 300 || avgBlockTime > 1200) {
+          print('Warning: avgBlockTime seems incorrect: $avgBlockTime');
+        }
+
+        return avgBlockTime;
+      } else {
+        print('Failed to fetch data. HTTP Status: ${response.statusCode}');
+        return 0; // Return 0 if the request fails
+      }
+    } catch (e) {
+      print('Error fetching data: $e');
+      return 0; // Return 0 in case of an error
+    }
+  }
+
+  Future<int> calculateRemainingTimeInSeconds(int remainingBlocks) async {
+    final avgTime = await fetchAverageBlockTime();
+
+    if (avgTime > 0) {
+      // Calculate remaining time in seconds
+      return remainingBlocks * avgTime;
+    } else {
+      throw Exception('Invalid average block time.');
+    }
+  }
+
+  String formatTime(int totalSeconds) {
+    if (totalSeconds <= 0) return "0 seconds";
+
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    return '$hours hours, $minutes minutes, $seconds seconds';
+  }
+
+  Future<List<dynamic>> getUtxos(String address) async {
+    final url = '$baseUrl/address/$address/utxo';
+    List<dynamic> transactions = [];
+
+    try {
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        transactions = json.decode(response.body);
+      } else {
+        print(
+            'Failed to fetch transactions. HTTP status: ${response.statusCode}');
+      }
+      return transactions;
+    } catch (e) {
+      print('Error fetching transactions: $e');
+      return transactions;
     }
   }
 
@@ -605,11 +672,11 @@ class WalletService {
     String pubKey,
     String privKey,
   ) {
-    print('------------Replacing------------');
-    printInChunks('Descriptor Before Replacement:\n$descriptor');
-    print('Chosen Path Index: $chosenPath');
-    print('Public Key: $pubKey');
-    print('Private Key: ${privKey.substring(0, privKey.length - 4)}');
+    // print('------------Replacing------------');
+    // printInChunks('Descriptor Before Replacement:\n$descriptor');
+    // print('Chosen Path Index: $chosenPath');
+    // print('Public Key: $pubKey');
+    // print('Private Key: ${privKey.substring(0, privKey.length - 4)}');
 
     // Extract the derivation path prefix and ensure we match tpub/xpub keys with trailing paths
     final regexPathPub = RegExp(
@@ -625,25 +692,25 @@ class WalletService {
           match.group(1); // Extract the trailing path (e.g., "0", "1", "2")
 
       // Debugging info for each match
-      print('Match Found: ${match.group(0)}');
-      print('Trailing Path Extracted: $trailingPath');
-      print('Current Match Index: $currentIndex');
+      // print('Match Found: ${match.group(0)}');
+      // print('Trailing Path Extracted: $trailingPath');
+      // print('Current Match Index: $currentIndex');
 
       if (currentIndex == chosenPath) {
-        print(
-            'Replacing with Private Key: ${privKey.substring(0, privKey.length - 4)}/$trailingPath/*');
+        // print(
+        //     'Replacing with Private Key: ${privKey.substring(0, privKey.length - 4)}/$trailingPath/*');
         currentIndex++; // Increment the index for the next match
         return '${privKey.substring(0, privKey.length - 4)}/$trailingPath/*';
       } else {
-        print('Keeping Original Public Key: ${match.group(0)}');
+        // print('Keeping Original Public Key: ${match.group(0)}');
         currentIndex++; // Increment the index for the next match
         return match
             .group(0)!; // Keep the original matched string for other paths
       }
     });
 
-    printInChunks('Descriptor After Replacement:\n$result');
-    print('------------Replacement Complete------------');
+    // printInChunks('Descriptor After Replacement:\n$result');
+    // print('------------Replacement Complete------------');
 
     return result;
   }
@@ -690,7 +757,7 @@ class WalletService {
 
       // Only process the match if it's a private key (tprv)
       if (keyType.startsWith("tprv") || keyType.startsWith("xprv")) {
-        print('Found older value associated with private key: $olderValue');
+        // print('Found older value associated with private key: $olderValue');
         older = int.parse(olderValue);
       }
     }
@@ -708,10 +775,10 @@ class WalletService {
     void traverse(dynamic node, List<int> currentPath, List<String> idPath) {
       if (node == null) return;
 
-      // Debugging: Print the current node and paths being processed
-      print('Traversing Node: ${node['id'] ?? 'No ID'}');
-      print('Current Path: $currentPath');
-      print('ID Path: $idPath');
+      // // Debugging: Print the current node and paths being processed
+      // print('Traversing Node: ${node['id'] ?? 'No ID'}');
+      // print('Current Path: $currentPath');
+      // print('ID Path: $idPath');
 
       // Check if the node itself has a matching fingerprint
       if (node['fingerprint'] == targetFingerprint) {
@@ -725,9 +792,9 @@ class WalletService {
       // Check if the node contains `keys` with matching fingerprints
       if (node['keys'] != null) {
         for (var key in node['keys']) {
-          print('Checking Key Fingerprint: ${key['fingerprint']}');
+          // print('Checking Key Fingerprint: ${key['fingerprint']}');
           if (key['fingerprint'] == targetFingerprint) {
-            print('Match Found in Keys: Adding Path');
+            // print('Match Found in Keys: Adding Path');
             result.add({
               'ids': [...idPath, node['id']],
               'indexes': currentPath,
@@ -739,7 +806,7 @@ class WalletService {
       // Recursively traverse children if the node has `items`
       if (node['items'] != null) {
         for (int i = 0; i < node['items'].length; i++) {
-          print('Traversing Child at Index: $i');
+          // print('Traversing Child at Index: $i');
           traverse(
             node['items'][i],
             [...currentPath, i],
@@ -752,7 +819,200 @@ class WalletService {
     // Start traversing from the root policy
     traverse(policy, [], []);
 
-    print('Final Result: $result');
+    // print('Final Result: $result');
+    return result;
+  }
+
+  List<Map<String, dynamic>> extractDataByFingerprint(
+      Map<String, dynamic> json, String fingerprint) {
+    List<Map<String, dynamic>> result = [];
+
+    void traverse(Map<String, dynamic> node, List<String> path,
+        List<dynamic>? parentItems) {
+      // print(
+      //     "Traversing node: ${node['id'] ?? 'Unknown ID'}, Path: ${path.join(' > ')}");
+
+      // Check for keys in the current node
+      if (node['keys'] != null) {
+        // print("Checking keys in node: ${node['id'] ?? 'Unknown ID'}");
+        List<dynamic> keys = node['keys'];
+        final matchingKeys =
+            keys.where((key) => key['fingerprint'] == fingerprint).toList();
+
+        if (matchingKeys.isNotEmpty) {
+          String type = node['type'];
+          int? timelockValue;
+
+          if (node['threshold'] != null) {
+            type = "THRESH > $type";
+          }
+
+          // Check sibling constraints
+          if (parentItems != null) {
+            for (var sibling in parentItems) {
+              if (sibling['type'] == 'RELATIVETIMELOCK') {
+                type = "RELATIVETIMELOCK > $type";
+                timelockValue = sibling['value']; // Capture timelock value
+              }
+            }
+          }
+
+          // print(
+          //     "Fingerprint match found in node: ${node['id'] ?? 'Unknown ID'}");
+          result.add({
+            'type': type,
+            'threshold': node['threshold'],
+            'fingerprints': keys.map((key) => key['fingerprint']).toList(),
+            'path': path.join(' > '),
+            'timelock': timelockValue,
+          });
+          // print("Added to result: ${result.last}");
+        } else {
+          print("No fingerprint match in node: ${node['id'] ?? 'Unknown ID'}");
+        }
+      }
+
+      // Check if this node has a direct fingerprint reference (e.g., ECDSASIGNATURE)
+      if (node['type'] == 'ECDSASIGNATURE' &&
+          node['fingerprint'] == fingerprint) {
+        String type = node['type'];
+        int? timelockValue;
+
+        // Check sibling constraints for timelocks
+        if (parentItems != null) {
+          for (var sibling in parentItems) {
+            if (sibling['type'] == 'RELATIVETIMELOCK') {
+              type = "RELATIVETIMELOCK > $type";
+              timelockValue = sibling['value'];
+            }
+          }
+        }
+
+        result.add({
+          'type': type,
+          'threshold': null,
+          'fingerprints': [fingerprint],
+          'path': path.join(' > '),
+          'timelock': timelockValue,
+        });
+        // print("Added ECDSASIGNATURE to result: ${result.last}");
+      }
+
+      // Recursively traverse child nodes in "items"
+      if (node['items'] != null) {
+        // print(
+        //     "Node has child items: ${node['items'].length} found in node: ${node['id'] ?? 'Unknown ID'}");
+        List<dynamic> items = node['items'];
+        for (int i = 0; i < items.length; i++) {
+          traverse(
+            items[i],
+            [...path, '${node['type']}[$i]'],
+            items, // Pass sibling items for constraint checks
+          );
+        }
+      } else {
+        // print("No child items in node: ${node['id'] ?? 'Unknown ID'}");
+      }
+    }
+
+    // print("Starting traversal with fingerprint: $fingerprint");
+    traverse(json, [], null);
+    // print("Traversal complete. Results: $result");
+    return result;
+  }
+
+  List<Map<String, dynamic>> extractAllPaths(Map<String, dynamic> json) {
+    List<Map<String, dynamic>> result = [];
+
+    void traverse(Map<String, dynamic> node, List<String> path,
+        List<dynamic>? parentItems) {
+      // print(
+      //     "Traversing node: ${node['id'] ?? 'Unknown ID'}, Path: ${path.join(' > ')}");
+
+      // Check if this node has keys
+      if (node['keys'] != null) {
+        // print("Checking keys in node: ${node['id'] ?? 'Unknown ID'}");
+        List<dynamic> keys = node['keys'];
+        List<String> fingerprints =
+            keys.map((key) => key['fingerprint'] as String).toList();
+
+        // Determine the type and additional constraints
+        String type = node['type'];
+        int? timelockValue;
+
+        if (node['threshold'] != null) {
+          type = "THRESH > $type";
+        }
+
+        // Look for sibling constraints (e.g., RELATIVETIMELOCK)
+        if (parentItems != null) {
+          for (var sibling in parentItems) {
+            if (sibling['type'] == 'RELATIVETIMELOCK') {
+              type = "RELATIVETIMELOCK > $type";
+              timelockValue = sibling['value']; // Capture the timelock value
+            }
+          }
+        }
+
+        // print("Path found in node: ${node['id'] ?? 'Unknown ID'}");
+        result.add({
+          'type': type, // Type reflects sibling constraints
+          'threshold': node['threshold'],
+          'fingerprints': fingerprints,
+          'path': path.join(' > '),
+          'timelock': timelockValue,
+        });
+        // print("Added to result: ${result.last}");
+      }
+
+      // Check if this node has a direct fingerprint reference (e.g., ECDSASIGNATURE)
+      if (node['type'] == 'ECDSASIGNATURE') {
+        // print("Checking ECDSASIGNATURE in node: ${node['id'] ?? 'Unknown ID'}");
+        String type = "ECDSASIGNATURE";
+        int? timelockValue;
+
+        // Look for sibling constraints (e.g., RELATIVETIMELOCK)
+        if (parentItems != null) {
+          for (var sibling in parentItems) {
+            if (sibling['type'] == 'RELATIVETIMELOCK') {
+              type = "RELATIVETIMELOCK > $type";
+              timelockValue = sibling['value']; // Capture the timelock value
+            }
+          }
+        }
+
+        result.add({
+          'type': type,
+          'threshold': null, // No threshold for ECDSASIGNATURE
+          'fingerprints': [node['fingerprint']], // Single fingerprint
+          'path': path.join(' > '),
+          'timelock': timelockValue,
+        });
+        // print("Added ECDSASIGNATURE to result: ${result.last}");
+      }
+
+      // Recursively traverse child nodes in "items"
+      if (node['items'] != null) {
+        // print(
+        //     "Node has child items: ${node['items'].length} found in node: ${node['id'] ?? 'Unknown ID'}");
+        List<dynamic> items = node['items'];
+        for (int i = 0; i < items.length; i++) {
+          traverse({
+            ...items[i],
+            'parentItems': items, // Pass sibling items as context
+          }, [
+            ...path,
+            '${node['type']}[$i]'
+          ], items);
+        }
+      } else {
+        // print("No child items in node: ${node['id'] ?? 'Unknown ID'}");
+      }
+    }
+
+    // print("Starting traversal for all paths");
+    traverse(json, [], null);
+    // print("Traversal complete. Results: $result");
     return result;
   }
 
@@ -763,7 +1023,6 @@ class WalletService {
     String recipientAddressStr,
     BigInt amount,
     int? chosenPath,
-    List<Map<String, dynamic>> availablePaths,
   ) async {
     Map<String, Uint32List>? multiSigPath;
     Map<String, Uint32List>? timeLockPath;
@@ -782,14 +1041,14 @@ class WalletService {
       trueMnemonic,
     );
 
-    print(receivingPublicKey);
+    // print(receivingPublicKey);
 
     // Extract the content inside square brackets
     final RegExp regex = RegExp(r'\[([^\]]+)\]');
     final Match? match = regex.firstMatch(receivingPublicKey.asString());
 
     final String targetFingerprint = match!.group(1)!.split('/')[0];
-    print("Fingerprint: $targetFingerprint");
+    // print("Fingerprint: $targetFingerprint");
 
     descriptor = (chosenPath == 0)
         ? replacePubKeyWithPrivKeyMultiSig(
@@ -859,7 +1118,7 @@ class WalletService {
 
       final path = extractAllPathsToFingerprint(policy, targetFingerprint);
 
-      print(path);
+      // print(path);
 
       if (chosenPath == 0) {
         // First Path: Direct MULTISIG
@@ -868,7 +1127,7 @@ class WalletService {
             path[0]["ids"][i]: Uint32List.fromList([path[0]["indexes"][i]])
         };
 
-        print("Generated multiSigPath: $multiSigPath");
+        // print("Generated multiSigPath: $multiSigPath");
       } else {
         timeLockPath = {
           for (int i = 0; i < path[chosenPath!]["ids"].length - 1; i++)
@@ -879,7 +1138,7 @@ class WalletService {
                 : [path[chosenPath]["indexes"][i]])
         };
 
-        print("Generated timeLockPath: $timeLockPath");
+        // print("Generated timeLockPath: $timeLockPath");
       }
 
       // Build the transaction:

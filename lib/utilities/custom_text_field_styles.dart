@@ -8,43 +8,56 @@ class CustomTextFieldStyles {
   }) {
     return InputDecoration(
       labelText: labelText,
+      floatingLabelBehavior:
+          FloatingLabelBehavior.auto, // Label floats only when focused
       labelStyle: TextStyle(
-        color: Theme.of(context).colorScheme.onSurface, // Dynamic label color
+        fontSize: 16.0,
+        fontWeight: FontWeight.bold,
+        color: Colors.orange, // Blackish color for better visibility
+      ),
+      floatingLabelStyle: TextStyle(
+        fontSize: 14.0,
+        fontWeight: FontWeight.bold,
+        color: Colors.orange, // Orange floating label when focused
       ),
       hintText: hintText,
       hintStyle: TextStyle(
-        color: Theme.of(context)
-            .colorScheme
-            .onSurface
-            .withValues(), // Dynamic hint color
+        fontSize: 14.0,
+        color: Colors.grey.withAlpha(
+            (0.8 * 255).toInt()), // Subtle grey hint for better contrast
       ),
       filled: true,
-      fillColor:
-          Theme.of(context).colorScheme.surface, // Dynamic background color
+      fillColor: Colors.black, // Neutral white background for better contrast
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8.0), // Rounded corners
-        borderSide: const BorderSide(
-          color: Colors.orange, // Border color when not focused
+        borderRadius: BorderRadius.circular(12.0), // Smooth rounded corners
+        borderSide: BorderSide(
+          color:
+              Colors.grey.withAlpha((0.6 * 255).toInt()), // Neutral grey border
         ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8.0), // Rounded corners
+        borderRadius: BorderRadius.circular(12.0),
         borderSide: const BorderSide(
           color: Colors.orange, // Orange border when focused
-          width: 2.0, // Thicker border when focused
+          width: 2.0,
         ),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8.0), // Rounded corners
+        borderRadius: BorderRadius.circular(12.0),
         borderSide: BorderSide(
-          color: Theme.of(context)
-              .colorScheme
-              .onSurface
-              .withValues(), // Grey border when not focused
+          color: Colors.grey.withAlpha(
+              (0.6 * 255).toInt()), // Neutral border for better readability
+        ),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12.0),
+        borderSide: const BorderSide(
+          color: Colors.red, // Red border for errors
+          width: 2.0,
         ),
       ),
       contentPadding: const EdgeInsets.symmetric(
-        vertical: 16.0,
+        vertical: 18.0, // Balanced padding for text and labels
         horizontal: 16.0,
       ),
     );

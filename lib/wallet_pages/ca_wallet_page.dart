@@ -5,6 +5,7 @@ import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:hive/hive.dart';
+import 'package:lottie/lottie.dart';
 
 class CAWalletPage extends StatefulWidget {
   const CAWalletPage({super.key});
@@ -17,7 +18,6 @@ class CAWalletPageState extends State<CAWalletPage> {
   String? _mnemonic;
   String _status = 'Idle';
 
-  // ignore: unused_field
   Wallet? _wallet;
 
   final TextEditingController _mnemonicController = TextEditingController();
@@ -26,83 +26,93 @@ class CAWalletPageState extends State<CAWalletPage> {
 
   final Network network = Network.testnet;
 
-  // Call createOrRestoreWallet from WalletService
   Future<void> _createWallet() async {
     setState(() {
       _status = 'Creating wallet...';
     });
 
-    final List<ConnectivityResult> connectivityResult =
-        await (Connectivity().checkConnectivity());
-    // print('$connectivityResult');
-
-    if (connectivityResult.contains(ConnectivityResult.none)) {
-      // Call the method from WalletService
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (!connectivityResult.contains(ConnectivityResult.none)) {
       final wallet = await _walletService.loadSavedWallet(_mnemonic!);
-
-      // print(wallet);
 
       setState(() {
         _wallet = wallet;
-        _status = 'Wallet created successfully!';
+        _status = 'Wallet loaded successfully!';
       });
 
-      // Save wallet information locally using Hive
       var walletBox = Hive.box('walletBox');
       walletBox.put('walletMnemonic', _mnemonic);
-      walletBox.put(
-          'walletNetwork', network.toString()); // or serialize this properly
+      walletBox.put('walletNetwork', network.toString());
 
       if (!mounted) return;
 
-      // Navigate to the wallet page or update the UI
-      Navigator.pushNamed(
-        context,
-        '/wallet_page',
-        arguments: wallet,
-      );
+      Navigator.pushNamed(context, '/wallet_page', arguments: wallet);
     } else {
-      // print('No es possibile');
       final wallet =
           await _walletService.createOrRestoreWallet(_mnemonic!, null);
 
-      // print(wallet);
-
       setState(() {
         _wallet = wallet;
         _status = 'Wallet created successfully!';
       });
 
-      // Save wallet information locally using Hive
       var walletBox = Hive.box('walletBox');
       walletBox.put('walletMnemonic', _mnemonic);
-      walletBox.put(
-          'walletNetwork', network.toString()); // or serialize this properly
+      walletBox.put('walletNetwork', network.toString());
 
       if (!mounted) return;
 
-      // Navigate to the wallet page or update the UI
-      Navigator.pushReplacementNamed(
-        context,
-        '/wallet_page',
-        arguments: wallet,
-      );
-
-      // setState(() {
-      //   _status = 'Error: ${e.toString()}';
-      // });
+      Navigator.pushReplacementNamed(context, '/wallet_page',
+          arguments: wallet);
     }
   }
 
   Future<void> _generateMnemonic() async {
-    var res = await Mnemonic.create(WordCount.words12);
-
-    // print(res);
-
+    final res = await Mnemonic.create(WordCount.words12);
     setState(() {
       _mnemonicController.text = res.asString();
       _mnemonic = res.asString();
+      _status = 'New mnemonic generated!';
     });
+  }
+
+  String _getAnimationPath() {
+    if (_status.contains('successfully')) {
+      return 'assets/animations/success.json';
+    } else if (_status.contains('Creating')) {
+      return 'assets/animations/creating_wallet.json';
+    } else {
+      return 'assets/animations/idle.json';
+    }
+  }
+
+  Widget _buildStatusIndicator() {
+    return Column(
+      children: [
+        // Lottie Animation
+        Lottie.asset(
+          _getAnimationPath(),
+          height: 100,
+          width: 100,
+          repeat:
+              !_status.contains('successfully'), // Loop only for non-success
+        ),
+        const SizedBox(height: 10),
+        // Status Text
+        Text(
+          _status,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: _status.contains('successfully')
+                ? Colors.green
+                : _status.contains('Creating')
+                    ? Colors.blueAccent
+                    : Colors.grey,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -110,50 +120,65 @@ class CAWalletPageState extends State<CAWalletPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create or Restore Wallet'),
+        backgroundColor: Colors.orange,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Display the status of wallet creation
-            Text(_status, style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _mnemonicController, // Use the controller here
-              onChanged: (value) {
-                _mnemonic = value;
-              },
-              decoration: CustomTextFieldStyles.textFieldDecoration(
-                context: context,
-                labelText: 'Enter Mnemonic',
-                hintText: 'Enter your 12 words here',
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.orangeAccent, Colors.white],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Cool Status Indicator with Animation
+              _buildStatusIndicator(),
+              const SizedBox(height: 20),
+              // Mnemonic Input Field
+              TextFormField(
+                controller: _mnemonicController,
+                onChanged: (value) {
+                  _mnemonic = value;
+                },
+                decoration: CustomTextFieldStyles.textFieldDecoration(
+                  context: context,
+                  labelText: 'Enter Mnemonic',
+                  hintText: 'Enter your 12 words here',
+                ),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
-              style: TextStyle(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface, // Dynamic text color
+              const SizedBox(height: 20),
+              // Create Wallet Button
+              CustomButton(
+                onPressed: _createWallet,
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                icon: Icons.wallet,
+                iconColor: Colors.white,
+                label: 'Create Wallet',
+                padding: 16.0,
+                iconSize: 28.0,
               ),
-            ),
-            const SizedBox(height: 16),
-            CustomButton(
-              onPressed: _createWallet,
-              backgroundColor: Colors.white, // White background
-              foregroundColor: Colors.orange, // Bitcoin orange color for text
-              icon: Icons.currency_bitcoin, // Icon you want to use
-              iconColor: Colors.black, // Color for the icon
-              label: 'Create Wallet',
-            ),
-            const SizedBox(height: 16),
-            CustomButton(
-              onPressed: _generateMnemonic,
-              backgroundColor: Colors.white, // White background
-              foregroundColor: Colors.black, // Bitcoin orange color for text
-              icon: Icons.currency_bitcoin, // Icon you want to use
-              iconColor: Colors.orange, // Color for the icon
-              label: 'Generate Mnemonic',
-            ),
-          ],
+              const SizedBox(height: 16),
+              // Generate Mnemonic Button
+              CustomButton(
+                onPressed: _generateMnemonic,
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.orange,
+                icon: Icons.create,
+                iconColor: Colors.orange,
+                label: 'Generate Mnemonic',
+                padding: 16.0,
+                iconSize: 28.0,
+              ),
+            ],
+          ),
         ),
       ),
     );

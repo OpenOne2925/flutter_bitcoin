@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/utilities/theme_provider.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
@@ -24,13 +26,12 @@ class BaseScaffoldState extends State<BaseScaffold> {
   @override
   void initState() {
     super.initState();
-    // Open the Hive box for wallet descriptors
     _descriptorBox = Hive.box<dynamic>('descriptorBox');
   }
 
   @override
   Widget build(BuildContext context) {
-    isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -43,7 +44,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
             ),
             onPressed: () {
               Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
-              isDarkMode = !isDarkMode;
+              setState(() {});
             },
           ),
         ],
@@ -51,45 +52,84 @@ class BaseScaffoldState extends State<BaseScaffold> {
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
-          children: <Widget>[
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.black,
-              ),
-              child: Text(
-                'Welcome',
-                style: TextStyle(
-                  color: Colors.orange,
-                  fontSize: 24,
-                ),
-              ),
-            ),
+          children: [
+            _buildDrawerHeader(context),
+            const SizedBox(height: 10),
             _buildPersonalWalletTile(context),
+            const SizedBox(height: 10),
             _buildSharedWalletTiles(context),
+            const SizedBox(height: 10),
             _buildCreateSharedWalletTile(context),
           ],
         ),
       ),
-      body: widget.body,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.orangeAccent, Colors.white],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: widget.body,
+        ),
+      ),
     );
   }
 
-  // Widget to build personal wallet tile
+  Widget _buildDrawerHeader(BuildContext context) {
+    return DrawerHeader(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange, Colors.deepOrangeAccent],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.wallet,
+            size: 40,
+            color: Colors.white,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Welcome to ShareHaven',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Text(
+            'Your Bitcoin wallet companion.',
+            style: TextStyle(
+              color: Colors.white.withAlpha((0.8 * 255).toInt()),
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPersonalWalletTile(BuildContext context) {
     return Card(
-      color: Colors.grey[200],
-      elevation: 4,
+      elevation: 6,
+      shadowColor: Colors.orangeAccent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: const Icon(
-          Icons.wallet,
-          color: Colors.orange,
-        ),
+        leading: const Icon(Icons.wallet, color: Colors.orange),
         title: const Text(
           'Personal Wallet',
-          style: TextStyle(color: Colors.black),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
         onTap: () {
           Navigator.of(context).pushNamedAndRemoveUntil(
@@ -99,75 +139,94 @@ class BaseScaffoldState extends State<BaseScaffold> {
     );
   }
 
-  // Widget to build shared wallet tiles dynamically
   Widget _buildSharedWalletTiles(BuildContext context) {
     List<Widget> sharedWalletCards = [];
 
-    // Iterate over all stored descriptors in the box
+    // Iterate through each item in _descriptorBox
     for (int i = 0; i < (_descriptorBox?.length ?? 0); i++) {
-      final mnemonic = _descriptorBox?.keyAt(i);
-      final descriptor = _descriptorBox?.getAt(i);
+      final mnemonic = _descriptorBox?.keyAt(i) ?? 'Unknown Mnemonic';
+      final rawValue = _descriptorBox?.getAt(i);
 
-      // print('mnemonic: $mnemonic');
+      // Parse the raw value (JSON) into a Map
+      Map<String, dynamic>? parsedValue;
+      if (rawValue != null) {
+        try {
+          parsedValue = jsonDecode(rawValue);
+        } catch (e) {
+          print('Error parsing descriptor JSON: $e');
+        }
+      }
 
-      // Create a new card for each shared wallet
+      // Extract data from parsed value
+      final descriptor =
+          parsedValue?['descriptor'] ?? 'No descriptor available';
+      final pubKeysAlias = (parsedValue?['pubKeysAlias'] as List<dynamic>)
+          .map((item) => Map<String, String>.from(item))
+          .toList();
+      final displayAlias = pubKeysAlias.isNotEmpty
+          ? (pubKeysAlias.first['alias'] ?? 'Unknown Alias')
+          : 'No Alias';
+
       sharedWalletCards.add(
         Card(
-          color: Colors.grey[200],
-          elevation: 4,
+          elevation: 6,
+          shadowColor: Colors.orangeAccent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: ListTile(
-            leading: const Icon(
-              Icons.account_balance_wallet,
-              color: Colors.black,
-            ),
+            leading:
+                const Icon(Icons.account_balance_wallet, color: Colors.black),
             title: Text(
-              'Shared Wallet ($i)', // Use mnemonic or descriptor data
-              style: const TextStyle(color: Colors.orange),
+              displayAlias,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.orange,
+              ),
             ),
-            // subtitle: Text('Descriptor: $descriptor'),
+            subtitle: Text(
+              descriptor,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              overflow: TextOverflow.ellipsis,
+            ),
             onTap: () {
-              // Navigate to shared wallet page or perform actions
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => SharedWallet(
                     descriptor: descriptor,
                     mnemonic: mnemonic,
+                    pubKeysAlias: pubKeysAlias,
                   ),
                 ),
               );
-              // Navigator.of(context).pushNamedAndRemoveUntil(
-              //     '/shared_wallet', (Route<dynamic> route) => false);
             },
           ),
         ),
       );
     }
 
-    // Return the list of cards
     return Column(children: sharedWalletCards);
   }
 
-  // Widget to build "Create Shared Wallet" tile
   Widget _buildCreateSharedWalletTile(BuildContext context) {
     return Card(
-      color: Colors.grey[200], // Set the background color
-      elevation: 4, // Optional: add shadow
+      elevation: 6,
+      shadowColor: Colors.orangeAccent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8), // Optional: rounded corners
+        borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
         leading: const Icon(
-          Icons.account_balance_wallet,
-          color: Colors.black, // Set the color of the icon
+          Icons.add_circle,
+          color: Colors.orange,
         ),
         title: const Text(
           'Create Shared Wallet',
           style: TextStyle(
-            color: Colors.orange, // Set the color of the text
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
           ),
         ),
         onTap: () {

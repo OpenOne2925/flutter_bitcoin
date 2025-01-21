@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +9,7 @@ import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:hive/hive.dart';
+import 'package:file_picker/file_picker.dart';
 
 class ImportSharedWallet extends StatefulWidget {
   const ImportSharedWallet({super.key});
@@ -24,11 +27,15 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
   String privKey = "";
   String _status = 'Idle';
 
+  late Box<dynamic> descriptorBox;
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final TextEditingController _descriptorController = TextEditingController();
 
   final WalletService _walletService = WalletService();
+
+  List<Map<String, String>> _pubKeysAlias = [];
 
   bool _isDescriptorValid = true;
 
@@ -66,6 +73,61 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
     });
   }
 
+  void _uploadFile() async {
+    try {
+      // Open the file picker for JSON files
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'], // Allow only JSON files
+      );
+
+      if (result != null && result.files.single.path != null) {
+        // Get the file path
+        final filePath = result.files.single.path!;
+
+        // Read the file
+        final file = File(filePath);
+        final fileContents = await file.readAsString();
+
+        // Decode the JSON data
+        final Map<String, dynamic> jsonData = jsonDecode(fileContents);
+
+        // Extract the information you need
+        final String descriptor =
+            jsonData['descriptor'] ?? 'No descriptor found';
+
+        // Ensure the type is List<Map<String, String>>
+        final List<Map<String, String>> publicKeysWithAlias =
+            (jsonData['publicKeysWithAlias'] as List)
+                .map((item) => Map<String, String>.from(item))
+                .toList();
+
+        setState(() {
+          _descriptorController.text = descriptor;
+          _descriptor = descriptor;
+          _pubKeysAlias = publicKeysWithAlias;
+        });
+
+        // Use the extracted data
+        print('Descriptor: $descriptor');
+        print('Public Keys With Alias: $publicKeysWithAlias');
+
+        // Optionally, show a success message or update the UI
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('File uploaded successfully')),
+        );
+      } else {
+        // User canceled the file picker
+        print('File picking canceled');
+      }
+    } catch (e) {
+      print('Error uploading file: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload file: $e')),
+      );
+    }
+  }
+
   void _navigateToSharedWallet() {
     Navigator.push(
       context,
@@ -73,6 +135,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
         builder: (context) => SharedWallet(
           descriptor: _descriptor!,
           mnemonic: _mnemonic!,
+          pubKeysAlias: _pubKeysAlias,
         ),
       ),
     );
@@ -94,129 +157,183 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
       title: const Text('Import Shared Wallet'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Display the status of wallet creation
-            Text(_status, style: const TextStyle(fontSize: 18)),
-            const SizedBox(height: 16),
+        child: SingleChildScrollView(
+          // Wrap the content in SingleChildScrollView
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Status of wallet creation
+              Text(_status, style: const TextStyle(fontSize: 18)),
+              const SizedBox(height: 16),
 
-            // Form and descriptor field
-            Form(
-              key: _formKey, // Assign the form key
-              child: TextFormField(
-                controller: _descriptorController,
-                onChanged: (value) {
-                  _descriptor = value;
-                  _validateDescriptor(value);
-                },
-                decoration: CustomTextFieldStyles.textFieldDecoration(
-                  context: context,
-                  labelText: 'Enter Descriptor',
-                  hintText: 'Enter your wallet descriptor here',
+              // Form and descriptor field
+              Form(
+                key: _formKey,
+                child: TextFormField(
+                  controller: _descriptorController,
+                  onChanged: (value) {
+                    _descriptor = value;
+                    _validateDescriptor(value);
+                  },
+                  decoration: CustomTextFieldStyles.textFieldDecoration(
+                    context: context,
+                    labelText: 'Enter Descriptor',
+                    hintText: 'Enter your wallet descriptor here',
+                  ),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a descriptor';
+                    }
+                    if (!_isDescriptorValid) {
+                      return 'Please enter a valid descriptor';
+                    }
+                    return null;
+                  },
                 ),
-                style: TextStyle(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface, // Dynamic text color
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a descriptor'; // Error message for empty input
-                  }
-                  if (!_isDescriptorValid) {
-                    return 'Please enter a valid descriptor'; // Error message for invalid descriptor
-                  }
-                  return null; // Return null if input is valid
-                },
               ),
-            ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Public Key display with copy functionality
-            Container(
-              padding: const EdgeInsets.all(12.0),
-              decoration: BoxDecoration(
-                color: Theme.of(context)
-                    .colorScheme
-                    .surface, // Background color adapts to theme
-                border: Border.all(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(), // Border color
+              // Public Key display with copy functionality
+              Container(
+                padding: const EdgeInsets.all(12.0),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  border: Border.all(
+                    color:
+                        Theme.of(context).colorScheme.onSurface.withAlpha(150),
+                  ),
+                  borderRadius: BorderRadius.circular(8.0),
                 ),
-                borderRadius: BorderRadius.circular(8.0), // Rounded corners
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: SelectableText(
-                      'Public Key: $receivingKey',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface, // Dynamic text color
-                        fontWeight: FontWeight
-                            .w500, // Medium font weight for better readability
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        'Public Key: $receivingKey',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.copy, color: Colors.orange),
-                    tooltip: 'Copy to Clipboard',
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: publicKey ?? ''));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Public Key copied to clipboard')),
-                      );
-                    },
-                  ),
-                ],
+                    IconButton(
+                      icon: const Icon(Icons.copy, color: Colors.orange),
+                      tooltip: 'Copy to Clipboard',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: publicKey ?? ''));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Public Key copied to clipboard')),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Button to generate the public key
-            CustomButton(
-              onPressed: _generatePublicKey,
-              backgroundColor: Colors.white, // White background
-              foregroundColor: Colors.orange, // Bitcoin orange color for text
-              icon: Icons.generating_tokens, // Icon you want to use
-              iconColor: Colors.black, // Color for the icon
-              label: 'Generate Public Key',
-            ),
+              // Generate Public Key Button
+              CustomButton(
+                onPressed: _generatePublicKey,
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.orange,
+                icon: Icons.generating_tokens,
+                iconColor: Colors.black,
+                label: 'Generate Public Key',
+              ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Import Shared Wallet button with form validation
-            CustomButton(
-              onPressed: () async {
-                _generatePublicKey();
-                // Validate the form before proceeding
-                if (_formKey.currentState!.validate()) {
-                  await Future.delayed(const Duration(milliseconds: 500));
+              // Select File Button
+              CustomButton(
+                onPressed: _uploadFile,
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.orange,
+                icon: Icons.file_upload,
+                iconColor: Colors.black,
+                label: 'Select File',
+              ),
 
-                  _navigateToSharedWallet();
-                } else {
-                  // Show error if the form is invalid
-                  setState(() {
-                    _status = 'Please enter a valid wallet!';
-                  });
-                }
-              },
-              backgroundColor: Colors.white, // White background
-              foregroundColor: Colors.black, // Black text
-              icon: Icons.account_balance_wallet, // Icon you want to use
-              iconColor: Colors.orange, // Color for the icon
-              label: 'Import Shared Wallet',
-            ),
-          ],
+              const SizedBox(height: 16),
+
+              // Import Shared Wallet Button
+              CustomButton(
+                onPressed: () async {
+                  _generatePublicKey();
+
+                  if (_formKey.currentState!.validate()) {
+                    await Future.delayed(const Duration(milliseconds: 500));
+
+                    _navigateToSharedWallet();
+                  } else {
+                    setState(() {
+                      _status = 'Please enter a valid wallet!';
+                    });
+                  }
+                },
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                icon: Icons.account_balance_wallet,
+                iconColor: Colors.orange,
+                label: 'Import Shared Wallet',
+              ),
+
+              const SizedBox(height: 16),
+
+              // Display Aliases and Public Keys
+              if (_pubKeysAlias.isNotEmpty) ...[
+                Text(
+                  'Aliases and Public Keys:',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ..._pubKeysAlias.map((keyAlias) {
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Alias: ${keyAlias['alias']}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Public Key: ${keyAlias['publicKey']}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ],
+          ),
         ),
       ),
     );
