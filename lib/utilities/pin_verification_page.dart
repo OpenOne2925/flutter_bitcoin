@@ -18,7 +18,6 @@ class PinVerificationPageState extends State<PinVerificationPage>
   String _status = '';
 
   late AnimationController _animationController;
-  bool _isUnlocked = false;
 
   @override
   void initState() {
@@ -39,7 +38,6 @@ class PinVerificationPageState extends State<PinVerificationPage>
     if (savedPin == _pinController.text) {
       setState(() {
         _status = 'PIN verified successfully!';
-        _isUnlocked = true;
       });
 
       // Play the unlock animation
@@ -47,13 +45,12 @@ class PinVerificationPageState extends State<PinVerificationPage>
       _animationController.forward();
 
       // Navigate to wallet page after a delay
-      Future.delayed(const Duration(seconds: 2), () {
+      Future.delayed(const Duration(seconds: 1), () {
         Navigator.popAndPushNamed(context, '/wallet_page', arguments: true);
       });
     } else {
       setState(() {
         _status = 'Incorrect PIN. Please try again.';
-        _isUnlocked = false;
       });
     }
   }

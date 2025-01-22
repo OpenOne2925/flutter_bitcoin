@@ -26,6 +26,13 @@ class CAWalletPageState extends State<CAWalletPage> {
 
   final Network network = Network.testnet;
 
+  bool _isMnemonicEntered = false;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
   Future<void> _createWallet() async {
     setState(() {
       _status = 'Creating wallet...';
@@ -46,10 +53,13 @@ class CAWalletPageState extends State<CAWalletPage> {
 
       if (!mounted) return;
 
-      Navigator.pushNamed(context, '/wallet_page', arguments: wallet);
+      Navigator.pushNamed(
+        context,
+        '/wallet_page',
+        arguments: _wallet,
+      );
     } else {
-      final wallet =
-          await _walletService.createOrRestoreWallet(_mnemonic!, null);
+      final wallet = await _walletService.createOrRestoreWallet(_mnemonic!);
 
       setState(() {
         _wallet = wallet;
@@ -62,13 +72,17 @@ class CAWalletPageState extends State<CAWalletPage> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacementNamed(context, '/wallet_page',
-          arguments: wallet);
+      Navigator.pushReplacementNamed(
+        context,
+        '/wallet_page',
+        arguments: _wallet,
+      );
     }
   }
 
   Future<void> _generateMnemonic() async {
     final res = await Mnemonic.create(WordCount.words12);
+
     setState(() {
       _mnemonicController.text = res.asString();
       _mnemonic = res.asString();
@@ -84,6 +98,17 @@ class CAWalletPageState extends State<CAWalletPage> {
     } else {
       return 'assets/animations/idle.json';
     }
+  }
+
+  void _validateMnemonic(String value) async {
+    final isValid =
+        value.trim().isNotEmpty && await _walletService.checkMnemonic(value);
+
+    setState(() {
+      _isMnemonicEntered = isValid;
+    });
+
+    print(_isMnemonicEntered);
   }
 
   Widget _buildStatusIndicator() {
@@ -141,8 +166,12 @@ class CAWalletPageState extends State<CAWalletPage> {
               // Mnemonic Input Field
               TextFormField(
                 controller: _mnemonicController,
-                onChanged: (value) {
-                  _mnemonic = value;
+                onFieldSubmitted: (value) async {
+                  _validateMnemonic(value);
+
+                  setState(() {
+                    _mnemonic = value;
+                  });
                 },
                 decoration: CustomTextFieldStyles.textFieldDecoration(
                   context: context,
@@ -156,7 +185,7 @@ class CAWalletPageState extends State<CAWalletPage> {
               const SizedBox(height: 20),
               // Create Wallet Button
               CustomButton(
-                onPressed: _createWallet,
+                onPressed: _isMnemonicEntered ? _createWallet : null,
                 backgroundColor: Colors.orange,
                 foregroundColor: Colors.white,
                 icon: Icons.wallet,

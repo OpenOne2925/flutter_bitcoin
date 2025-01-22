@@ -141,6 +141,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
     );
   }
 
+  // TODO: handle descriptor validation, should already be ok, just test it
   // Asynchronous method to validate the descriptor
   Future<void> _validateDescriptor(String descriptor) async {
     bool isValid = await _walletService.isValidDescriptor(descriptor);
@@ -170,6 +171,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
               Form(
                 key: _formKey,
                 child: TextFormField(
+                  readOnly: true,
                   controller: _descriptorController,
                   onChanged: (value) {
                     _descriptor = value;
@@ -177,8 +179,8 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                   },
                   decoration: CustomTextFieldStyles.textFieldDecoration(
                     context: context,
-                    labelText: 'Enter Descriptor',
-                    hintText: 'Enter your wallet descriptor here',
+                    labelText: 'Descriptor',
+                    hintText: 'Wallet descriptor',
                   ),
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,

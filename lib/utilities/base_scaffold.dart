@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/theme_provider.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -22,11 +24,40 @@ class BaseScaffold extends StatefulWidget {
 
 class BaseScaffoldState extends State<BaseScaffold> {
   Box<dynamic>? _descriptorBox;
+  Map<String, Future<DescriptorPublicKey?>> pubKeyFutures = {};
+
+  final walletService = WalletService();
+  DescriptorPublicKey? pubKey;
 
   @override
   void initState() {
     super.initState();
     _descriptorBox = Hive.box<dynamic>('descriptorBox');
+  }
+
+  Future<DescriptorPublicKey?> getpubkey(String mnemonic) {
+    if (!pubKeyFutures.containsKey(mnemonic)) {
+      pubKeyFutures[mnemonic] = _fetchPubKey(mnemonic);
+    }
+    return pubKeyFutures[mnemonic]!;
+  }
+
+  Future<DescriptorPublicKey?> _fetchPubKey(String mnemonic) async {
+    final trueMnemonic = await Mnemonic.fromString(mnemonic);
+
+    final hardenedDerivationPath =
+        await DerivationPath.create(path: "m/84h/1h/0h");
+
+    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+
+    final (receivingSecretKey, receivingPublicKey) =
+        await walletService.deriveDescriptorKeys(
+      hardenedDerivationPath,
+      receivingDerivationPath,
+      trueMnemonic,
+    );
+
+    return receivingPublicKey;
   }
 
   @override
@@ -142,7 +173,6 @@ class BaseScaffoldState extends State<BaseScaffold> {
   Widget _buildSharedWalletTiles(BuildContext context) {
     List<Widget> sharedWalletCards = [];
 
-    // Iterate through each item in _descriptorBox
     for (int i = 0; i < (_descriptorBox?.length ?? 0); i++) {
       final mnemonic = _descriptorBox?.keyAt(i) ?? 'Unknown Mnemonic';
       final rawValue = _descriptorBox?.getAt(i);
@@ -157,52 +187,78 @@ class BaseScaffoldState extends State<BaseScaffold> {
         }
       }
 
-      // Extract data from parsed value
       final descriptor =
           parsedValue?['descriptor'] ?? 'No descriptor available';
       final pubKeysAlias = (parsedValue?['pubKeysAlias'] as List<dynamic>)
           .map((item) => Map<String, String>.from(item))
           .toList();
-      final displayAlias = pubKeysAlias.isNotEmpty
-          ? (pubKeysAlias.first['alias'] ?? 'Unknown Alias')
-          : 'No Alias';
 
       sharedWalletCards.add(
-        Card(
-          elevation: 6,
-          shadowColor: Colors.orangeAccent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ListTile(
-            leading:
-                const Icon(Icons.account_balance_wallet, color: Colors.black),
-            title: Text(
-              displayAlias,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.orange,
+        FutureBuilder<DescriptorPublicKey?>(
+          future: getpubkey(mnemonic),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const CircularProgressIndicator(); // Show a loader while waiting
+            } else if (snapshot.hasError) {
+              return const Text('Error fetching public key');
+            }
+
+            final pubKey = snapshot.data;
+            if (pubKey == null) {
+              return const Text('Public key not found');
+            }
+
+            // Extract the content inside square brackets
+            final RegExp regex = RegExp(r'\[([^\]]+)\]');
+            final Match? match = regex.firstMatch(pubKey.asString());
+
+            final String targetFingerprint = match!.group(1)!.split('/')[0];
+
+            final matchingAliasEntry = pubKeysAlias.firstWhere(
+              (entry) => entry['publicKey']!.contains(targetFingerprint),
+              orElse: () =>
+                  {'alias': 'Unknown Alias'}, // Fallback if no match is found
+            );
+
+            final displayAlias = matchingAliasEntry['alias'] ?? 'No Alias';
+
+            return Card(
+              elevation: 6,
+              shadowColor: Colors.orangeAccent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-            ),
-            subtitle: Text(
-              descriptor,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-              overflow: TextOverflow.ellipsis,
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SharedWallet(
-                    descriptor: descriptor,
-                    mnemonic: mnemonic,
-                    pubKeysAlias: pubKeysAlias,
+              child: ListTile(
+                leading: const Icon(Icons.account_balance_wallet,
+                    color: Colors.black),
+                title: Text(
+                  displayAlias,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange,
                   ),
                 ),
-              );
-            },
-          ),
+                subtitle: Text(
+                  descriptor,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SharedWallet(
+                        descriptor: descriptor,
+                        mnemonic: mnemonic,
+                        pubKeysAlias: pubKeysAlias,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
         ),
       );
     }

@@ -207,134 +207,13 @@ class WalletPageState extends State<WalletPage> {
     });
   }
 
-  // Method to handle scanned QR Codes
-  void _showTransactionDialog(String recipientAddressStr) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.grey[900], // Dark background color for dialog
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.0), // Rounded corners
-          ),
-          title: const Text('Send Bitcoin'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8.0),
-                decoration: BoxDecoration(
-                  color: Colors.grey[800], // Slightly darker background
-                  borderRadius: BorderRadius.circular(8.0), // Rounded corners
-                ),
-                child: Text(
-                  'Recipient: $recipientAddressStr',
-                  style: TextStyle(
-                    color: Colors.orange, // Text color for emphasis
-                    fontSize: 16.0, // Slightly larger font size
-                    fontWeight: FontWeight.bold, // Bold text
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _amountController, // Use the controller here
-                decoration: CustomTextFieldStyles.textFieldDecoration(
-                  context: context,
-                  labelText: 'Amount',
-                  hintText: 'Enter Amount (Sats)',
-                ),
-                style: TextStyle(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface, // Dynamic text color
-                ),
-                keyboardType: TextInputType.number, // Numeric input
-              ),
-              InkwellButton(
-                onTap: () async {
-                  try {
-                    final int availableBalance =
-                        await walletService.getAvailableBalance(address);
+  void _sendTx({String? recipientAddressQr}) async {
+    if (recipientAddressQr != null) {
+      setState(() {
+        _recipientController.text = recipientAddressQr;
+      });
+    }
 
-                    final int sendAllBalance =
-                        await walletService.calculateSendAllBalance(
-                      recipientAddress: recipientAddressStr,
-                      wallet: wallet,
-                      availableBalance: availableBalance,
-                      walletService: walletService,
-                    );
-
-                    _amountController.text = sendAllBalance.toString();
-                    print('Final Send All Balance: $sendAllBalance');
-                  } catch (e) {
-                    print('Error: $e');
-                    _amountController.text = 'No balance Available';
-                  }
-                },
-                label: 'Send All',
-                icon: Icons.account_balance_wallet_rounded,
-                backgroundColor: Colors.orange,
-                textColor: Colors.white,
-                iconColor: Colors.white,
-              ),
-            ],
-          ),
-          actions: [
-            InkwellButton(
-              onTap: () {
-                Navigator.of(context).pop(); // Close dialog
-              },
-              label: 'Cancel',
-              backgroundColor: Colors.white,
-              textColor: Colors.black,
-            ),
-            InkwellButton(
-              onTap: () async {
-                try {
-                  final int amount = int.parse(_amountController.text);
-                  final String changeAddressStr = address;
-
-                  await walletService.sendTx(
-                    recipientAddressStr,
-                    BigInt.from(amount),
-                    wallet,
-                    changeAddressStr,
-                  );
-
-                  // Show a success message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Transaction created successfully.'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                } catch (e) {
-                  // Show error message in a snackbar
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        e.toString(),
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-
-                Navigator.of(context).pop();
-              },
-              label: 'Submit',
-              backgroundColor: Colors.orange,
-              textColor: Colors.white,
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _sendTx() async {
     if (!mounted) return;
 
     showDialog(
@@ -775,6 +654,18 @@ class WalletPageState extends State<WalletPage> {
     }
   }
 
+  void _sortTransactionsByConfirmedTime() {
+    _transactions.sort((a, b) {
+      // Extract block times for comparison
+      final blockTimeA =
+          a['status']?['block_time'] ?? 0; // Default to 0 if not confirmed
+      final blockTimeB = b['status']?['block_time'] ?? 0;
+
+      // Sort by block time in descending order (newest first)
+      return blockTimeB.compareTo(blockTimeA);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return BaseScaffold(
@@ -853,7 +744,7 @@ class WalletPageState extends State<WalletPage> {
                                   builder: (context) => const QRScannerPage()),
                             );
                             if (recipientAddressStr != null) {
-                              _showTransactionDialog(recipientAddressStr);
+                              _sendTx(recipientAddressQr: recipientAddressStr);
                             }
                           },
                           backgroundColor: Colors.white, // White background
@@ -950,6 +841,8 @@ class WalletPageState extends State<WalletPage> {
   }
 
   Widget _buildTransactionsBox() {
+    _sortTransactionsByConfirmedTime();
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(

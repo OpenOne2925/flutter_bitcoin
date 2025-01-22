@@ -2,8 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:hive/hive.dart';
@@ -26,29 +24,32 @@ import 'package:http/http.dart' as http;
 ///   - loadSavedWallet: Restores a wallet using a saved mnemonic.
 ///   - syncWallet: Synchronizes a wallet with the blockchain.
 ///   - getAddress: Retrieves the current receiving address from a wallet.
+///   - blockchainInit: Initializes a connection to the blockchain via an Electrum server.
+///   - fetchCurrentBlockHeight: Fetches the current block height from the blockchain.
+///   - fetchAverageBlockTime: Fetches the average block time from the blockchain.
+///   - calculateRemainingTimeInSeconds: Calculates the remaining time for a specific number of blocks.
+///   - formatTime: Formats a duration in seconds into a human-readable format.
+///   - getUtxos: Fetches the unspent transaction outputs (UTXOs) for a given address.
 ///
 /// - Single Wallet
 ///   - createOrRestoreWallet: Creates or restores a single-user wallet from a mnemonic.
 ///   - calculateSendAllBalance: Computes the maximum amount that can be sent after deducting fees.
+///   - sendTx: Creates, signs, and broadcasts a single-user transaction.
 ///
 /// - Shared Wallet
 ///   - createSharedWallet: Creates a wallet for multi-signature use.
 ///   - createWalletDescriptor: Generates a descriptor for shared wallets with time-lock and multisig conditions.
-///
-/// - Transaction Management
-///   - sendTx: Creates, signs and broadcasts a single user transaction.
 ///   - createPartialTx: Creates a partially signed Bitcoin transaction (PSBT) for shared wallets.
 ///   - signBroadcastTx: Signs a PSBT with the second user and broadcasts it to the blockchain.
 ///
 /// - Utilities
 ///   - printInChunks: Prints long strings in chunks for readability.
 ///   - printPrettyJson: Pretty-prints JSON strings for debugging.
+///   - checkCondition: Checks whether a specific condition is met for UTXO spending.
 ///
 /// - Blockchain Interaction
-///   - blockchainInit: Initializes a connection to the blockchain via an Electrum server.
 ///   - getFeeRate: Retrieves the current recommended fee rate for transactions.
 ///   - getTransactions: Fetches transaction history for a given address.
-///   - fetchCurrentBlockHeight: Fetches the current block height from the blockchain.
 ///
 /// - Multi-signature Utilities
 ///   - replacePubKeyWithPrivKeyMultiSig: Replaces public keys with private keys in a multisig descriptor.
@@ -58,11 +59,13 @@ import 'package:http/http.dart' as http;
 /// - Descriptor Key Derivation
 ///   - deriveDescriptorKeys: Derives descriptor secret and public keys based on a derivation path and mnemonic.
 ///
+/// - Policy and Path Extraction
+///   - extractAllPathsToFingerprint: Extracts all policy paths to a specific fingerprint.
+///   - extractDataByFingerprint: Extracts data related to a specific fingerprint from the wallet policy.
+///   - extractAllPaths: Extracts all policy paths from a wallet descriptor.
+///
 /// - Data Storage
 ///   - saveLocalData: Saves wallet-related data, such as balances and transactions, to local storage.
-///
-/// This class is designed to be extensible and supports customization of Electrum servers,
-/// API endpoints, and wallet configuration.
 
 class WalletService {
   final WalletStorageService _walletStorageService = WalletStorageService();
@@ -76,6 +79,7 @@ class WalletService {
   final Network network = Network.testnet;
 
   late Wallet wallet;
+  late Blockchain blockchain;
 
   List<String> electrumServers = [
     // "ssl://electrum.blockstream.info:50002", // TODO: MAINNET SERVER
@@ -85,19 +89,6 @@ class WalletService {
     "ssl://electrum.blockonomics.co:51002",
     // "ssl://testnet.aranguren.org:51002" // Only for Testnet
   ];
-  late Blockchain blockchain;
-
-  TextEditingController mnemonic = TextEditingController();
-  TextEditingController recipientAddress = TextEditingController();
-  TextEditingController amount = TextEditingController();
-
-  String? displayText;
-  String? balance;
-  String? address;
-  String? ledgerBalance;
-  String? availableBalance;
-
-  final secureStorage = FlutterSecureStorage();
 
   ///
   ///
@@ -115,9 +106,6 @@ class WalletService {
   ///
 
   Future<bool> isValidDescriptor(String descriptorStr) async {
-    // TODO: Add your descriptor validation logic here
-    // For example, check if it meets some specific pattern or length
-
     bool isValid = true;
 
     try {
@@ -214,6 +202,24 @@ class WalletService {
     }
   }
 
+  Future<bool> checkMnemonic(String mnemonic) async {
+    try {
+      final descriptors = await getDescriptors(mnemonic);
+
+      await Wallet.create(
+        descriptor: descriptors[0],
+        changeDescriptor: descriptors[1],
+        network: network,
+        databaseConfig: const DatabaseConfig.memory(),
+      );
+
+      return true;
+    } on Exception {
+      // print("Error: ${e.toString()}");
+      return false;
+    }
+  }
+
   Future<Wallet> loadSavedWallet(String? mnemonic) async {
     var walletBox = Hive.box('walletBox');
     String? savedMnemonic = walletBox.get('walletMnemonic');
@@ -224,14 +230,12 @@ class WalletService {
       // Restore the wallet using the saved mnemonic
       wallet = await createOrRestoreWallet(
         savedMnemonic,
-        null, // Use a saved password if required
       );
       // print(wallet);
       return wallet;
     } else {
       wallet = await createOrRestoreWallet(
         mnemonic!,
-        null,
       );
     }
     return wallet;
@@ -240,7 +244,7 @@ class WalletService {
   Future<void> syncWallet(Wallet wallet) async {
     await blockchainInit(); // Ensure blockchain is initialized before usage
 
-    print(wallet.getBalance().total.toInt());
+    // print(wallet.getBalance().total.toInt());
 
     await wallet.sync(blockchain: blockchain);
   }
@@ -458,6 +462,72 @@ class WalletService {
     }
   }
 
+  bool checkCondition(
+    Map<String, dynamic> data,
+    List<dynamic> utxos,
+    String amount,
+    int currentHeight,
+  ) {
+    // Ensure 'timelock' has a default value if it's null
+    final timelock = data['timelock'] ?? 0;
+
+    // print('Amount: $amount');
+
+    // Parse the required amount into a number
+    final requiredAmount = double.tryParse(amount) ?? 0.0;
+
+    // Accumulate the total value of spendable UTXOs
+    double totalSpendableValue = 0.0;
+
+    for (var utxo in utxos) {
+      final blockHeight =
+          utxo['status']['block_height'] ?? 0; // Default to 0 if null
+      final utxoValue = utxo['value'] ?? 0.0; // Ensure a default value for UTXO
+
+      final isSpendable =
+          blockHeight + timelock <= currentHeight || timelock == 0;
+
+      if (isSpendable) {
+        totalSpendableValue += utxoValue; // Add spendable UTXO value
+      }
+
+      // Check if MULTISIG condition is satisfied
+      if (data['type'] != null &&
+          data['type'].contains('MULTISIG') &&
+          data['timelock'] == null) {
+        return true; // MULTISIG condition with null timelock
+      }
+    }
+
+    // Check if the total spendable value is sufficient
+    return totalSpendableValue >= requiredAmount;
+  }
+
+  Future<bool> areEqualAddresses(List<TxOut> outputs) async {
+    Address? firstAddress;
+
+    for (final output in outputs) {
+      final testAddress = await Address.fromScript(
+        script: ScriptBuf(bytes: output.scriptPubkey.bytes),
+        network: network,
+      );
+
+      if (firstAddress == null) {
+        // Store the first address for comparison
+        firstAddress = testAddress;
+      } else if (testAddress.asString() != firstAddress.asString()) {
+        // If an address does not match the first one, set the flag to false
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<Address> getAddressFromScript(TxOut output) {
+    return Address.fromScript(
+        script: ScriptBuf(bytes: output.scriptPubkey.bytes), network: network);
+  }
+
   ///
   ///
   ///
@@ -474,8 +544,7 @@ class WalletService {
   ///
   ///
 
-  Future<Wallet> createOrRestoreWallet(
-      String mnemonic, String? password) async {
+  Future<Wallet> createOrRestoreWallet(String mnemonic) async {
     try {
       final descriptors = await getDescriptors(mnemonic);
 
