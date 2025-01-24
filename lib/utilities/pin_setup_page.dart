@@ -65,12 +65,12 @@ class PinSetupPageState extends State<PinSetupPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Set PIN"),
-        backgroundColor: Colors.orange,
+        backgroundColor: Colors.green,
       ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.orangeAccent, Colors.white],
+            colors: [Colors.greenAccent, Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -88,7 +88,7 @@ class PinSetupPageState extends State<PinSetupPage> {
                   child: Icon(
                     Icons.lock,
                     size: 100,
-                    color: Colors.orange.shade700,
+                    color: Colors.green.shade700,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -139,7 +139,7 @@ class PinSetupPageState extends State<PinSetupPage> {
                 // Set PIN Button
                 CustomButton(
                   onPressed: _validateAndSave,
-                  backgroundColor: Colors.orange,
+                  backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
                   icon: Icons.pin,
                   iconColor: Colors.white,

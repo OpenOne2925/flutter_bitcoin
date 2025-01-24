@@ -92,12 +92,12 @@ class PinVerificationPageState extends State<PinVerificationPage>
     return Scaffold(
       appBar: AppBar(
         title: const Text("Verify PIN"),
-        backgroundColor: Colors.orange,
+        backgroundColor: Colors.green,
       ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.orangeAccent, Colors.white],
+            colors: [Colors.greenAccent, Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -148,7 +148,7 @@ class PinVerificationPageState extends State<PinVerificationPage>
                       _verifyPin();
                     }
                   },
-                  backgroundColor: Colors.orange,
+                  backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
                   icon: Icons.check_circle,
                   iconColor: Colors.white,

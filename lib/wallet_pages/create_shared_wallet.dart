@@ -20,11 +20,12 @@ class CreateSharedWallet extends StatefulWidget {
 class CreateSharedWalletState extends State<CreateSharedWallet> {
   final WalletService _walletService = WalletService();
 
-  final TextEditingController _pubKeyController = TextEditingController();
   final TextEditingController _thresholdController = TextEditingController();
   List<TextEditingController> additionalPublicKeyControllers = [
     TextEditingController()
   ];
+  final TextEditingController _descriptorNameController =
+      TextEditingController();
 
   String? threshold;
   List<Map<String, String>> publicKeysWithAlias = [];
@@ -36,7 +37,21 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
   String? _mnemonic;
   String _finalDescriptor = "";
   String _publicKey = "";
+  String _descriptorName = "";
   bool isLoading = false;
+
+  bool _isDuplicateDescriptor = false;
+  bool _isDescriptorNameMissing = false;
+  bool _isThresholdMissing = false;
+  bool _arePublicKeysMissing = false;
+
+  void _validateInputs() {
+    setState(() {
+      _isDescriptorNameMissing = _descriptorNameController.text.isEmpty;
+      _isThresholdMissing = _thresholdController.text.isEmpty;
+      _arePublicKeysMissing = publicKeysWithAlias.isEmpty;
+    });
+  }
 
   Future<void> _generatePublicKey() async {
     setState(() => isLoading = true);
@@ -45,7 +60,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       final savedMnemonic = walletBox.get('walletMnemonic');
       final mnemonic = await Mnemonic.fromString(savedMnemonic);
 
-      print('Mnemonic: $savedMnemonic');
+      // print('Mnemonic: $savedMnemonic');
 
       final hardenedDerivationPath =
           await DerivationPath.create(path: "m/84h/1h/0h");
@@ -60,7 +75,6 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       setState(() {
         _publicKey = receivingPublicKey.toString();
         _mnemonic = savedMnemonic;
-        _pubKeyController.text = receivingPublicKey.toString();
       });
     } catch (e) {
       print("Error generating public key: $e");
@@ -88,6 +102,19 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     return combineConditions(formattedTimelocks);
   }
 
+  bool _isDuplicateDescriptorName(String descriptorName) {
+    final descriptorBox = Hive.box('descriptorBox');
+
+    // Iterate through all keys and check if any key contains the same descriptor name
+    for (var key in descriptorBox.keys) {
+      print(key);
+      if (key.toString().contains(descriptorName.trim())) {
+        return true; // Duplicate found
+      }
+    }
+    return false; // No duplicate found
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -105,6 +132,47 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Section: Descriptor Name
+            Text(
+              'Descriptor Name',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: _isDescriptorNameMissing ? Colors.red : Colors.white,
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _descriptorNameController,
+              onFieldSubmitted: (value) {
+                setState(() {
+                  _descriptorName = _descriptorNameController.text.trim();
+
+                  _isDuplicateDescriptor =
+                      _isDuplicateDescriptorName(_descriptorName);
+                });
+              },
+              decoration: CustomTextFieldStyles.textFieldDecoration(
+                context: context,
+                labelText: 'Enter Descriptor Name',
+                hintText: 'E.g., MySharedWallet',
+                borderColor:
+                    _isDescriptorNameMissing ? Colors.red : Colors.green,
+              ),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            if (_isDuplicateDescriptor) ...[
+              Text(
+                'Descriptor name already exists!',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
             // Section 1: Generate Public Key
             Text(
               '1. Generate Public Key',
@@ -119,7 +187,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               backgroundColor: Colors.white,
               foregroundColor: Colors.black,
               icon: Icons.vpn_key,
-              iconColor: Colors.orange,
+              iconColor: Colors.green,
               label: 'Generate Public Key',
               padding: 16.0,
               iconSize: 24.0,
@@ -141,7 +209,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.copy, color: Colors.orange),
+                    icon: const Icon(Icons.copy, color: Colors.green),
                     tooltip: 'Copy to Clipboard',
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: _publicKey));
@@ -165,6 +233,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
+                color: (_isThresholdMissing || _arePublicKeysMissing)
+                    ? Colors.red
+                    : Colors.white,
               ),
             ),
             const SizedBox(height: 10),
@@ -173,7 +244,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 SizedBox(
                   width: 100, // Set your desired width
                   child: TextFormField(
-                    onFieldSubmitted: (value) {
+                    onChanged: (value) {
                       setState(() {
                         threshold = _thresholdController.text;
                       });
@@ -184,6 +255,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       context: context,
                       labelText: 'Threshold',
                       hintText: 'Thresh',
+                      borderColor:
+                          _isThresholdMissing ? Colors.red : Colors.green,
                     ),
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurface,
@@ -193,7 +266,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 const SizedBox(width: 10),
                 IconButton(
                   icon: const Icon(Icons.person_add_alt_sharp,
-                      size: 40, color: Colors.orange),
+                      size: 40, color: Colors.green),
                   onPressed: _showAddPublicKeyDialog,
                 ),
               ],
@@ -204,76 +277,116 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 spacing: 8.0,
                 runSpacing: 8.0,
                 children: publicKeysWithAlias.map((key) {
-                  return GestureDetector(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            backgroundColor:
-                                Colors.black, // Set the background color
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                  16.0), // Optional rounded corners
-                            ),
-                            title: Text('Public Key Details'),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TextFormField(
-                                  initialValue:
-                                      'Public Key: ${key['publicKey']}',
-                                  readOnly: true,
-                                  decoration:
-                                      CustomTextFieldStyles.textFieldDecoration(
-                                    context: context,
-                                    labelText: 'Public Key',
-                                  ),
-                                  style: TextStyle(
-                                    color:
-                                        Theme.of(context).colorScheme.onSurface,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                TextFormField(
-                                  initialValue: 'Alias: ${key['alias']}',
-                                  readOnly: true,
-                                  decoration:
-                                      CustomTextFieldStyles.textFieldDecoration(
-                                    context: context,
-                                    labelText: 'Alias',
-                                  ),
-                                  style: TextStyle(
-                                    color:
-                                        Theme.of(context).colorScheme.onSurface,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: Colors.orange,
-                                ),
-                                child: const Text('Close'),
-                              ),
-                            ],
-                          );
-                        },
+                  return Dismissible(
+                    key: ValueKey(key['publicKey']), // Unique key for each item
+                    direction:
+                        DismissDirection.horizontal, // Allow swipe to the left
+                    onDismissed: (direction) {
+                      setState(() {
+                        print(key['publicKey']);
+
+                        publicKeysWithAlias.remove(key); // Remove the key
+                      });
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${key['alias']} removed'),
+                          duration: const Duration(seconds: 2),
+                        ),
                       );
                     },
-                    child: Container(
-                      padding: const EdgeInsets.all(8.0),
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 16.0),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withAlpha((0.2 * 255).toInt()),
+                        color: Colors.red.withAlpha(
+                            (0.8 * 255).toInt()), // Red background for delete
                         borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: Colors.orange),
                       ),
-                      child: Text(
-                        key['alias']!,
-                        style: const TextStyle(fontSize: 14),
+                      child: const Icon(
+                        Icons.delete, // Delete icon
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    child: GestureDetector(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              backgroundColor:
+                                  Colors.black, // Set the background color
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                    16.0), // Optional rounded corners
+                              ),
+                              title: Text('Public Key Details'),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  TextFormField(
+                                    initialValue:
+                                        'Public Key: ${key['publicKey']}',
+                                    readOnly: true,
+                                    decoration: CustomTextFieldStyles
+                                        .textFieldDecoration(
+                                      context: context,
+                                      labelText: 'Public Key',
+                                    ),
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  TextFormField(
+                                    initialValue: 'Alias: ${key['alias']}',
+                                    readOnly: true,
+                                    decoration: CustomTextFieldStyles
+                                        .textFieldDecoration(
+                                      context: context,
+                                      labelText: 'Alias',
+                                    ),
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.green,
+                                  ),
+                                  child: const Text('Close'),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8.0),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withAlpha((0.2 * 255).toInt()),
+                          borderRadius: BorderRadius.circular(8.0),
+                          border: Border.all(color: Colors.green),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              key['alias']!,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -292,8 +405,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
             ),
             const SizedBox(height: 10),
             IconButton(
-              icon:
-                  const Icon(Icons.lock_clock, size: 40, color: Colors.orange),
+              icon: const Icon(Icons.lock_clock, size: 40, color: Colors.green),
               onPressed: _showAddTimelockDialog,
             ),
             const SizedBox(height: 10),
@@ -330,183 +442,213 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
                   // print('aliases: $aliases');
 
-                  return GestureDetector(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            backgroundColor:
-                                Colors.black, // Set the background color
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                  16.0), // Optional rounded corners
-                            ),
-                            title: Text(
-                              'Timelock Condition Details',
-                              style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 18,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                            ),
-                            content: SingleChildScrollView(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  TextFormField(
-                                    initialValue: condition['threshold'],
-                                    readOnly: true,
-                                    decoration: CustomTextFieldStyles
-                                        .textFieldDecoration(
-                                      context: context,
-                                      labelText: 'Threshold',
-                                    ),
-                                    style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  TextFormField(
-                                    initialValue: condition['older'],
-                                    readOnly: true,
-                                    decoration: CustomTextFieldStyles
-                                        .textFieldDecoration(
-                                      context: context,
-                                      labelText: 'Older',
-                                    ),
-                                    style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: condition['pubkeys']
-                                        .map<Widget>((pubkeyData) {
-                                      return Container(
-                                        margin:
-                                            const EdgeInsets.only(bottom: 10.0),
-                                        padding: const EdgeInsets.all(8.0),
-                                        decoration: BoxDecoration(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .surface,
-                                          borderRadius:
-                                              BorderRadius.circular(8.0),
-                                          border:
-                                              Border.all(color: Colors.orange),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Public Key:',
-                                              style: GoogleFonts.poppins(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurface,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            SelectableText(
-                                              pubkeyData['publicKey'],
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 14,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurface,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              'Alias:',
-                                              style: GoogleFonts.poppins(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurface,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              pubkeyData['alias'],
-                                              style: GoogleFonts.poppins(
-                                                fontSize: 14,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurface,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  // TextFormField(
-                                  //   initialValue: aliases.join(', '),
-                                  //   readOnly: true,
-                                  //   decoration: CustomTextFieldStyles
-                                  //       .textFieldDecoration(
-                                  //     context: context,
-                                  //     labelText: 'Aliases',
-                                  //   ),
-                                  //   style: TextStyle(
-                                  //     color: Theme.of(context)
-                                  //         .colorScheme
-                                  //         .onSurface,
-                                  //   ),
-                                  // ),
-                                ],
-                              ),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: Colors.orange,
-                                ),
-                                child: const Text('Close'),
-                              ),
-                            ],
-                          );
-                        },
+                  return Dismissible(
+                    key: ValueKey(condition),
+                    direction: DismissDirection.horizontal,
+                    onDismissed: (direction) {
+                      setState(() {
+                        timelockConditions.remove(condition);
+                      });
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              'Timelock condition (${condition['threshold']}) removed'),
+                          duration: const Duration(seconds: 1),
+                        ),
                       );
                     },
-                    child: Container(
-                      padding: const EdgeInsets.all(8.0),
+                    background: Container(
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.only(left: 16.0),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withAlpha((0.2 * 255).toInt()),
+                        color: Colors.red.withAlpha((0.8 * 255).toInt()),
                         borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: Colors.orange),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Threshold: ${condition['threshold']}',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          Text(
-                            'Older: ${condition['older']}',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          Text(
-                            'PubKeys: ${aliases.join(', ')}',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ],
+                      child: const Icon(
+                        Icons.delete,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    secondaryBackground: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 16.0),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withAlpha((0.8 * 255).toInt()),
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      child: const Icon(
+                        Icons.delete,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    child: GestureDetector(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              backgroundColor:
+                                  Colors.black, // Set the background color
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                    16.0), // Optional rounded corners
+                              ),
+                              title: Text(
+                                'Timelock Condition Details',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 18,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                              content: SingleChildScrollView(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    TextFormField(
+                                      initialValue: condition['threshold'],
+                                      readOnly: true,
+                                      decoration: CustomTextFieldStyles
+                                          .textFieldDecoration(
+                                        context: context,
+                                        labelText: 'Threshold',
+                                      ),
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    TextFormField(
+                                      initialValue: condition['older'],
+                                      readOnly: true,
+                                      decoration: CustomTextFieldStyles
+                                          .textFieldDecoration(
+                                        context: context,
+                                        labelText: 'Older',
+                                      ),
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: condition['pubkeys']
+                                          .map<Widget>((pubkeyData) {
+                                        return Container(
+                                          margin: const EdgeInsets.only(
+                                              bottom: 10.0),
+                                          padding: const EdgeInsets.all(8.0),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .surface,
+                                            borderRadius:
+                                                BorderRadius.circular(8.0),
+                                            border:
+                                                Border.all(color: Colors.green),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Public Key:',
+                                                style: GoogleFonts.poppins(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurface,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              SelectableText(
+                                                pubkeyData['publicKey'],
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 14,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurface,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'Alias:',
+                                                style: GoogleFonts.poppins(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurface,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                pubkeyData['alias'],
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 14,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurface,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ],
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.green,
+                                  ),
+                                  child: const Text('Close'),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8.0),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withAlpha((0.2 * 255).toInt()),
+                          borderRadius: BorderRadius.circular(8.0),
+                          border: Border.all(color: Colors.green),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Threshold: ${condition['threshold']}',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            Text(
+                              'Older: ${condition['older']}',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            Text(
+                              'PubKeys: ${aliases.join(', ')}',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -527,9 +669,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
             CustomButton(
               onPressed: () => _createDescriptor(),
               backgroundColor: Colors.white, // White background
-              foregroundColor: Colors.black, // Bitcoin orange color for text
+              foregroundColor: Colors.black, // Bitcoin green color for text
               icon: Icons.create, // Icon you want to use
-              iconColor: Colors.orange, // Color for the icon
+              iconColor: Colors.green, // Color for the icon
               label: 'Create Descriptor',
             ),
           ],
@@ -583,7 +725,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
             TextButton(
               onPressed: () => Navigator.pop(context),
               style: TextButton.styleFrom(
-                foregroundColor: Colors.orange,
+                foregroundColor: Colors.green,
               ),
               child: const Text('Cancel'),
             ),
@@ -601,7 +743,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 Navigator.pop(context);
               },
               style: TextButton.styleFrom(
-                foregroundColor: Colors.orange,
+                foregroundColor: Colors.green,
               ),
               child: const Text('Add'),
             ),
@@ -686,12 +828,12 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                               padding: const EdgeInsets.all(8.0),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? Colors.orange
+                                    ? Colors.green
                                         .withAlpha((0.8 * 255).toInt())
-                                    : Colors.orange
+                                    : Colors.green
                                         .withAlpha((0.2 * 255).toInt()),
                                 borderRadius: BorderRadius.circular(8.0),
-                                border: Border.all(color: Colors.orange),
+                                border: Border.all(color: Colors.green),
                               ),
                               child: Text(
                                 key['alias']!,
@@ -708,7 +850,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.orange,
+                    foregroundColor: Colors.green,
                   ),
                   child: const Text('Cancel'),
                 ),
@@ -736,7 +878,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     Navigator.pop(context);
                   },
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.orange,
+                    foregroundColor: Colors.green,
                   ),
                   child: const Text('Add'),
                 ),
@@ -801,6 +943,16 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
   }
 
   void _createDescriptor() {
+    // Validate inputs
+    _validateInputs();
+
+    // If any section is missing, stop further processing
+    if (_isDescriptorNameMissing ||
+        _isThresholdMissing ||
+        _arePublicKeysMissing) {
+      return;
+    }
+
     // Extract only the public keys from the list of public keys with alias
     List<String> extractedPublicKeys =
         publicKeysWithAlias.map((entry) => entry['publicKey']!).toList();
@@ -901,7 +1053,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.copy, color: Colors.orange),
+                        icon: const Icon(Icons.copy, color: Colors.green),
                         tooltip: 'Copy to Clipboard',
                         onPressed: () {
                           Clipboard.setData(
@@ -941,7 +1093,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: Colors.orange),
+                        border: Border.all(color: Colors.green),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -994,7 +1146,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: Colors.orange),
+                        border: Border.all(color: Colors.green),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1030,6 +1182,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 final data = jsonEncode({
                   'descriptor': _finalDescriptor,
                   'publicKeysWithAlias': publicKeysWithAlias,
+                  'descriptorName': _descriptorName,
                 });
 
                 // // Request storage permission (required for Android 11 and below)
@@ -1040,7 +1193,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   await directory.create(recursive: true);
                 }
 
-                final filePath = '${directory.path}/shared_wallet.json';
+                final fileName = '$_descriptorName.json';
+
+                final filePath = '${directory.path}/$fileName';
                 final file = File(filePath);
 
                 // Write JSON data to the file
@@ -1048,8 +1203,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(
-                        'File saved to ${directory.path}/shared_wallet.json'),
+                    content: Text('File saved to ${directory.path}/$fileName'),
                   ),
                 );
                 // } else {
@@ -1063,13 +1217,15 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 // }
               },
               style: TextButton.styleFrom(
-                foregroundColor: Colors.orange,
+                foregroundColor: Colors.green,
               ),
               child: const Text('Download Descriptor'),
             ),
             TextButton(
               onPressed: () {
-                print('_mnemonic: $_mnemonic');
+                // print('_mnemonic: $_mnemonic');
+                _generatePublicKey();
+
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -1077,19 +1233,20 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       descriptor: _finalDescriptor,
                       mnemonic: _mnemonic!,
                       pubKeysAlias: publicKeysWithAlias,
+                      descriptorName: _descriptorName,
                     ),
                   ),
                 );
               },
               style: TextButton.styleFrom(
-                foregroundColor: Colors.orange,
+                foregroundColor: Colors.green,
               ),
               child: const Text('Navigate to Wallet'),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
               style: TextButton.styleFrom(
-                foregroundColor: Colors.orange,
+                foregroundColor: Colors.green,
               ),
               child: const Text('Close'),
             ),

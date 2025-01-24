@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -6,66 +7,68 @@ import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
+import 'package:english_words/english_words.dart';
 
 /// WalletService Class
 ///
 /// This class provides a comprehensive suite of tools for managing Bitcoin wallets
-/// using the bdk_flutter library. It supports both single and shared wallet functionalities,
+/// using the `bdk_flutter` library. It supports both single and shared wallet functionalities,
 /// descriptor-based wallet management, transaction creation, and interaction with blockchain
 /// APIs like Mempool.space. The class also handles wallet synchronization, balance retrieval,
 /// and multi-signature (multisig) wallets.
 ///
-/// INDEX:
-/// - Common Methods
-///   - isValidDescriptor: Validates a wallet descriptor.
-///   - getBalance: Retrieves the total balance from a wallet.
-///   - getLedgerBalance: Fetches the ledger balance for a given address.
-///   - getAvailableBalance: Fetches the available balance for a given address.
-///   - loadSavedWallet: Restores a wallet using a saved mnemonic.
-///   - syncWallet: Synchronizes a wallet with the blockchain.
-///   - getAddress: Retrieves the current receiving address from a wallet.
-///   - blockchainInit: Initializes a connection to the blockchain via an Electrum server.
-///   - fetchCurrentBlockHeight: Fetches the current block height from the blockchain.
-///   - fetchAverageBlockTime: Fetches the average block time from the blockchain.
-///   - calculateRemainingTimeInSeconds: Calculates the remaining time for a specific number of blocks.
-///   - formatTime: Formats a duration in seconds into a human-readable format.
-///   - getUtxos: Fetches the unspent transaction outputs (UTXOs) for a given address.
+/// **INDEX**
 ///
-/// - Single Wallet
-///   - createOrRestoreWallet: Creates or restores a single-user wallet from a mnemonic.
-///   - calculateSendAllBalance: Computes the maximum amount that can be sent after deducting fees.
-///   - sendTx: Creates, signs, and broadcasts a single-user transaction.
+/// **Common Methods**
+/// - **`isValidDescriptor`**: Validates a wallet descriptor.
+/// - **`getBalance`**: Retrieves the total balance from a wallet.
+/// - **`getLedgerBalance`**: Fetches the ledger balance for a given address.
+/// - **`getAvailableBalance`**: Fetches the available balance for a given address.
+/// - **`loadSavedWallet`**: Restores a wallet using a saved mnemonic.
+/// - **`syncWallet`**: Synchronizes a wallet with the blockchain.
+/// - **`getAddress`**: Retrieves the current receiving address from a wallet.
+/// - **`blockchainInit`**: Initializes a connection to the blockchain via an Electrum server.
+/// - **`fetchCurrentBlockHeight`**: Fetches the current block height from the blockchain.
+/// - **`fetchAverageBlockTime`**: Fetches the average block time from the blockchain.
+/// - **`calculateRemainingTimeInSeconds`**: Calculates the remaining time for a specific number of blocks.
+/// - **`formatTime`**: Formats a duration in seconds into a human-readable format.
+/// - **`getUtxos`**: Fetches the unspent transaction outputs (UTXOs) for a given address.
 ///
-/// - Shared Wallet
-///   - createSharedWallet: Creates a wallet for multi-signature use.
-///   - createWalletDescriptor: Generates a descriptor for shared wallets with time-lock and multisig conditions.
-///   - createPartialTx: Creates a partially signed Bitcoin transaction (PSBT) for shared wallets.
-///   - signBroadcastTx: Signs a PSBT with the second user and broadcasts it to the blockchain.
+/// **Single Wallet**
+/// - **`createOrRestoreWallet`**: Creates or restores a single-user wallet from a mnemonic.
+/// - **`calculateSendAllBalance`**: Computes the maximum amount that can be sent after deducting fees.
+/// - **`sendTx`**: Creates, signs, and broadcasts a single-user transaction.
 ///
-/// - Utilities
-///   - printInChunks: Prints long strings in chunks for readability.
-///   - printPrettyJson: Pretty-prints JSON strings for debugging.
-///   - checkCondition: Checks whether a specific condition is met for UTXO spending.
+/// **Shared Wallet**
+/// - **`createSharedWallet`**: Creates a wallet for multi-signature use.
+/// - **`createWalletDescriptor`**: Generates a descriptor for shared wallets with time-lock and multisig conditions.
+/// - **`createPartialTx`**: Creates a partially signed Bitcoin transaction (PSBT) for shared wallets.
+/// - **`signBroadcastTx`**: Signs a PSBT with the second user and broadcasts it to the blockchain.
 ///
-/// - Blockchain Interaction
-///   - getFeeRate: Retrieves the current recommended fee rate for transactions.
-///   - getTransactions: Fetches transaction history for a given address.
+/// **Utilities**
+/// - **`printInChunks`**: Prints long strings in chunks for readability.
+/// - **`printPrettyJson`**: Pretty-prints JSON strings for debugging.
+/// - **`checkCondition`**: Checks whether a specific condition is met for UTXO spending.
 ///
-/// - Multi-signature Utilities
-///   - replacePubKeyWithPrivKeyMultiSig: Replaces public keys with private keys in a multisig descriptor.
-///   - replacePubKeyWithPrivKeyOlder: Replaces public keys with private keys in timelocked descriptors.
-///   - extractOlderWithPrivateKey: Extracts the "older" value from a descriptor and associates it with private keys.
+/// **Blockchain Interaction**
+/// - **`getFeeRate`**: Retrieves the current recommended fee rate for transactions.
+/// - **`getTransactions`**: Fetches transaction history for a given address.
 ///
-/// - Descriptor Key Derivation
-///   - deriveDescriptorKeys: Derives descriptor secret and public keys based on a derivation path and mnemonic.
+/// **Multi-signature Utilities**
+/// - **`replacePubKeyWithPrivKeyMultiSig`**: Replaces public keys with private keys in a multisig descriptor.
+/// - **`replacePubKeyWithPrivKeyOlder`**: Replaces public keys with private keys in timelocked descriptors.
+/// - **`extractOlderWithPrivateKey`**: Extracts the "older" value from a descriptor and associates it with private keys.
 ///
-/// - Policy and Path Extraction
-///   - extractAllPathsToFingerprint: Extracts all policy paths to a specific fingerprint.
-///   - extractDataByFingerprint: Extracts data related to a specific fingerprint from the wallet policy.
-///   - extractAllPaths: Extracts all policy paths from a wallet descriptor.
+/// **Descriptor Key Derivation**
+/// - **`deriveDescriptorKeys`**: Derives descriptor secret and public keys based on a derivation path and mnemonic.
 ///
-/// - Data Storage
-///   - saveLocalData: Saves wallet-related data, such as balances and transactions, to local storage.
+/// **Policy and Path Extraction**
+/// - **`extractAllPathsToFingerprint`**: Extracts all policy paths to a specific fingerprint.
+/// - **`extractDataByFingerprint`**: Extracts data related to a specific fingerprint from the wallet policy.
+/// - **`extractAllPaths`**: Extracts all policy paths from a wallet descriptor.
+///
+/// **Data Storage**
+/// - **`saveLocalData`**: Saves wallet-related data, such as balances and transactions, to local storage.
 
 class WalletService {
   final WalletStorageService _walletStorageService = WalletStorageService();
@@ -349,7 +352,7 @@ class WalletService {
 
       // print('FeeRate: $feeRate');
 
-      return feeRate;
+      return feeRate + 1;
     } else {
       throw Exception('Failed to fetch available balance');
     }
@@ -526,6 +529,48 @@ class WalletService {
   Future<Address> getAddressFromScript(TxOut output) {
     return Address.fromScript(
         script: ScriptBuf(bytes: output.scriptPubkey.bytes), network: network);
+  }
+
+  void validateAddress(String address) async {
+    print('Sono qui');
+    try {
+      final result = await Address.fromString(s: address, network: network);
+
+      print('Addressssssssss: $result');
+    } on AddressException catch (e) {
+      print('Format');
+      throw Exception('Invalid address format: $e');
+    } catch (e) {
+      print('Exception');
+      throw Exception('Unknown error while validating address: $e');
+    }
+  }
+
+  List<Map<String, String>> extractPublicKeysWithAliases(String descriptor) {
+    // Regular expression to extract public keys (tpub) and their fingerprints with paths
+    final publicKeyRegex = RegExp(r"\[([^\]]+)\](tpub[A-Za-z0-9]+[^\s,)]*)");
+
+    // Extract matches
+    final matches = publicKeyRegex.allMatches(descriptor);
+
+    // Use a Set to ensure uniqueness
+    final Set<String> seenKeys = {};
+    List<Map<String, String>> result = [];
+
+    for (var match in matches) {
+      // Extract alias (fingerprint) and full public key
+      final fingerprint = match.group(1)!.split('/')[0]; // Extract fingerprint
+      final publicKey =
+          "[${match.group(1)!}]${match.group(2)!}"; // Full public key with path
+
+      // Avoid duplicates
+      if (!seenKeys.contains(fingerprint)) {
+        seenKeys.add(fingerprint);
+        result.add({'publicKey': publicKey, 'alias': fingerprint});
+      }
+    }
+
+    return result;
   }
 
   ///
@@ -1086,13 +1131,10 @@ class WalletService {
   }
 
   // Method to create a PSBT for a multisig transaction, this psbt is signed by the first user
-  Future<String?> createPartialTx(
-    String descriptor,
-    String mnemonic,
-    String recipientAddressStr,
-    BigInt amount,
-    int? chosenPath,
-  ) async {
+  Future<String?> createPartialTx(String descriptor, String mnemonic,
+      String recipientAddressStr, BigInt amount, int? chosenPath,
+      {bool isSendAllBalance = false,
+      List<Map<String, dynamic>>? spendingPaths}) async {
     Map<String, Uint32List>? multiSigPath;
     Map<String, Uint32List>? timeLockPath;
 
@@ -1144,14 +1186,17 @@ class WalletService {
     final unspent = wallet.listUnspent();
     final feeRate = await getFeeRate();
 
-    final totalSpending = amount + BigInt.from(feeRate);
-    print("Total Spending: $totalSpending");
+    BigInt totalSpending;
 
-    // Check If there are enough funds available
-    if (utxos.confirmed < totalSpending) {
-      // Exit early if no confirmed UTXOs are available
-      throw Exception(
-          "Not enough confirmed funds available. Please wait until your transactions confirm.");
+    if (!isSendAllBalance) {
+      totalSpending = amount + BigInt.from(feeRate);
+      print("Total Spending: $totalSpending");
+      // Check If there are enough funds available
+      if (utxos.confirmed < totalSpending) {
+        // Exit early if no confirmed UTXOs are available
+        throw Exception(
+            "Not enough confirmed funds available. Please wait until your transactions confirm.");
+      }
     }
 
     for (var utxo in unspent) {
@@ -1212,6 +1257,74 @@ class WalletService {
 
       // Build the transaction:
       (PartiallySignedTransaction, TransactionDetails) txBuilderResult;
+
+      if (isSendAllBalance) {
+        print(amount.toInt());
+        try {
+          if (chosenPath == 0) {
+            await txBuilder
+                .addRecipient(recipientScript, amount)
+                .policyPath(KeychainKind.internalChain, multiSigPath!)
+                .policyPath(KeychainKind.externalChain, multiSigPath)
+                .feeRate(feeRate.toDouble())
+                .finish(wallet);
+          } else {
+            await txBuilder
+                .addRecipient(recipientScript, amount)
+                .policyPath(KeychainKind.internalChain, timeLockPath!)
+                .policyPath(KeychainKind.externalChain, timeLockPath)
+                .feeRate(feeRate.toDouble())
+                .finish(wallet);
+          }
+
+          return amount.toString();
+        } catch (e) {
+          // print('Error: $e');
+
+          final utxos = await getUtxos(wallet
+              .getAddress(addressIndex: AddressIndex.peek(index: 0))
+              .address
+              .toString());
+
+          final timelock = spendingPaths![chosenPath!]['timelock'];
+          int currentHeight = await fetchCurrentBlockHeight();
+
+          // Filter spendable UTXOs
+          final spendableUtxos = utxos.where((utxo) {
+            final blockHeight = utxo['status']['block_height'];
+            return blockHeight != null &&
+                (blockHeight + timelock - 1 <= currentHeight || timelock == 0);
+          }).toList();
+
+          // Sum the value of spendable UTXOs
+          final totalSpendableBalance = spendableUtxos.fold<int>(
+            0,
+            (sum, utxo) => sum + (utxo['value'] as int),
+          );
+
+          // Handle insufficient funds
+          if (e.toString().contains("InsufficientFundsException")) {
+            final RegExp regex = RegExp(r'Needed: (\d+),');
+            final match = regex.firstMatch(e.toString());
+            if (match != null) {
+              final int neededAmount = int.parse(match.group(1)!);
+              final int fee = neededAmount - amount.toInt();
+              final int sendAllBalance = totalSpendableBalance - fee;
+
+              if (sendAllBalance > 0) {
+                return sendAllBalance
+                    .toString(); // Return adjusted send all balance
+              } else {
+                throw Exception('No balance available after fee deduction');
+              }
+            } else {
+              throw Exception('Failed to extract Needed amount from exception');
+            }
+          } else {
+            rethrow; // Re-throw unhandled exceptions
+          }
+        }
+      }
 
       if (chosenPath == 0) {
         print('MultiSig Builder');
@@ -1418,4 +1531,18 @@ class WalletService {
     const encoder = JsonEncoder.withIndent('  ');
     printInChunks(encoder.convert(jsonObject));
   }
+
+  String generateRandomName() {
+    final random = Random();
+
+    // Get random nouns and adjectives from the package
+    final adjective = WordPair.random().first;
+    final noun = WordPair.random().second;
+
+    return '${adjective.capitalize()}${noun.capitalize()}${random.nextInt(1000)}';
+  }
+}
+
+extension StringExtension on String {
+  String capitalize() => this[0].toUpperCase() + substring(1);
 }

@@ -39,45 +39,36 @@ class CAWalletPageState extends State<CAWalletPage> {
     });
 
     final connectivityResult = await Connectivity().checkConnectivity();
+    Wallet wallet;
+
     if (!connectivityResult.contains(ConnectivityResult.none)) {
-      final wallet = await _walletService.loadSavedWallet(_mnemonic!);
+      wallet = await _walletService.loadSavedWallet(_mnemonic!);
 
       setState(() {
         _wallet = wallet;
         _status = 'Wallet loaded successfully!';
       });
-
-      var walletBox = Hive.box('walletBox');
-      walletBox.put('walletMnemonic', _mnemonic);
-      walletBox.put('walletNetwork', network.toString());
-
-      if (!mounted) return;
-
-      Navigator.pushNamed(
-        context,
-        '/wallet_page',
-        arguments: _wallet,
-      );
     } else {
-      final wallet = await _walletService.createOrRestoreWallet(_mnemonic!);
-
+      wallet = await _walletService.createOrRestoreWallet(_mnemonic!);
       setState(() {
         _wallet = wallet;
-        _status = 'Wallet created successfully!';
+        _status = 'Wallet created successfully';
       });
-
-      var walletBox = Hive.box('walletBox');
-      walletBox.put('walletMnemonic', _mnemonic);
-      walletBox.put('walletNetwork', network.toString());
-
-      if (!mounted) return;
-
-      Navigator.pushReplacementNamed(
-        context,
-        '/wallet_page',
-        arguments: _wallet,
-      );
     }
+
+    var walletBox = Hive.box('walletBox');
+    walletBox.put('walletMnemonic', _mnemonic);
+    walletBox.put('walletNetwork', network.toString());
+
+    await Future.delayed(const Duration(seconds: 1));
+
+    if (!mounted) return;
+
+    Navigator.pushNamed(
+      context,
+      '/wallet_page',
+      arguments: _wallet,
+    );
   }
 
   Future<void> _generateMnemonic() async {
@@ -108,7 +99,7 @@ class CAWalletPageState extends State<CAWalletPage> {
       _isMnemonicEntered = isValid;
     });
 
-    print(_isMnemonicEntered);
+    // print(_isMnemonicEntered);
   }
 
   Widget _buildStatusIndicator() {
@@ -145,12 +136,12 @@ class CAWalletPageState extends State<CAWalletPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create or Restore Wallet'),
-        backgroundColor: Colors.orange,
+        backgroundColor: Colors.green,
       ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.orangeAccent, Colors.white],
+            colors: [Colors.greenAccent, Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -166,7 +157,7 @@ class CAWalletPageState extends State<CAWalletPage> {
               // Mnemonic Input Field
               TextFormField(
                 controller: _mnemonicController,
-                onFieldSubmitted: (value) async {
+                onChanged: (value) async {
                   _validateMnemonic(value);
 
                   setState(() {
@@ -186,7 +177,7 @@ class CAWalletPageState extends State<CAWalletPage> {
               // Create Wallet Button
               CustomButton(
                 onPressed: _isMnemonicEntered ? _createWallet : null,
-                backgroundColor: Colors.orange,
+                backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
                 icon: Icons.wallet,
                 iconColor: Colors.white,
@@ -199,9 +190,9 @@ class CAWalletPageState extends State<CAWalletPage> {
               CustomButton(
                 onPressed: _generateMnemonic,
                 backgroundColor: Colors.white,
-                foregroundColor: Colors.orange,
+                foregroundColor: Colors.green,
                 icon: Icons.create,
-                iconColor: Colors.orange,
+                iconColor: Colors.green,
                 label: 'Generate Mnemonic',
                 padding: 16.0,
                 iconSize: 28.0,

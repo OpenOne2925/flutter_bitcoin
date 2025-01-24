@@ -1,12 +1,13 @@
 import 'dart:convert';
-
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/theme_provider.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class BaseScaffold extends StatefulWidget {
   final Widget body;
@@ -26,6 +27,8 @@ class BaseScaffoldState extends State<BaseScaffold> {
   Box<dynamic>? _descriptorBox;
   Map<String, Future<DescriptorPublicKey?>> pubKeyFutures = {};
 
+  String _version = '';
+
   final walletService = WalletService();
   DescriptorPublicKey? pubKey;
 
@@ -33,6 +36,30 @@ class BaseScaffoldState extends State<BaseScaffold> {
   void initState() {
     super.initState();
     _descriptorBox = Hive.box<dynamic>('descriptorBox');
+    // printDescriptorBoxContents();
+    _getVersion();
+  }
+
+  Future<void> _getVersion() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    setState(() {
+      _version = packageInfo.version;
+    });
+  }
+
+  void printDescriptorBoxContents() {
+    if (_descriptorBox != null) {
+      print('--- Descriptor Box Contents ---');
+      for (var i = 0; i < _descriptorBox!.length; i++) {
+        final key = _descriptorBox!.keyAt(i); // Get the key
+        final value = _descriptorBox!.getAt(i); // Get the value
+        print('Key: $key');
+        walletService.printInChunks('Value: $value');
+      }
+      print('--- End of Descriptor Box ---');
+    } else {
+      print('Descriptor Box is null or not initialized.');
+    }
   }
 
   Future<DescriptorPublicKey?> getpubkey(String mnemonic) {
@@ -71,7 +98,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
           IconButton(
             icon: Icon(
               isDarkMode ? Icons.dark_mode : Icons.light_mode,
-              color: isDarkMode ? Colors.deepPurple : Colors.orange,
+              color: isDarkMode ? Colors.deepPurple : Colors.green,
             ),
             onPressed: () {
               Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
@@ -97,7 +124,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.orangeAccent, Colors.white],
+            colors: [Colors.greenAccent, Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -114,7 +141,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
     return DrawerHeader(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.orange, Colors.deepOrangeAccent],
+          colors: [Colors.green, Colors.greenAccent],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -123,25 +150,47 @@ class BaseScaffoldState extends State<BaseScaffold> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.wallet,
-            size: 40,
-            color: Colors.white,
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Welcome to ShareHaven',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+          Flexible(
+            flex: 2,
+            child: SizedBox(
+              height: 60,
+              width: 60,
+              child: Lottie.asset(
+                'assets/animations/bitcoin_city.json',
+                repeat: true,
+              ),
             ),
           ),
-          Text(
-            'Your Bitcoin wallet companion.',
-            style: TextStyle(
-              color: Colors.white.withAlpha((0.8 * 255).toInt()),
-              fontSize: 14,
+          const SizedBox(height: 10),
+          Flexible(
+            flex: 1,
+            child: const Text(
+              'Welcome to ShareHaven',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Flexible(
+            flex: 1,
+            child: Text(
+              'Version: $_version',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          Flexible(
+            flex: 1,
+            child: Text(
+              'Your Bitcoin wallet companion.',
+              style: TextStyle(
+                color: Colors.white.withAlpha((0.8 * 255).toInt()),
+                fontSize: 14,
+              ),
             ),
           ),
         ],
@@ -152,12 +201,12 @@ class BaseScaffoldState extends State<BaseScaffold> {
   Widget _buildPersonalWalletTile(BuildContext context) {
     return Card(
       elevation: 6,
-      shadowColor: Colors.orangeAccent,
+      shadowColor: Colors.greenAccent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: const Icon(Icons.wallet, color: Colors.orange),
+        leading: const Icon(Icons.wallet, color: Colors.green),
         title: const Text(
           'Personal Wallet',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -171,112 +220,128 @@ class BaseScaffoldState extends State<BaseScaffold> {
   }
 
   Widget _buildSharedWalletTiles(BuildContext context) {
-    List<Widget> sharedWalletCards = [];
+    return ValueListenableBuilder(
+      valueListenable:
+          _descriptorBox!.listenable(), // Listen for changes in the box
+      builder: (context, Box<dynamic> box, _) {
+        List<Widget> sharedWalletCards = [];
 
-    for (int i = 0; i < (_descriptorBox?.length ?? 0); i++) {
-      final mnemonic = _descriptorBox?.keyAt(i) ?? 'Unknown Mnemonic';
-      final rawValue = _descriptorBox?.getAt(i);
+        for (int i = 0; i < box.length; i++) {
+          final compositeKey = box.keyAt(i) ?? 'Unknown Composite Key';
+          final rawValue = box.getAt(i);
 
-      // Parse the raw value (JSON) into a Map
-      Map<String, dynamic>? parsedValue;
-      if (rawValue != null) {
-        try {
-          parsedValue = jsonDecode(rawValue);
-        } catch (e) {
-          print('Error parsing descriptor JSON: $e');
-        }
-      }
+          // Split the composite key into mnemonic and descriptor name
+          final keyParts = compositeKey.split('_descriptor');
+          final mnemonic =
+              keyParts.isNotEmpty ? keyParts[0] : 'Unknown Mnemonic';
+          final descriptorName = keyParts.length > 1
+              ? keyParts[1].replaceFirst('_', '')
+              : 'Unnamed Descriptor';
 
-      final descriptor =
-          parsedValue?['descriptor'] ?? 'No descriptor available';
-      final pubKeysAlias = (parsedValue?['pubKeysAlias'] as List<dynamic>)
-          .map((item) => Map<String, String>.from(item))
-          .toList();
-
-      sharedWalletCards.add(
-        FutureBuilder<DescriptorPublicKey?>(
-          future: getpubkey(mnemonic),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const CircularProgressIndicator(); // Show a loader while waiting
-            } else if (snapshot.hasError) {
-              return const Text('Error fetching public key');
+          // Parse the raw value (JSON) into a Map
+          Map<String, dynamic>? parsedValue;
+          if (rawValue != null) {
+            try {
+              parsedValue = jsonDecode(rawValue);
+            } catch (e) {
+              print('Error parsing descriptor JSON: $e');
             }
+          }
 
-            final pubKey = snapshot.data;
-            if (pubKey == null) {
-              return const Text('Public key not found');
-            }
+          final descriptor =
+              parsedValue?['descriptor'] ?? 'No descriptor available';
+          final pubKeysAlias = (parsedValue?['pubKeysAlias'] as List<dynamic>)
+              .map((item) => Map<String, String>.from(item))
+              .toList();
 
-            // Extract the content inside square brackets
-            final RegExp regex = RegExp(r'\[([^\]]+)\]');
-            final Match? match = regex.firstMatch(pubKey.asString());
+          sharedWalletCards.add(
+            FutureBuilder<DescriptorPublicKey?>(
+              future: getpubkey(mnemonic),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const CircularProgressIndicator(); // Show a loader while waiting
+                } else if (snapshot.hasError) {
+                  return const Text('Error fetching public key');
+                }
 
-            final String targetFingerprint = match!.group(1)!.split('/')[0];
+                final pubKey = snapshot.data;
+                if (pubKey == null) {
+                  return const Text('Public key not found');
+                }
 
-            final matchingAliasEntry = pubKeysAlias.firstWhere(
-              (entry) => entry['publicKey']!.contains(targetFingerprint),
-              orElse: () =>
-                  {'alias': 'Unknown Alias'}, // Fallback if no match is found
-            );
+                // Extract the content inside square brackets
+                final RegExp regex = RegExp(r'\[([^\]]+)\]');
+                final Match? match = regex.firstMatch(pubKey.asString());
 
-            final displayAlias = matchingAliasEntry['alias'] ?? 'No Alias';
+                final String targetFingerprint = match!.group(1)!.split('/')[0];
 
-            return Card(
-              elevation: 6,
-              shadowColor: Colors.orangeAccent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                leading: const Icon(Icons.account_balance_wallet,
-                    color: Colors.black),
-                title: Text(
-                  displayAlias,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.orange,
+                final matchingAliasEntry = pubKeysAlias.firstWhere(
+                  (entry) => entry['publicKey']!.contains(targetFingerprint),
+                  orElse: () => {
+                    'alias': 'Unknown Alias'
+                  }, // Fallback if no match is found
+                );
+
+                final displayAlias = matchingAliasEntry['alias'] ?? 'No Alias';
+
+                return Card(
+                  elevation: 6,
+                  shadowColor: Colors.greenAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ),
-                subtitle: Text(
-                  descriptor,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SharedWallet(
-                        descriptor: descriptor,
-                        mnemonic: mnemonic,
-                        pubKeysAlias: pubKeysAlias,
+                  child: ListTile(
+                    leading: const Icon(Icons.account_balance_wallet,
+                        color: Colors.black),
+                    title: Text(
+                      '${descriptorName}_$displayAlias',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green,
                       ),
                     ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
-      );
-    }
+                    subtitle: Text(
+                      descriptor,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SharedWallet(
+                            descriptor: descriptor,
+                            mnemonic: mnemonic,
+                            pubKeysAlias: pubKeysAlias,
+                            descriptorName: descriptorName,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          );
+        }
 
-    return Column(children: sharedWalletCards);
+        return Column(children: sharedWalletCards);
+      },
+    );
   }
 
   Widget _buildCreateSharedWalletTile(BuildContext context) {
     return Card(
       elevation: 6,
-      shadowColor: Colors.orangeAccent,
+      shadowColor: Colors.greenAccent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
         leading: const Icon(
           Icons.add_circle,
-          color: Colors.orange,
+          color: Colors.green,
         ),
         title: const Text(
           'Create Shared Wallet',

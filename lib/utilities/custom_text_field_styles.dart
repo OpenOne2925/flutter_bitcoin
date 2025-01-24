@@ -5,59 +5,59 @@ class CustomTextFieldStyles {
     required BuildContext context,
     required String labelText,
     String? hintText,
+    Color? borderColor, // Optional custom border color
   }) {
+    final defaultBorderColor = Colors.grey.withAlpha((0.6 * 255).toInt());
+    final focusedBorderColor = borderColor ?? Colors.green;
+
     return InputDecoration(
       labelText: labelText,
-      floatingLabelBehavior:
-          FloatingLabelBehavior.auto, // Label floats only when focused
+      floatingLabelBehavior: FloatingLabelBehavior.auto, // Auto-floating label
       labelStyle: TextStyle(
         fontSize: 16.0,
         fontWeight: FontWeight.bold,
-        color: Colors.orange, // Blackish color for better visibility
+        color: Colors.green,
       ),
       floatingLabelStyle: TextStyle(
         fontSize: 14.0,
         fontWeight: FontWeight.bold,
-        color: Colors.orange, // Orange floating label when focused
+        color: Colors.green,
       ),
       hintText: hintText,
       hintStyle: TextStyle(
         fontSize: 14.0,
-        color: Colors.grey.withAlpha(
-            (0.8 * 255).toInt()), // Subtle grey hint for better contrast
+        color: Colors.grey.withAlpha((0.8 * 255).toInt()),
       ),
       filled: true,
-      fillColor: Colors.black, // Neutral white background for better contrast
+      fillColor: Colors.black,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0), // Smooth rounded corners
+        borderRadius: BorderRadius.circular(12.0),
         borderSide: BorderSide(
-          color:
-              Colors.grey.withAlpha((0.6 * 255).toInt()), // Neutral grey border
+          color: defaultBorderColor,
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12.0),
-        borderSide: const BorderSide(
-          color: Colors.orange, // Orange border when focused
+        borderSide: BorderSide(
+          color: focusedBorderColor, // Use custom or default border color
           width: 2.0,
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12.0),
         borderSide: BorderSide(
-          color: Colors.grey.withAlpha(
-              (0.6 * 255).toInt()), // Neutral border for better readability
+          color: borderColor ?? defaultBorderColor, // Use custom or default
         ),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12.0),
         borderSide: const BorderSide(
-          color: Colors.red, // Red border for errors
+          color: Colors.red,
           width: 2.0,
         ),
       ),
       contentPadding: const EdgeInsets.symmetric(
-        vertical: 18.0, // Balanced padding for text and labels
+        vertical: 18.0,
         horizontal: 16.0,
       ),
     );

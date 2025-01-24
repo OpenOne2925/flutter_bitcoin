@@ -1,9 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
@@ -15,16 +16,88 @@ import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:hive/hive.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+/// SharedWallet Page
+///
+/// This class represents a shared Bitcoin wallet page where users can:
+/// - View wallet details such as address, balance, and transactions.
+/// - Create and sign multi-signature transactions.
+/// - Explore spending paths and check available UTXOs.
+/// - Interact with the wallet using QR codes for sending and receiving Bitcoin.
+///
+/// ### Features and Functionalities:
+///
+/// #### Wallet Initialization
+/// - **`openBoxAndCheckWallet`**: Opens the Hive box and checks if the wallet already exists.
+/// - **`createWalletFromDescriptor`**: Creates a wallet from a given descriptor and saves it locally.
+/// - **`loadWallet`**: Loads an existing wallet and syncs it with the blockchain.
+///
+/// #### Wallet Sync and Data Management
+/// - **`_syncWallet`**: Synchronizes the wallet with the blockchain, fetching balances and transactions.
+/// - **`_fetchCurrentBlockHeight`**: Retrieves the current blockchain height for transaction management.
+///
+/// #### Transaction Management
+/// - **`_sendTx`**: Handles transaction creation and signing, including multi-signature paths and time-locked transactions.
+/// - **`_sortTransactionsByConfirmedTime`**: Sorts transactions by block confirmation time.
+///
+/// #### User Interaction and Dialogs
+/// - **`_showQRCodeDialog`**: Displays the wallet's QR code for receiving Bitcoin.
+/// - **`_showPinDialog`**: Prompts the user to enter their PIN for accessing private data.
+/// - **`_showPathsDialog`**: Displays all available spending paths, including multi-signature and time-locked options.
+/// - **`_showTransactionsDialog`**: Displays detailed information about a specific transaction.
+///
+/// #### Utilities
+/// - **`verifyPin`**: Verifies the entered PIN and displays the user's private data (e.g., mnemonic and descriptor).
+/// - **`_buildInfoBox`**: Creates reusable UI elements for displaying wallet details.
+/// - **`_buildTransactionsBox`**: Builds a scrollable view of the wallet's transactions.
+/// - **`_buildTransactionItem`**: Formats and displays individual transaction items.
+///
+/// ### Widgets
+/// - **`BaseScaffold`**: Provides a consistent layout with a gradient background and navigation bar.
+/// - **`CustomButton`**: Styled button used throughout the app for actions like sending, receiving, and viewing data.
+/// - **`InkwellButton`**: Alternative button style for dialog actions.
+///
+/// ### Interaction Flow
+/// 1. **Initialization**:
+///    - The page initializes by checking if the wallet exists and syncing it with the blockchain.
+///    - If the wallet doesn't exist, it is created using the provided descriptor and mnemonic.
+/// 2. **Display Wallet Details**:
+///    - The UI displays wallet details such as the address, balance, and transactions.
+/// 3. **Transaction Management**:
+///    - Users can create transactions, explore spending paths, and sign multi-signature transactions.
+/// 4. **Spending Paths**:
+///    - Users can view all available paths for spending UTXOs, including conditions like time-locks and multi-signature thresholds.
+/// 5. **Receive and Send Bitcoin**:
+///    - Users can receive Bitcoin using QR codes and send Bitcoin by specifying an address and amount.
+///
+/// ### Notes:
+/// - The class heavily relies on the `bdk_flutter` library for Bitcoin wallet functionalities.
+/// - Hive is used for local data storage, ensuring offline availability.
+/// - Connectivity checks are performed to handle both online and offline use cases.
+///
+/// ### Dependencies:
+/// - `bdk_flutter`: For wallet management and transaction creation.
+/// - `hive_flutter`: For local data storage.
+/// - `connectivity_plus`: To check the network connectivity status.
+/// - `flutter_secure_storage`: For securely storing sensitive user data.
+/// - `qr_flutter`: For generating QR codes.
+///
+/// ### UI Highlights:
+/// - A clean, consistent design with rounded cards and a gradient background.
+/// - Dynamic updates to the UI based on wallet data and user interactions.
+/// - Accessibility features such as copy-to-clipboard functionality and scrollable transaction lists.
+
 class SharedWallet extends StatefulWidget {
   final String descriptor;
   final String mnemonic;
   final List<Map<String, String>> pubKeysAlias;
+  final String? descriptorName;
 
   const SharedWallet({
     super.key,
     required this.descriptor,
     required this.mnemonic,
     required this.pubKeysAlias,
+    this.descriptorName,
   });
 
   @override
@@ -35,6 +108,11 @@ class SharedWalletState extends State<SharedWallet> {
   String address = '';
   String? _txToSend;
   String? _descriptor = 'Descriptor here';
+  String _descriptorName = "";
+
+  late DateTime _lastRefreshed;
+  late Timer _timer;
+  String _elapsedTime = '';
 
   int balance = 0;
   int ledBalance = 0;
@@ -71,7 +149,11 @@ class SharedWalletState extends State<SharedWallet> {
     openBoxAndCheckWallet();
   }
 
-  final secureStorage = FlutterSecureStorage();
+  @override
+  void dispose() {
+    _timer.cancel(); // Cancel the timer when the widget is disposed
+    super.dispose();
+  }
 
   ///
   ///
@@ -93,12 +175,71 @@ class SharedWalletState extends State<SharedWallet> {
     // Open the box
     descriptorBox = Hive.box('descriptorBox');
 
-    // print('Retrieving descriptor with key: ${widget.mnemonic}');
+    String? existingDescriptor;
 
-    // After the box is opened, proceed with checking for the existing wallet
-    var existingDescriptor = descriptorBox.get(widget.mnemonic);
+    print('Widget list: ${widget.pubKeysAlias}');
+    print(widget.descriptorName);
 
-    // print('Retrieved descriptor: $existingDescriptor');
+    for (var i = 0; i < descriptorBox.length; i++) {
+      final key = descriptorBox.keyAt(i); // Get the key
+      final value = descriptorBox.getAt(i); // Get the value
+
+      if (value != null) {
+        try {
+          // Decode the JSON string into a Map
+          Map<String, dynamic> valueMap = jsonDecode(value);
+
+          // Check if the "descriptor" matches
+          if (valueMap['descriptor'] == widget.descriptor) {
+            print('Match found for key: $key');
+            walletService.printInChunks('Matching Value: $value');
+
+            // final keyParts = key.split('_descriptor');
+            // final descriptorName = keyParts.length > 1
+            //     ? keyParts[1].replaceFirst('_', '')
+            //     : 'Unnamed Descriptor';
+
+            setState(() {
+              final newName = walletService.generateRandomName();
+
+              _descriptorName = widget.descriptorName!.isNotEmpty
+                  ? widget.descriptorName!
+                  : newName;
+            });
+
+            final newKey = key.replaceFirst(
+                RegExp(r'_descriptor_.+'), '_descriptor_$_descriptorName');
+
+            final Map<String, dynamic> newValueMap = {
+              'descriptor': widget.descriptor,
+              'pubKeysAlias': widget.pubKeysAlias,
+            };
+
+            print('_descriptorName: $_descriptorName');
+
+            final String newValue = jsonEncode(newValueMap);
+
+            // Remove the old record and insert the updated one
+            descriptorBox.delete(key); // Remove the old key-value pair
+
+            descriptorBox.put(newKey, newValue); // Add the new key-value pair
+
+            print('Updated key: $newKey');
+            print('New value stored: $newValue');
+
+            existingDescriptor = valueMap['descriptor'];
+            break; // Stop iterating if a match is found
+          }
+        } catch (e) {
+          print('Error decoding value for key $key: $e');
+        }
+      } else {
+        print('Value for key $key is null.');
+      }
+    }
+
+    // walletService.printInChunks(
+    //     'Retrieved descriptor: ${existingDescriptor!['descriptor']}');
 
     if (existingDescriptor != null) {
       // print('Wallet with this mnemonic already exists.');
@@ -111,6 +252,7 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   Future<void> loadWallet() async {
+    print('Loading');
     try {
       wallet = await walletService.createSharedWallet(widget.descriptor);
 
@@ -193,6 +335,7 @@ class SharedWalletState extends State<SharedWallet> {
 
   Future<void> createWalletFromDescriptor() async {
     try {
+      print('Creating');
       // print('DescriptorWidget: ${widget.descriptor}');
 
       wallet = await walletService.createSharedWallet(widget.descriptor);
@@ -203,7 +346,17 @@ class SharedWalletState extends State<SharedWallet> {
         'pubKeysAlias': widget.pubKeysAlias,
       });
 
-      descriptorBox.put(widget.mnemonic, combinedValue);
+      setState(() {
+        final newName = walletService.generateRandomName();
+
+        _descriptorName = widget.descriptorName!.isNotEmpty
+            ? widget.descriptorName!
+            : newName;
+      });
+
+      final compositeKey = '${widget.mnemonic}_descriptor_$_descriptorName';
+
+      descriptorBox.put(compositeKey, combinedValue);
 
       await walletService.saveLocalData(wallet);
 
@@ -517,7 +670,7 @@ class SharedWalletState extends State<SharedWallet> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.orange),
+                        borderSide: const BorderSide(color: Colors.green),
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
@@ -533,28 +686,173 @@ class SharedWalletState extends State<SharedWallet> {
                     InkwellButton(
                       onTap: () async {
                         try {
-                          final int availableBalance =
-                              await walletService.getAvailableBalance(address);
+                          // Validate recipient address
+                          if (_recipientController.text.isEmpty) {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  backgroundColor:
+                                      Colors.grey[900], // Dark background color
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20.0),
+                                  ),
+                                  title: Row(
+                                    children: [
+                                      Icon(Icons.error, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('Error',
+                                          style:
+                                              TextStyle(color: Colors.white)),
+                                    ],
+                                  ),
+                                  content: Text(
+                                    'Please enter a recipient address.',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
+                                      child: Text('OK',
+                                          style:
+                                              TextStyle(color: Colors.green)),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                            return; // Exit the function early if validation fails
+                          }
+
+                          try {
+                            walletService
+                                .validateAddress(_recipientController.text);
+                          } catch (e) {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: Row(
+                                    children: [
+                                      Icon(Icons.error, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('Invalid Address'),
+                                    ],
+                                  ),
+                                  content: Text(e.toString()),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
+                                      child: Text('OK'),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                            return; // Exit the function early if address is invalid
+                          }
+
+                          // Validate spending path
+                          if (selectedPath == null) {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  backgroundColor:
+                                      Colors.grey[900], // Dark background color
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20.0),
+                                  ),
+                                  title: Row(
+                                    children: [
+                                      Icon(Icons.error, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('Error',
+                                          style:
+                                              TextStyle(color: Colors.white)),
+                                    ],
+                                  ),
+                                  content: Text(
+                                    'Please select a spending path.',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(),
+                                      child: Text('OK',
+                                          style:
+                                              TextStyle(color: Colors.green)),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                            return; // Exit the function early if validation fails
+                          }
+
+                          final availableBalance =
+                              wallet.getBalance().confirmed;
+
                           final String recipientAddress =
                               _recipientController.text.toString();
 
+                          final spendingPaths =
+                              walletService.extractAllPaths(policy);
+
                           final int sendAllBalance =
-                              await walletService.calculateSendAllBalance(
-                            recipientAddress: recipientAddress,
-                            wallet: wallet,
-                            availableBalance: availableBalance,
-                            walletService: walletService,
-                          );
+                              int.parse((await walletService.createPartialTx(
+                            _descriptor.toString(),
+                            widget.mnemonic,
+                            recipientAddress,
+                            availableBalance,
+                            selectedIndex,
+                            isSendAllBalance: true,
+                            spendingPaths: spendingPaths,
+                          ))!);
 
                           _amountController.text = sendAllBalance.toString();
                         } catch (e) {
                           print('Error: $e');
-                          _amountController.text = 'No balance Available';
+                          showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                backgroundColor:
+                                    Colors.grey[900], // Dark background color
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20.0),
+                                ),
+                                title: Row(
+                                  children: [
+                                    Icon(Icons.error, color: Colors.red),
+                                    SizedBox(width: 8),
+                                    Text('Error',
+                                        style: TextStyle(color: Colors.white)),
+                                  ],
+                                ),
+                                content: Text(
+                                  'An error occurred: ${e.toString()}',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(),
+                                    child: Text('OK',
+                                        style: TextStyle(color: Colors.green)),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
                         }
                       },
                       label: 'Send All',
                       icon: Icons.account_balance_wallet_rounded,
-                      backgroundColor: Colors.orange,
+                      backgroundColor: Colors.green,
                       textColor: Colors.white,
                       iconColor: Colors.white,
                     ),
@@ -629,7 +927,7 @@ class SharedWalletState extends State<SharedWallet> {
                 Navigator.of(context).pop();
               },
               label: 'Submit',
-              backgroundColor: Colors.orange,
+              backgroundColor: Colors.green,
               textColor: Colors.white,
             ),
           ],
@@ -662,7 +960,7 @@ class SharedWalletState extends State<SharedWallet> {
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.orange, // Highlighted title color
+              color: Colors.green, // Highlighted title color
             ),
           ),
           content: ConstrainedBox(
@@ -717,7 +1015,7 @@ class SharedWalletState extends State<SharedWallet> {
                     IconButton(
                       icon: const Icon(
                         Icons.copy,
-                        color: Colors.orange, // Highlighted icon color
+                        color: Colors.green, // Highlighted icon color
                       ),
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: address));
@@ -751,6 +1049,19 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   Future<void> _syncWallet() async {
+    setState(() {
+      _lastRefreshed = DateTime.now();
+      _elapsedTime = 'Just now'; // Reset elapsed time on refresh
+    });
+
+    // Start a timer to update elapsed time every second
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        final duration = DateTime.now().difference(_lastRefreshed);
+        _elapsedTime = _formatDuration(duration);
+      });
+    });
+
     _descriptor = widget.descriptor;
 
     // walletService.printPrettyJson(
@@ -832,7 +1143,7 @@ class SharedWalletState extends State<SharedWallet> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.orange,
+              color: Colors.green,
             ),
           ),
           content: Column(
@@ -894,7 +1205,7 @@ class SharedWalletState extends State<SharedWallet> {
                 }
               },
               label: 'Confirm',
-              backgroundColor: Colors.orange,
+              backgroundColor: Colors.green,
               textColor: Colors.white,
               icon: Icons.check_rounded,
               iconColor: Colors.white,
@@ -928,7 +1239,7 @@ class SharedWalletState extends State<SharedWallet> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.orange, // Highlighted title color
+                color: Colors.green, // Highlighted title color
               ),
             ),
             content: Column(
@@ -950,7 +1261,7 @@ class SharedWalletState extends State<SharedWallet> {
                     color: Colors.grey[800],
                     borderRadius: BorderRadius.circular(8.0), // Rounded edges
                     border: Border.all(
-                      color: Colors.orange, // Border color for emphasis
+                      color: Colors.green, // Border color for emphasis
                     ),
                   ),
                   child: Row(
@@ -970,7 +1281,7 @@ class SharedWalletState extends State<SharedWallet> {
                       IconButton(
                         icon: const Icon(
                           Icons.copy,
-                          color: Colors.orange, // Highlighted icon color
+                          color: Colors.green, // Highlighted icon color
                         ),
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: savedMnemonic));
@@ -1003,7 +1314,7 @@ class SharedWalletState extends State<SharedWallet> {
                     color: Colors.grey[800],
                     borderRadius: BorderRadius.circular(8.0), // Rounded edges
                     border: Border.all(
-                      color: Colors.orange, // Border color for emphasis
+                      color: Colors.green, // Border color for emphasis
                     ),
                   ),
                   child: Row(
@@ -1024,7 +1335,7 @@ class SharedWalletState extends State<SharedWallet> {
                       IconButton(
                         icon: const Icon(
                           Icons.copy,
-                          color: Colors.orange, // Highlighted icon color
+                          color: Colors.green, // Highlighted icon color
                         ),
                         onPressed: () {
                           Clipboard.setData(
@@ -1045,13 +1356,59 @@ class SharedWalletState extends State<SharedWallet> {
               ],
             ),
             actions: [
+              TextButton(
+                onPressed: () async {
+                  // Serialize data to JSON
+                  final data = jsonEncode({
+                    'descriptor': _descriptor,
+                    'publicKeysWithAlias': widget.pubKeysAlias,
+                    'descriptorName': _descriptorName,
+                  });
+
+                  // // Request storage permission (required for Android 11 and below)
+                  // if (await Permission.storage.request().isGranted) {
+                  // Get default Downloads directory
+                  final directory = Directory('/storage/emulated/0/Download');
+                  if (!await directory.exists()) {
+                    await directory.create(recursive: true);
+                  }
+
+                  final fileName = '$_descriptorName.json';
+
+                  final filePath = '${directory.path}/$fileName';
+                  final file = File(filePath);
+
+                  // Write JSON data to the file
+                  await file.writeAsString(data);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content:
+                          Text('File saved to ${directory.path}/$fileName'),
+                    ),
+                  );
+                  // } else {
+                  //   // Permission denied
+                  //   ScaffoldMessenger.of(context).showSnackBar(
+                  //     const SnackBar(
+                  //       content: Text(
+                  //           'Storage permission is required to save the file'),
+                  //     ),
+                  //   );
+                  // }
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.green,
+                ),
+                child: const Text('Download Descriptor'),
+              ),
               InkwellButton(
                 onTap: () {
                   Navigator.of(context)
                       .pop(); // Close the dialog without action
                 },
                 label: 'Close',
-                backgroundColor: Colors.orange,
+                backgroundColor: Colors.green,
                 textColor: Colors.white,
                 icon: Icons.close,
               ),
@@ -1093,7 +1450,7 @@ class SharedWalletState extends State<SharedWallet> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.orange,
+              color: Colors.green,
             ),
           ),
           content: SingleChildScrollView(
@@ -1128,17 +1485,30 @@ class SharedWalletState extends State<SharedWallet> {
 
                   // Access the block_height of the transaction
                   final blockHeight = utxo['status']['block_height'];
-                  // print('Transaction block height: $blockHeight');
+                  // print(
+                  //     'Transaction block height: $blockHeight, $_currentHeight');
 
                   final value = utxo['value'];
 
+                  if (blockHeight == null) {
+                    // Handle unconfirmed UTXOs
+                    return Text(
+                      "Value: $value sats - Unconfirmed",
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white70,
+                      ),
+                    );
+                  }
+
                   // Determine if the transaction is spendable
                   final isSpendable =
-                      blockHeight + timelock <= _currentHeight || timelock == 0;
+                      blockHeight + timelock - 1 <= _currentHeight ||
+                          timelock == 0;
                   // print('Is transaction spendable? $isSpendable');
 
                   final remainingBlocks =
-                      blockHeight + timelock - _currentHeight;
+                      blockHeight + timelock - 1 - _currentHeight;
                   // print(
                   //     'Remaining blocks until timelock expires: $remainingBlocks');
 
@@ -1154,7 +1524,7 @@ class SharedWalletState extends State<SharedWallet> {
                   return Text(
                     isSpendable
                         ? "$value sats can be spent!"
-                        : "Value: $value sats - Time Remaining: $timeRemaining",
+                        : "Value: $value sats \nTime Remaining: $timeRemaining \nBlocks remaining: $remainingBlocks",
                     style: const TextStyle(
                       fontSize: 12,
                       color: Colors.white70,
@@ -1169,7 +1539,7 @@ class SharedWalletState extends State<SharedWallet> {
                   decoration: BoxDecoration(
                     color: Colors.grey[850],
                     borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: Colors.orange),
+                    border: Border.all(color: Colors.green),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1178,7 +1548,7 @@ class SharedWalletState extends State<SharedWallet> {
                         "Type: ${pathInfo['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK' : 'MULTISIG'}",
                         style: const TextStyle(
                           fontSize: 16,
-                          color: Colors.orange,
+                          color: Colors.green,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -1229,6 +1599,7 @@ class SharedWalletState extends State<SharedWallet> {
     );
   }
 
+  // TODO: Try to see if you can generalize this method
   void _sortTransactionsByConfirmedTime() {
     _transactions.sort((a, b) {
       // Extract block times for comparison
@@ -1239,6 +1610,16 @@ class SharedWalletState extends State<SharedWallet> {
       // Sort by block time in descending order (newest first)
       return blockTimeB.compareTo(blockTimeA);
     });
+  }
+
+  String _formatDuration(Duration duration) {
+    if (duration.inSeconds < 60) {
+      return '${duration.inSeconds} seconds';
+    } else if (duration.inMinutes < 60) {
+      return '${duration.inMinutes} minutes';
+    } else {
+      return '${duration.inHours} hours';
+    }
   }
 
   ///
@@ -1260,7 +1641,7 @@ class SharedWalletState extends State<SharedWallet> {
   @override
   Widget build(BuildContext context) {
     return BaseScaffold(
-      title: const Text('Shared Wallet Page'),
+      title: Text(_descriptorName),
       body: RefreshIndicator(
         key: _refreshIndicatorKey, // Assign the GlobalKey to RefreshIndicator
         onRefresh:
@@ -1271,6 +1652,17 @@ class SharedWalletState extends State<SharedWallet> {
               child: ListView(
                 padding: const EdgeInsets.all(8.0),
                 children: [
+                  _buildInfoBox(
+                    'Current Block Height',
+                    'We are currently at Block Height: $_currentHeight',
+                    () {},
+                    subtitle: (DateTime.now()
+                                .difference(_lastRefreshed)
+                                .inHours >=
+                            2)
+                        ? '$_elapsedTime have passed! \nIt\'s time to refresh!'
+                        : null,
+                  ),
                   // Display wallet address
                   _buildInfoBox(
                     'Address',
@@ -1330,7 +1722,7 @@ class SharedWalletState extends State<SharedWallet> {
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.black,
                           icon: Icons.remove_red_eye, // Icon for the new button
-                          iconColor: Colors.orange,
+                          iconColor: Colors.green,
                           label: 'Private Data',
                         ),
                         const SizedBox(height: 16),
@@ -1352,7 +1744,7 @@ class SharedWalletState extends State<SharedWallet> {
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.black,
                           icon: Icons.pattern, // Icon for the new button
-                          iconColor: Colors.orange,
+                          iconColor: Colors.green,
                           label: 'Spending Summary',
                         ),
                         const SizedBox(height: 16),
@@ -1369,9 +1761,9 @@ class SharedWalletState extends State<SharedWallet> {
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:
-                              Colors.orange, // Bitcoin orange color for text
+                              Colors.green, // Bitcoin green color for text
                           icon: Icons.arrow_upward, // Icon you want to use
-                          iconColor: Colors.orange, // Color for the icon
+                          iconColor: Colors.green, // Color for the icon
                         ),
                         const SizedBox(width: 8),
                         // Scan To Send Button
@@ -1394,7 +1786,7 @@ class SharedWalletState extends State<SharedWallet> {
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:
-                              Colors.orange, // Bitcoin orange color for text
+                              Colors.green, // Bitcoin green color for text
                           icon: Icons.qr_code, // Icon you want to use
                           iconColor: Colors.black, // Color for the icon
                         ),
@@ -1407,9 +1799,9 @@ class SharedWalletState extends State<SharedWallet> {
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:
-                              Colors.orange, // Bitcoin orange color for text
+                              Colors.green, // Bitcoin green color for text
                           icon: Icons.arrow_downward, // Icon you want to use
-                          iconColor: Colors.orange, // Color for the icon
+                          iconColor: Colors.green, // Color for the icon
                         ),
                       ],
                     ),
@@ -1441,7 +1833,7 @@ class SharedWalletState extends State<SharedWallet> {
 
   // Box for displaying general wallet info with onTap functionality
   Widget _buildInfoBox(String title, String data, VoidCallback onTap,
-      {bool showCopyButton = false}) {
+      {bool showCopyButton = false, String? subtitle}) {
     return GestureDetector(
       onTap: onTap, // Detects tap and calls the passed function
       child: Card(
@@ -1461,7 +1853,7 @@ class SharedWalletState extends State<SharedWallet> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.orange, // Match button text color
+                  color: Colors.green, // Match button text color
                 ),
               ),
               const SizedBox(height: 8),
@@ -1480,7 +1872,7 @@ class SharedWalletState extends State<SharedWallet> {
                   ),
                   if (showCopyButton) // Display copy button if true
                     IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.orange),
+                      icon: const Icon(Icons.copy, color: Colors.green),
                       tooltip: 'Copy to clipboard',
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: data));
@@ -1494,6 +1886,17 @@ class SharedWalletState extends State<SharedWallet> {
                     ),
                 ],
               ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red, // Lighter color for secondary text
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1521,7 +1924,7 @@ class SharedWalletState extends State<SharedWallet> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.orange, // Match button text color
+                color: Colors.green, // Match button text color
               ),
             ),
             const SizedBox(height: 8),
@@ -1616,7 +2019,7 @@ class SharedWalletState extends State<SharedWallet> {
                   ),
                 ),
                 const Icon(Icons.chevron_right,
-                    color: Colors.orange), // Arrow icon color
+                    color: Colors.green), // Arrow icon color
               ],
             ),
             const SizedBox(height: 4),
@@ -1694,7 +2097,7 @@ class SharedWalletState extends State<SharedWallet> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.orange,
+              color: Colors.green,
             ),
           ),
           content: SingleChildScrollView(
@@ -1707,7 +2110,7 @@ class SharedWalletState extends State<SharedWallet> {
                   decoration: BoxDecoration(
                     color: Colors.grey[850],
                     borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: Colors.orange),
+                    border: Border.all(color: Colors.green),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1718,7 +2121,7 @@ class SharedWalletState extends State<SharedWallet> {
                             : 'Sent Transaction',
                         style: const TextStyle(
                           fontSize: 18,
-                          color: Colors.orange,
+                          color: Colors.green,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -1728,7 +2131,7 @@ class SharedWalletState extends State<SharedWallet> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.orange,
+                          color: Colors.green,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1757,7 +2160,7 @@ class SharedWalletState extends State<SharedWallet> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.orange,
+                          color: Colors.green,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1786,7 +2189,7 @@ class SharedWalletState extends State<SharedWallet> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.orange,
+                          color: Colors.green,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1810,7 +2213,7 @@ class SharedWalletState extends State<SharedWallet> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.orange,
+                          color: Colors.green,
                         ),
                       ),
                       const SizedBox(height: 4),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -33,12 +34,17 @@ class WalletPageState extends State<WalletPage> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
 
+  int _currentHeight = 0;
+
+  late DateTime _lastRefreshed;
+  late Timer _timer;
+  String _elapsedTime = '';
+
   String address = '';
 
   int balance = 0;
   int ledBalance = 0;
   int avBalance = 0;
-  int currentBlockHeight = 0;
 
   bool _isLoading = true;
   bool _isInitialized = false; // Add a flag to track initialization
@@ -56,6 +62,12 @@ class WalletPageState extends State<WalletPage> {
     _loadWalletFromHive();
     _loadWalletData();
     _fetchCurrentBlockHeight();
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel(); // Cancel the timer when the widget is disposed
+    super.dispose();
   }
 
   @override
@@ -84,6 +96,14 @@ class WalletPageState extends State<WalletPage> {
     }
   }
 
+  Future<void> _fetchCurrentBlockHeight() async {
+    int currentHeight = await walletService.fetchCurrentBlockHeight();
+
+    setState(() {
+      _currentHeight = currentHeight;
+    });
+  }
+
   Future<void> _triggerPullToRefresh() async {
     Future.delayed(Duration.zero, () {
       _refreshIndicatorKey.currentState?.show();
@@ -101,6 +121,19 @@ class WalletPageState extends State<WalletPage> {
   Future<void> _loadWalletData() async {
     setState(() {
       _isLoading = true; // Show a loading indicator
+    });
+
+    setState(() {
+      _lastRefreshed = DateTime.now();
+      _elapsedTime = 'Just now'; // Reset elapsed time on refresh
+    });
+
+    // Start a timer to update elapsed time every second
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        final duration = DateTime.now().difference(_lastRefreshed);
+        _elapsedTime = _formatDuration(duration);
+      });
     });
 
     try {
@@ -160,6 +193,7 @@ class WalletPageState extends State<WalletPage> {
           });
         }
       } else {
+        _fetchCurrentBlockHeight();
         wallet = await walletService.loadSavedWallet(null);
         // print(wallet);
         await walletService.saveLocalData(wallet);
@@ -198,13 +232,6 @@ class WalletPageState extends State<WalletPage> {
         _isLoading = false; // Hide the loading indicator
       });
     }
-  }
-
-  Future<void> _fetchCurrentBlockHeight() async {
-    int currBlockHeight = await walletService.fetchCurrentBlockHeight();
-    setState(() {
-      currentBlockHeight = currBlockHeight;
-    });
   }
 
   void _sendTx({String? recipientAddressQr}) async {
@@ -270,7 +297,8 @@ class WalletPageState extends State<WalletPage> {
                 onTap: () async {
                   try {
                     final int availableBalance =
-                        await walletService.getAvailableBalance(address);
+                        wallet.getBalance().confirmed.toInt();
+
                     final String recipientAddress =
                         _recipientController.text.toString();
 
@@ -291,7 +319,7 @@ class WalletPageState extends State<WalletPage> {
                 },
                 label: 'Send All',
                 icon: Icons.account_balance_wallet_rounded,
-                backgroundColor: Colors.orange,
+                backgroundColor: Colors.green,
                 textColor: Colors.white,
                 iconColor: Colors.white,
               ),
@@ -343,7 +371,7 @@ class WalletPageState extends State<WalletPage> {
                 Navigator.of(context).pop();
               },
               label: 'Submit',
-              backgroundColor: Colors.orange,
+              backgroundColor: Colors.green,
               textColor: Colors.white,
             ),
           ],
@@ -368,7 +396,7 @@ class WalletPageState extends State<WalletPage> {
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.orange, // Highlighted title color
+              color: Colors.green, // Highlighted title color
             ),
           ),
           content: ConstrainedBox(
@@ -423,7 +451,7 @@ class WalletPageState extends State<WalletPage> {
                     IconButton(
                       icon: const Icon(
                         Icons.copy,
-                        color: Colors.orange, // Highlighted icon color
+                        color: Colors.green, // Highlighted icon color
                       ),
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: address));
@@ -475,7 +503,7 @@ class WalletPageState extends State<WalletPage> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.orange,
+              color: Colors.green,
             ),
           ),
           content: Column(
@@ -537,7 +565,7 @@ class WalletPageState extends State<WalletPage> {
                 }
               },
               label: 'Confirm',
-              backgroundColor: Colors.orange,
+              backgroundColor: Colors.green,
               textColor: Colors.white,
               icon: Icons.check_rounded,
               iconColor: Colors.white,
@@ -571,7 +599,7 @@ class WalletPageState extends State<WalletPage> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.orange, // Highlighted title color
+                color: Colors.green, // Highlighted title color
               ),
             ),
             content: Column(
@@ -593,7 +621,7 @@ class WalletPageState extends State<WalletPage> {
                     color: Colors.grey[800],
                     borderRadius: BorderRadius.circular(8.0), // Rounded edges
                     border: Border.all(
-                      color: Colors.orange, // Border color for emphasis
+                      color: Colors.green, // Border color for emphasis
                     ),
                   ),
                   child: Row(
@@ -613,7 +641,7 @@ class WalletPageState extends State<WalletPage> {
                       IconButton(
                         icon: const Icon(
                           Icons.copy,
-                          color: Colors.orange, // Highlighted icon color
+                          color: Colors.green, // Highlighted icon color
                         ),
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: savedMnemonic));
@@ -639,7 +667,7 @@ class WalletPageState extends State<WalletPage> {
                       .pop(); // Close the dialog without action
                 },
                 label: 'Close',
-                backgroundColor: Colors.orange,
+                backgroundColor: Colors.green,
                 textColor: Colors.white,
                 icon: Icons.close,
               ),
@@ -666,6 +694,16 @@ class WalletPageState extends State<WalletPage> {
     });
   }
 
+  String _formatDuration(Duration duration) {
+    if (duration.inSeconds < 60) {
+      return '${duration.inSeconds} seconds';
+    } else if (duration.inMinutes < 60) {
+      return '${duration.inMinutes} minutes';
+    } else {
+      return '${duration.inHours} hours';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BaseScaffold(
@@ -680,6 +718,17 @@ class WalletPageState extends State<WalletPage> {
               child: ListView(
                 padding: const EdgeInsets.all(8.0),
                 children: [
+                  _buildInfoBox(
+                    'Current Block Height',
+                    'We are currently at Block Height: $_currentHeight',
+                    () {},
+                    subtitle: (DateTime.now()
+                                .difference(_lastRefreshed)
+                                .inHours >=
+                            2)
+                        ? '$_elapsedTime have passed! \nIt\'s time to refresh!'
+                        : null,
+                  ),
                   _buildInfoBox(
                     'Address',
                     address,
@@ -714,7 +763,7 @@ class WalletPageState extends State<WalletPage> {
                         _showPinDialog(context);
                       },
                       backgroundColor: Colors.white,
-                      foregroundColor: Colors.orange,
+                      foregroundColor: Colors.green,
                       icon: Icons.remove_red_eye, // Icon for the new button
                       iconColor: Colors.black,
                       label: 'Mnemonic',
@@ -730,9 +779,9 @@ class WalletPageState extends State<WalletPage> {
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:
-                              Colors.orange, // Bitcoin orange color for text
+                              Colors.green, // Bitcoin green color for text
                           icon: Icons.arrow_upward, // Icon you want to use
-                          iconColor: Colors.orange, // Color for the icon
+                          iconColor: Colors.green, // Color for the icon
                         ),
                         const SizedBox(width: 8),
                         // Scan to Send Button
@@ -749,7 +798,7 @@ class WalletPageState extends State<WalletPage> {
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:
-                              Colors.orange, // Bitcoin orange color for text
+                              Colors.green, // Bitcoin green color for text
                           icon: Icons.qr_code, // Icon you want to use
                           iconColor: Colors.black, // Color for the icon
                         ),
@@ -762,9 +811,9 @@ class WalletPageState extends State<WalletPage> {
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:
-                              Colors.orange, // Bitcoin orange color for text
+                              Colors.green, // Bitcoin green color for text
                           icon: Icons.arrow_downward, // Icon you want to use
-                          iconColor: Colors.orange, // Color for the icon
+                          iconColor: Colors.green, // Color for the icon
                         ),
                       ],
                     ),
@@ -780,7 +829,7 @@ class WalletPageState extends State<WalletPage> {
 
   // Box for displaying general wallet info with onTap functionality
   Widget _buildInfoBox(String title, String data, VoidCallback onTap,
-      {bool showCopyButton = false}) {
+      {bool showCopyButton = false, String? subtitle}) {
     return GestureDetector(
       onTap: onTap, // Detects tap and calls the passed function
       child: Card(
@@ -800,7 +849,7 @@ class WalletPageState extends State<WalletPage> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.orange, // Match button text color
+                  color: Colors.green, // Match button text color
                 ),
               ),
               const SizedBox(height: 8),
@@ -819,7 +868,7 @@ class WalletPageState extends State<WalletPage> {
                   ),
                   if (showCopyButton) // Display copy button if true
                     IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.orange),
+                      icon: const Icon(Icons.copy, color: Colors.green),
                       tooltip: 'Copy to clipboard',
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: data));
@@ -833,6 +882,17 @@ class WalletPageState extends State<WalletPage> {
                     ),
                 ],
               ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red, // Lighter color for secondary text
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -860,7 +920,7 @@ class WalletPageState extends State<WalletPage> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.orange, // Match button text color
+                color: Colors.green, // Match button text color
               ),
             ),
             const SizedBox(height: 8),
@@ -953,7 +1013,7 @@ class WalletPageState extends State<WalletPage> {
                   ),
                 ),
                 const Icon(Icons.chevron_right,
-                    color: Colors.orange), // Arrow icon color
+                    color: Colors.green), // Arrow icon color
               ],
             ),
             const SizedBox(height: 4),
@@ -1031,7 +1091,7 @@ class WalletPageState extends State<WalletPage> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.orange,
+              color: Colors.green,
             ),
           ),
           content: SingleChildScrollView(
@@ -1044,7 +1104,7 @@ class WalletPageState extends State<WalletPage> {
                   decoration: BoxDecoration(
                     color: Colors.grey[850],
                     borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: Colors.orange),
+                    border: Border.all(color: Colors.green),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1055,7 +1115,7 @@ class WalletPageState extends State<WalletPage> {
                             : 'Sent Transaction',
                         style: const TextStyle(
                           fontSize: 18,
-                          color: Colors.orange,
+                          color: Colors.green,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -1065,7 +1125,7 @@ class WalletPageState extends State<WalletPage> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.orange,
+                          color: Colors.green,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1094,7 +1154,7 @@ class WalletPageState extends State<WalletPage> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.orange,
+                          color: Colors.green,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1123,7 +1183,7 @@ class WalletPageState extends State<WalletPage> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.orange,
+                          color: Colors.green,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1147,7 +1207,7 @@ class WalletPageState extends State<WalletPage> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.orange,
+                          color: Colors.green,
                         ),
                       ),
                       const SizedBox(height: 4),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
+import 'package:lottie/lottie.dart';
 
 class SharedWalletPage extends StatefulWidget {
   const SharedWalletPage({super.key});
@@ -20,7 +21,7 @@ class SharedWalletPageState extends State<SharedWalletPage> {
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.orange, Colors.white],
+                colors: [Colors.green, Colors.white],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -34,12 +35,14 @@ class SharedWalletPageState extends State<SharedWalletPage> {
                 const SizedBox(height: 20),
                 // Add a header icon or illustration
                 Center(
-                  child: Icon(
-                    Icons.account_balance_wallet,
-                    size: 100,
-                    color: Colors.orange.shade700,
+                    child: SizedBox(
+                  height: 150,
+                  width: 150,
+                  child: Lottie.asset(
+                    'assets/animations/bitcoin_city.json',
+                    repeat: true,
                   ),
-                ),
+                )),
                 const SizedBox(height: 20),
                 // Add a description
                 Text(
@@ -57,7 +60,7 @@ class SharedWalletPageState extends State<SharedWalletPage> {
                   onPressed: () {
                     Navigator.pushNamed(context, '/create_shared');
                   },
-                  backgroundColor: Colors.orange, // Vibrant button background
+                  backgroundColor: Colors.green, // Vibrant button background
                   foregroundColor: Colors.white, // White text
                   icon: Icons.add_circle, // Add wallet icon
                   iconColor: Colors.white, // Icon matches text
@@ -70,10 +73,10 @@ class SharedWalletPageState extends State<SharedWalletPage> {
                   onPressed: () {
                     Navigator.pushNamed(context, '/import_shared');
                   },
-                  backgroundColor: Colors.orange.shade100, // Subtle background
-                  foregroundColor: Colors.orange.shade700, // Vibrant text
+                  backgroundColor: Colors.green.shade100, // Subtle background
+                  foregroundColor: Colors.green.shade700, // Vibrant text
                   icon: Icons.download, // Import wallet icon
-                  iconColor: Colors.orange.shade700, // Icon matches text
+                  iconColor: Colors.green.shade700, // Icon matches text
                   label: 'Import Wallet',
                   padding: 16.0,
                   iconSize: 28.0,
