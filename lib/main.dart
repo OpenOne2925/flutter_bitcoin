@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_wallet/services/settings_provider.dart';
 import 'package:flutter_wallet/wallet_pages/ca_wallet_page.dart';
 import 'package:flutter_wallet/wallet_pages/create_shared_wallet.dart';
 import 'package:flutter_wallet/wallet_pages/import_shared_wallet.dart';
 import 'package:flutter_wallet/utilities/pin_setup_page.dart';
 import 'package:flutter_wallet/utilities/pin_verification_page.dart';
+import 'package:flutter_wallet/wallet_pages/settings_page.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet_page.dart';
 import 'package:flutter_wallet/utilities/theme_provider.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
@@ -76,6 +78,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => ThemeProvider(darkTheme)),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -92,6 +95,7 @@ class MyApp extends StatelessWidget {
               '/shared_wallet': (context) => const SharedWalletPage(),
               '/create_shared': (context) => const CreateSharedWallet(),
               '/import_shared': (context) => const ImportSharedWallet(),
+              '/settings': (context) => const SettingsPage(),
             },
           );
         },

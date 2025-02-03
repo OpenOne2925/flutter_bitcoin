@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:hive/hive.dart';
@@ -108,30 +109,42 @@ class WalletService {
   ///
   ///
 
-  Future<bool> isValidDescriptor(String descriptorStr) async {
-    bool isValid = true;
-
+  Future<ValidationResult> isValidDescriptor(
+      String descriptorStr, String publicKey) async {
     try {
-      // Try creating the descriptor
-      final descriptor = await Descriptor.create(
-        descriptor: descriptorStr,
-        network: network,
-      );
+      // print(publicKey);
+      // printInChunks(descriptorStr);
 
-      // Try creating the wallet with the descriptor
-      await Wallet.create(
-        descriptor: descriptor,
-        network: network,
-        databaseConfig: const DatabaseConfig.memory(),
-      );
+      if (descriptorStr.contains(publicKey)) {
+        // Try creating the descriptor
+        final descriptor = await Descriptor.create(
+          descriptor: descriptorStr,
+          network: network,
+        );
+
+        // Try creating the wallet with the descriptor
+        await Wallet.create(
+          descriptor: descriptor,
+          network: network,
+          databaseConfig: const DatabaseConfig.memory(),
+        );
+
+        return ValidationResult(isValid: true);
+      } else {
+        return ValidationResult(
+          isValid: false,
+          errorMessage:
+              'Error: Your public key is not contained in this descriptor',
+        );
+      }
     } catch (e) {
-      // If any error occurs during creation, set isValid to false
-      isValid = false;
       // print('Error creating wallet with descriptor: $e');
-      throw ('Error creating wallet with descriptor: $e');
+      // If any error occurs during creation, set isValid to false
+      return ValidationResult(
+        isValid: false,
+        errorMessage: 'Error creating wallet with the descriptor provided',
+      );
     }
-
-    return isValid;
   }
 
   BigInt getBalance(Wallet wallet) {
@@ -141,68 +154,6 @@ class WalletService {
     // print(balance.total);
 
     return balance.total;
-  }
-
-  Future<int> getLedgerBalance(String address) async {
-    final memPoolUrl = '$baseUrl/address/$address';
-
-    // print(address);
-
-    final response = await http.get(Uri.parse(memPoolUrl));
-
-    if (response.statusCode == 200) {
-      final jsonResponse = jsonDecode(response.body);
-
-      // print(response.body);
-
-      // Ledger Balance: chain_stats
-      // (founded txo_sum - spent_txo_sum)
-      int chainFundedTxoSum =
-          jsonResponse['chain_stats']['funded_txo_sum'] as int;
-      int chainSpentTxoSum =
-          jsonResponse['chain_stats']['spent_txo_sum'] as int;
-
-      // print(chainSpentTxoSum);
-      // print(chainFundedTxoSum);
-
-      int ledgerJsonBalance = chainFundedTxoSum - chainSpentTxoSum;
-
-      // print("Ledger Balance: " + ledgerJsonBalance.toString());
-
-      return ledgerJsonBalance;
-    } else {
-      throw Exception('Failed to fetch ledger balance');
-    }
-  }
-
-  Future<int> getAvailableBalance(String address) async {
-    final memPoolUrl = '$baseUrl/address/$address';
-
-    final response = await http.get(Uri.parse(memPoolUrl));
-
-    if (response.statusCode == 200) {
-      final jsonResponse = jsonDecode(response.body);
-
-      // print(response.body);
-
-      // Available Balance: mempool_stats
-      // Ledger Balance + (founded_txo_sum - spent_txo_sum)
-      int memFundedTxoSum =
-          jsonResponse['mempool_stats']['funded_txo_sum'] as int;
-      int memSpentTxoSum =
-          jsonResponse['mempool_stats']['spent_txo_sum'] as int;
-
-      int ledgerJsonBalance = await getLedgerBalance(address);
-
-      int availableJsonBalance =
-          (ledgerJsonBalance + (memFundedTxoSum - memSpentTxoSum));
-
-      // print("Available Balance: " + availableJsonBalance.toString());
-
-      return availableJsonBalance;
-    } else {
-      throw Exception('Failed to fetch available balance');
-    }
   }
 
   Future<bool> checkMnemonic(String mnemonic) async {
@@ -352,7 +303,7 @@ class WalletService {
 
       // print('FeeRate: $feeRate');
 
-      return feeRate + 1;
+      return feeRate;
     } else {
       throw Exception('Failed to fetch available balance');
     }
@@ -390,6 +341,55 @@ class WalletService {
       return int.parse(response.body); // The current block height
     } else {
       throw Exception('Failed to fetch current block height');
+    }
+  }
+
+  Future<DateTime?> fetchBlockTimestamp() async {
+    try {
+      // API endpoint to fetch the latest block hash
+      final String hashApiUrl = '$baseUrl/blocks/tip/hash';
+
+      // Make GET request to fetch the current block hash
+      final responseHash = await http.get(Uri.parse(hashApiUrl));
+
+      if (responseHash.statusCode == 200) {
+        // Extract the block hash from the response body
+        String currentHash = responseHash.body.trim();
+
+        // API endpoint to fetch block details
+        final String blockApiUrl = '$baseUrl/block/$currentHash';
+
+        // Make GET request to fetch block details
+        final response = await http.get(Uri.parse(blockApiUrl));
+
+        if (response.statusCode == 200) {
+          // Decode JSON response
+          final Map<String, dynamic> jsonData = json.decode(response.body);
+
+          // Check if data contains the `time` field
+          if (jsonData.containsKey('timestamp')) {
+            int timestamp = jsonData['timestamp']; // Extract timestamp
+            // TODO: localization
+            return DateTime.fromMillisecondsSinceEpoch(timestamp * 1000)
+                .toLocal(); // Convert to local DateTime
+          } else {
+            print('Error: "time" field not found in response.');
+            return null;
+          }
+        } else {
+          // Handle HTTP errors for block details API
+          print('HTTP Error (Block API): ${response.statusCode}');
+          return null;
+        }
+      } else {
+        // Handle HTTP errors for hash API
+        print('HTTP Error (Hash API): ${responseHash.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      // Handle any unexpected exceptions
+      print('Exception occurred: $e');
+      return null;
     }
   }
 
@@ -532,16 +532,11 @@ class WalletService {
   }
 
   void validateAddress(String address) async {
-    print('Sono qui');
     try {
-      final result = await Address.fromString(s: address, network: network);
-
-      print('Addressssssssss: $result');
+      await Address.fromString(s: address, network: network);
     } on AddressException catch (e) {
-      print('Format');
       throw Exception('Invalid address format: $e');
     } catch (e) {
-      print('Exception');
       throw Exception('Unknown error while validating address: $e');
     }
   }
@@ -571,6 +566,23 @@ class WalletService {
     }
 
     return result;
+  }
+
+  Future<double> convertSatoshisToCurrency(
+      int satoshis, String currency) async {
+    final url = 'https://blockchain.info/ticker';
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      // print(response.body);
+      final data = json.decode(response.body);
+      final btcToCurrency = data[currency]['buy'];
+      final satoshiToCurrency = (btcToCurrency / 100000000) * satoshis;
+
+      return double.parse(satoshiToCurrency.toStringAsFixed(2));
+    } else {
+      throw Exception('Failed to fetch conversion rate');
+    }
   }
 
   ///
@@ -759,9 +771,10 @@ class WalletService {
     final walletData = WalletData(
       address: currentAddress,
       balance: int.parse(getBalance(wallet).toString()),
-      ledgerBalance: await getLedgerBalance(currentAddress),
-      availableBalance: await getAvailableBalance(currentAddress),
+      ledgerBalance: wallet.getBalance().total.toInt(),
+      availableBalance: wallet.getBalance().confirmed.toInt(),
       transactions: await getTransactions(currentAddress),
+      currentHeight: await fetchCurrentBlockHeight(),
     );
 
     // Save the data to Hive
@@ -1189,8 +1202,11 @@ class WalletService {
     BigInt totalSpending;
 
     if (!isSendAllBalance) {
-      totalSpending = amount + BigInt.from(feeRate);
+      // totalSpending = amount + BigInt.from(feeRate);
+
+      totalSpending = amount;
       print("Total Spending: $totalSpending");
+      print("Confirmed Utxos: ${utxos.confirmed}");
       // Check If there are enough funds available
       if (utxos.confirmed < totalSpending) {
         // Exit early if no confirmed UTXOs are available
@@ -1198,6 +1214,8 @@ class WalletService {
             "Not enough confirmed funds available. Please wait until your transactions confirm.");
       }
     }
+
+    List<OutPoint> spendableOutpoints = [];
 
     for (var utxo in unspent) {
       print('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
@@ -1286,15 +1304,39 @@ class WalletService {
               .address
               .toString());
 
-          final timelock = spendingPaths![chosenPath!]['timelock'];
-          int currentHeight = await fetchCurrentBlockHeight();
+          // print(spendingPaths);
+          // print(chosenPath);
 
-          // Filter spendable UTXOs
-          final spendableUtxos = utxos.where((utxo) {
-            final blockHeight = utxo['status']['block_height'];
-            return blockHeight != null &&
-                (blockHeight + timelock - 1 <= currentHeight || timelock == 0);
-          }).toList();
+          List<dynamic> spendableUtxos = [];
+
+          if (chosenPath == 0) {
+            spendableUtxos = utxos;
+          } else {
+            final timelock = spendingPaths![chosenPath!]['timelock'];
+            print('Timelock value: $timelock');
+
+            int currentHeight = await fetchCurrentBlockHeight();
+            print('Current block height: $currentHeight');
+
+            final spendableUtxos = utxos.where((utxo) {
+              final blockHeight = utxo['status']['block_height'];
+              print(
+                  'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight');
+
+              final isSpendable = blockHeight != null &&
+                  (blockHeight + timelock - 1 <= currentHeight ||
+                      timelock == 0);
+
+              print('Is spendable: $isSpendable');
+              return isSpendable;
+            }).toList();
+
+            print('Spendable UTXOs found: ${spendableUtxos.length}');
+            for (var spendableUtxo in spendableUtxos) {
+              print(
+                  'Spendable UTXO: txid=${spendableUtxo['txid']}, blockHeight=${spendableUtxo['status']['block_height']}');
+            }
+          }
 
           // Sum the value of spendable UTXOs
           final totalSpendableBalance = spendableUtxos.fold<int>(
@@ -1302,8 +1344,13 @@ class WalletService {
             (sum, utxo) => sum + (utxo['value'] as int),
           );
 
+          print('totalSpendableBalance: $totalSpendableBalance');
+          // for (var spendableUtxo in spendableUtxos) {
+          //   print("Spendable Outputs: ${spendableUtxo['txid']}");
+          // }
           // Handle insufficient funds
           if (e.toString().contains("InsufficientFundsException")) {
+            print(e);
             final RegExp regex = RegExp(r'Needed: (\d+),');
             final match = regex.firstMatch(e.toString());
             if (match != null) {
@@ -1325,11 +1372,49 @@ class WalletService {
           }
         }
       }
+      print('Spending: $amount');
+
+      final utxos = await getUtxos(wallet
+          .getAddress(addressIndex: AddressIndex.peek(index: 0))
+          .address
+          .toString());
+
+      spendingPaths = extractAllPaths(policy);
+
+      if (chosenPath == 0) {
+        spendableOutpoints = utxos
+            .map((utxo) => OutPoint(txid: utxo['txid'], vout: utxo['vout']))
+            .toList();
+      } else {
+        final timelock = spendingPaths[chosenPath!]['timelock'];
+        print('Timelock value: $timelock');
+
+        int currentHeight = await fetchCurrentBlockHeight();
+        print('Current block height: $currentHeight');
+
+        // Filter spendable UTXOs
+        spendableOutpoints = utxos
+            .where((utxo) {
+              final blockHeight = utxo['status']['block_height'];
+              return blockHeight != null &&
+                  (blockHeight + timelock - 1 <= currentHeight ||
+                      timelock == 0);
+            })
+            .map((utxo) => OutPoint(
+                  txid: utxo['txid'],
+                  vout: utxo['vout'],
+                ))
+            .toList();
+      }
+
+      print(spendableOutpoints);
 
       if (chosenPath == 0) {
         print('MultiSig Builder');
         txBuilderResult = await txBuilder
             // .enableRbf()
+            .addUtxos(spendableOutpoints)
+            .manuallySelectedOnly()
             .addRecipient(recipientScript, amount) // Send to recipient
             .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
             .policyPath(KeychainKind.internalChain, multiSigPath!)
@@ -1342,9 +1427,14 @@ class WalletService {
         print('Transaction Built');
       } else {
         print('TimeLock Builder');
+        for (var spendableOutpoint in spendableOutpoints) {
+          print('Spendable Outputs: ${spendableOutpoint.txid}');
+        }
         txBuilderResult = await txBuilder
             // .enableRbf()
             // .enableRbfWithSequence(olderValue)
+            .addUtxos(spendableOutpoints)
+            .manuallySelectedOnly()
             .addRecipient(recipientScript, amount) // Send to recipient
             .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
             .policyPath(KeychainKind.internalChain, timeLockPath!)
@@ -1373,11 +1463,13 @@ class WalletService {
         if (signed) {
           print('Signing returned true');
 
+          // printInChunks(txBuilderResult.$1.asString());
+
           print('Sending');
           final tx = txBuilderResult.$1.extractTx();
 
           for (var input in await tx.input()) {
-            print("Input sequence number: ${input.sequence}");
+            print("Input sequence number: ${input.previousOutput.txid}");
           }
 
           final isLockTime = await tx.isLockTimeEnabled();

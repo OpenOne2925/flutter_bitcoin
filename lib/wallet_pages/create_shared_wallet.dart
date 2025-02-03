@@ -3,12 +3,15 @@ import 'dart:io';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
+import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive/hive.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class CreateSharedWallet extends StatefulWidget {
   const CreateSharedWallet({super.key});
@@ -36,24 +39,51 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
   String? _mnemonic;
   String _finalDescriptor = "";
-  String _publicKey = "";
+  String? _publicKey = "";
   String _descriptorName = "";
   bool isLoading = false;
+
+  String? initialPubKey;
+
+  // TODO: add animations and loading after creating descriptor or something like that idk
+  bool _isDescriptorValid = true;
+  String _status = 'Idle';
 
   bool _isDuplicateDescriptor = false;
   bool _isDescriptorNameMissing = false;
   bool _isThresholdMissing = false;
+  bool _isYourPubKeyMissing = false;
   bool _arePublicKeysMissing = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // // Add a listner to the TextEditingController
+    // _descriptorController.addListener(() {
+    //   if (_descriptorController.text.isNotEmpty) {
+    //     _descriptor = _descriptorController.text;
+    //     _validateDescriptor(_descriptor.toString());
+    //   }
+    // });
+
+    _generatePublicKey(isGenerating: false);
+  }
 
   void _validateInputs() {
     setState(() {
+      // print(_publicKey);
+      // print(publicKeysWithAlias);
+      _isYourPubKeyMissing = !publicKeysWithAlias.any((entry) {
+        return entry['publicKey'] == initialPubKey;
+      });
       _isDescriptorNameMissing = _descriptorNameController.text.isEmpty;
       _isThresholdMissing = _thresholdController.text.isEmpty;
       _arePublicKeysMissing = publicKeysWithAlias.isEmpty;
     });
   }
 
-  Future<void> _generatePublicKey() async {
+  Future<void> _generatePublicKey({bool isGenerating = true}) async {
     setState(() => isLoading = true);
     try {
       final walletBox = Hive.box('walletBox');
@@ -73,13 +103,75 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       );
 
       setState(() {
-        _publicKey = receivingPublicKey.toString();
+        if (isGenerating) {
+          _publicKey = receivingPublicKey.toString();
+        }
+        initialPubKey = receivingPublicKey.toString();
         _mnemonic = savedMnemonic;
       });
     } catch (e) {
       print("Error generating public key: $e");
     } finally {
       setState(() => isLoading = false);
+    }
+  }
+
+  // Asynchronous method to validate the descriptor
+  Future<bool> _validateDescriptor(String descriptor) async {
+    try {
+      ValidationResult result = await _walletService.isValidDescriptor(
+          descriptor, initialPubKey.toString());
+
+      // print(result.toString());
+
+      setState(() {
+        _isDescriptorValid = result.isValid;
+        _status = result.isValid
+            ? 'Descriptor is valid'
+            : result.errorMessage ?? 'Invalid Descriptor';
+      });
+      return result.isValid;
+    } catch (e) {
+      setState(() {
+        _isDescriptorValid = false;
+        _status = 'Error validating Descriptor: $e';
+      });
+      return false;
+    }
+  }
+
+  void _navigateToSharedWallet() async {
+    bool isValid = await _validateDescriptor(_finalDescriptor);
+    setState(() {
+      _status = 'Loading';
+    });
+
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (isValid) {
+      setState(() {
+        _status = 'Success';
+      });
+
+      await Future.delayed(const Duration(seconds: 1));
+
+      // _walletService.printInChunks(_descriptor.toString());
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SharedWallet(
+            descriptor: _finalDescriptor,
+            mnemonic: _mnemonic!,
+            pubKeysAlias: publicKeysWithAlias,
+            descriptorName: _descriptorName,
+          ),
+        ),
+      );
+    } else {
+      setState(() {
+        _status = 'Cannot navigate: Invalid Descriptor';
+      });
     }
   }
 
@@ -115,6 +207,18 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     return false; // No duplicate found
   }
 
+  String _generateSectionErrorMessage(List<Map<String, dynamic>> conditions) {
+    List<String> errors = [];
+
+    for (var condition in conditions) {
+      if (condition['condition'] as bool) {
+        errors.add(condition['message'] as String);
+      }
+    }
+
+    return errors.join('. ') + (errors.isNotEmpty ? '.' : '');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -141,6 +245,25 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 color: _isDescriptorNameMissing ? Colors.red : Colors.white,
               ),
             ),
+            // Error Message
+            if (_isDescriptorNameMissing || _isDuplicateDescriptor)
+              Text(
+                _generateSectionErrorMessage([
+                  {
+                    'condition': _isDescriptorNameMissing,
+                    'message': 'Descriptor name is missing'
+                  },
+                  {
+                    'condition': _isDuplicateDescriptor,
+                    'message': 'Descriptor name already exists'
+                  },
+                ]),
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w400,
+                  fontSize: 14,
+                  color: Colors.red,
+                ),
+              ),
             const SizedBox(height: 10),
             TextFormField(
               controller: _descriptorNameController,
@@ -163,15 +286,6 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
-            if (_isDuplicateDescriptor) ...[
-              Text(
-                'Descriptor name already exists!',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 12,
-                ),
-              ),
-            ],
             const SizedBox(height: 20),
             // Section 1: Generate Public Key
             Text(
@@ -192,7 +306,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               padding: 16.0,
               iconSize: 24.0,
             ),
-            if (_publicKey.isNotEmpty) ...[
+            if (_publicKey != null) ...[
               const SizedBox(height: 10),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -212,7 +326,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     icon: const Icon(Icons.copy, color: Colors.green),
                     tooltip: 'Copy to Clipboard',
                     onPressed: () {
-                      Clipboard.setData(ClipboardData(text: _publicKey));
+                      Clipboard.setData(ClipboardData(text: _publicKey!));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Public Key copied to clipboard'),
@@ -228,47 +342,97 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
             const Divider(height: 40),
 
             // Section 2: Enter Public Keys for Multisig
-            Text(
-              '2. Enter Public Keys for Multisig',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-                color: (_isThresholdMissing || _arePublicKeysMissing)
-                    ? Colors.red
-                    : Colors.white,
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Section Title
+                Text(
+                  '2. Enter Public Keys for Multisig',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                    color: (_isThresholdMissing ||
+                            _arePublicKeysMissing ||
+                            _isYourPubKeyMissing)
+                        ? Colors.red
+                        : Colors.white,
+                  ),
+                ),
+                const SizedBox(
+                    height:
+                        8), // Add spacing between the title and the error message
+
+                // Error Message
+                if (_isThresholdMissing ||
+                    _arePublicKeysMissing ||
+                    _isYourPubKeyMissing)
+                  Text(
+                    _generateSectionErrorMessage([
+                      {
+                        'condition': _isThresholdMissing,
+                        'message': 'Threshold is missing'
+                      },
+                      {
+                        'condition': _arePublicKeysMissing,
+                        'message': 'Public keys are missing'
+                      },
+                      {
+                        'condition': _isYourPubKeyMissing,
+                        'message': 'Your public key is not included'
+                      },
+                    ]),
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w400,
+                      fontSize: 14,
+                      color: Colors.red,
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 10),
             Row(
               children: [
-                SizedBox(
-                  width: 100, // Set your desired width
-                  child: TextFormField(
-                    onChanged: (value) {
-                      setState(() {
-                        threshold = _thresholdController.text;
-                      });
-                    },
-                    controller: _thresholdController,
-                    keyboardType: TextInputType.number,
-                    decoration: CustomTextFieldStyles.textFieldDecoration(
-                      context: context,
-                      labelText: 'Threshold',
-                      hintText: 'Thresh',
-                      borderColor:
-                          _isThresholdMissing ? Colors.red : Colors.green,
-                    ),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
                 IconButton(
                   icon: const Icon(Icons.person_add_alt_sharp,
                       size: 40, color: Colors.green),
                   onPressed: _showAddPublicKeyDialog,
                 ),
+                const SizedBox(width: 10),
+                if (publicKeysWithAlias.isNotEmpty)
+                  SizedBox(
+                    width: 100, // Set your desired width
+                    child: TextFormField(
+                      onChanged: (value) {
+                        setState(() {
+                          if (int.tryParse(value) != null &&
+                              int.parse(value) > publicKeysWithAlias.length) {
+                            // If the entered value exceeds the max, reset it to the max
+                            _thresholdController.text =
+                                publicKeysWithAlias.length.toString();
+                            _thresholdController.selection =
+                                TextSelection.fromPosition(
+                              TextPosition(
+                                  offset: _thresholdController.text.length),
+                            );
+                          } else {
+                            threshold = _thresholdController.text;
+                          }
+                        });
+                      },
+                      controller: _thresholdController,
+                      keyboardType: TextInputType.number,
+                      decoration: CustomTextFieldStyles.textFieldDecoration(
+                        context: context,
+                        labelText: 'Threshold',
+                        hintText: 'Thresh',
+                        borderColor:
+                            _isThresholdMissing ? Colors.red : Colors.green,
+                      ),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 10),
@@ -286,6 +450,16 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         print(key['publicKey']);
 
                         publicKeysWithAlias.remove(key); // Remove the key
+
+                        for (var condition in timelockConditions) {
+                          condition['pubkeys'].removeWhere((pubKeyEntry) {
+                            return pubKeyEntry['publicKey'] == key['publicKey'];
+                          });
+                        }
+
+                        // Remove the entire condition if no pubkeys remain in it
+                        timelockConditions.removeWhere(
+                            (condition) => condition['pubkeys'].isEmpty);
                       });
 
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -311,65 +485,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     ),
                     child: GestureDetector(
                       onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              backgroundColor:
-                                  Colors.black, // Set the background color
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                    16.0), // Optional rounded corners
-                              ),
-                              title: Text('Public Key Details'),
-                              content: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  TextFormField(
-                                    initialValue:
-                                        'Public Key: ${key['publicKey']}',
-                                    readOnly: true,
-                                    decoration: CustomTextFieldStyles
-                                        .textFieldDecoration(
-                                      context: context,
-                                      labelText: 'Public Key',
-                                    ),
-                                    style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  TextFormField(
-                                    initialValue: 'Alias: ${key['alias']}',
-                                    readOnly: true,
-                                    decoration: CustomTextFieldStyles
-                                        .textFieldDecoration(
-                                      context: context,
-                                      labelText: 'Alias',
-                                    ),
-                                    style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.green,
-                                  ),
-                                  child: const Text('Close'),
-                                ),
-                              ],
-                            );
-                          },
-                        );
+                        _showAddPublicKeyDialog(key: key, isUpdating: true);
                       },
                       child: Container(
                         padding: const EdgeInsets.all(8.0),
@@ -396,368 +512,347 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
             const Divider(height: 40),
 
             // Section 3: Enter Timelock Conditions
-            Text(
-              '3. Enter Timelock Conditions',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 10),
-            IconButton(
-              icon: const Icon(Icons.lock_clock, size: 40, color: Colors.green),
-              onPressed: _showAddTimelockDialog,
-            ),
-            const SizedBox(height: 10),
-            if (timelockConditions.isNotEmpty)
-              Wrap(
-                spacing: 8.0,
-                runSpacing: 8.0,
-                children: timelockConditions.map((condition) {
-                  // print('condition: $condition');
-
-                  // Retrieve aliases for the selected public keys
-                  List<dynamic> aliases =
-                      condition['pubkeys'].map((pubkeyEntry) {
-                    // Extract the publicKey from the current entry
-                    String publicKey = pubkeyEntry['publicKey'];
-
-                    // print('Searching for publicKey: $publicKey');
-
-                    // Debugging: Log all available public keys
-                    // publicKeysWithAlias.forEach((entry) {
-                    //   print('Available publicKey: ${entry['publicKey']}');
-                    // });
-
-                    // Find the alias for the publicKey in publicKeysWithAlias
-                    return publicKeysWithAlias.firstWhere(
-                      (entry) =>
-                          entry['publicKey']!
-                              .trim()
-                              .substring(0, entry['publicKey']!.length - 3) ==
-                          publicKey.trim().substring(0, publicKey.length - 3),
-                      orElse: () => {'alias': 'Unknown'},
-                    )['alias'];
-                  }).toList();
-
-                  // print('aliases: $aliases');
-
-                  return Dismissible(
-                    key: ValueKey(condition),
-                    direction: DismissDirection.horizontal,
-                    onDismissed: (direction) {
-                      setState(() {
-                        timelockConditions.remove(condition);
-                      });
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Timelock condition (${condition['threshold']}) removed'),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    },
-                    background: Container(
-                      alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.only(left: 16.0),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withAlpha((0.8 * 255).toInt()),
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      child: const Icon(
-                        Icons.delete,
-                        color: Colors.white,
-                        size: 24,
-                      ),
+            if (publicKeysWithAlias.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '3. Enter Timelock Conditions',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
                     ),
-                    secondaryBackground: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 16.0),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withAlpha((0.8 * 255).toInt()),
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      child: const Icon(
-                        Icons.delete,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    child: GestureDetector(
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              backgroundColor:
-                                  Colors.black, // Set the background color
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                    16.0), // Optional rounded corners
+                  ),
+                  const SizedBox(height: 10),
+                  IconButton(
+                    icon: const Icon(Icons.lock_clock,
+                        size: 40, color: Colors.green),
+                    onPressed: _showAddTimelockDialog,
+                  ),
+                  const SizedBox(height: 10),
+                  if (timelockConditions.isNotEmpty)
+                    Wrap(
+                      spacing: 8.0,
+                      runSpacing: 8.0,
+                      children: timelockConditions.map((condition) {
+                        // print('condition: $condition');
+
+                        // Retrieve aliases for the selected public keys
+                        List<dynamic> aliases = (condition['pubkeys'] is String
+                                ? jsonDecode(condition['pubkeys'])
+                                : condition['pubkeys'])
+                            .map((pubkeyEntry) {
+                          // Extract the publicKey from the current entry
+                          String publicKey = pubkeyEntry['publicKey'];
+
+                          // print('Searching for publicKey: $publicKey');
+
+                          // Debugging: Log all available public keys
+                          // publicKeysWithAlias.forEach((entry) {
+                          //   print('Available publicKey: ${entry['publicKey']}');
+                          // });
+
+                          // Find the alias for the publicKey in publicKeysWithAlias
+                          return publicKeysWithAlias.firstWhere(
+                            (entry) =>
+                                entry['publicKey']!.trim().substring(
+                                    0, entry['publicKey']!.length - 3) ==
+                                publicKey
+                                    .trim()
+                                    .substring(0, publicKey.length - 3),
+                            orElse: () => {'alias': 'Unknown'},
+                          )['alias'];
+                        }).toList();
+
+                        // print('aliases: $aliases');
+
+                        return Dismissible(
+                          key: ValueKey(condition),
+                          direction: DismissDirection.horizontal,
+                          onDismissed: (direction) {
+                            setState(() {
+                              print(condition);
+                              timelockConditions.remove(condition);
+                            });
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Timelock condition (${condition['threshold']}) removed'),
+                                duration: const Duration(seconds: 1),
                               ),
-                              title: Text(
-                                'Timelock Condition Details',
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 18,
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
-                                ),
-                              ),
-                              content: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    TextFormField(
-                                      initialValue: condition['threshold'],
-                                      readOnly: true,
-                                      decoration: CustomTextFieldStyles
-                                          .textFieldDecoration(
-                                        context: context,
-                                        labelText: 'Threshold',
-                                      ),
-                                      style: TextStyle(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    TextFormField(
-                                      initialValue: condition['older'],
-                                      readOnly: true,
-                                      decoration: CustomTextFieldStyles
-                                          .textFieldDecoration(
-                                        context: context,
-                                        labelText: 'Older',
-                                      ),
-                                      style: TextStyle(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: condition['pubkeys']
-                                          .map<Widget>((pubkeyData) {
-                                        return Container(
-                                          margin: const EdgeInsets.only(
-                                              bottom: 10.0),
-                                          padding: const EdgeInsets.all(8.0),
-                                          decoration: BoxDecoration(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .surface,
-                                            borderRadius:
-                                                BorderRadius.circular(8.0),
-                                            border:
-                                                Border.all(color: Colors.green),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'Public Key:',
-                                                style: GoogleFonts.poppins(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurface,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              SelectableText(
-                                                pubkeyData['publicKey'],
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 14,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurface,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                'Alias:',
-                                                style: GoogleFonts.poppins(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 14,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurface,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                pubkeyData['alias'],
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 14,
-                                                  color: Theme.of(context)
-                                                      .colorScheme
-                                                      .onSurface,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                                    const SizedBox(height: 10),
-                                  ],
-                                ),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.green,
-                                  ),
-                                  child: const Text('Close'),
-                                ),
-                              ],
                             );
                           },
+                          background: Container(
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.only(left: 16.0),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withAlpha((0.8 * 255).toInt()),
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            child: const Icon(
+                              Icons.delete,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          secondaryBackground: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 16.0),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withAlpha((0.8 * 255).toInt()),
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            child: const Icon(
+                              Icons.delete,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          child: GestureDetector(
+                            onTap: () {
+                              _showAddTimelockDialog(
+                                  condition: condition, isUpdating: true);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(8.0),
+                              decoration: BoxDecoration(
+                                color:
+                                    Colors.green.withAlpha((0.2 * 255).toInt()),
+                                borderRadius: BorderRadius.circular(8.0),
+                                border: Border.all(color: Colors.green),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Threshold: ${condition['threshold']}',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  Text(
+                                    'Older: ${condition['older']}',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  Text(
+                                    'PubKeys: ${aliases.join(', ')}',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(8.0),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withAlpha((0.2 * 255).toInt()),
-                          borderRadius: BorderRadius.circular(8.0),
-                          border: Border.all(color: Colors.green),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Threshold: ${condition['threshold']}',
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            Text(
-                              'Older: ${condition['older']}',
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            Text(
-                              'PubKeys: ${aliases.join(', ')}',
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ],
-                        ),
-                      ),
+                      }).toList(),
                     ),
-                  );
-                }).toList(),
+                  const Divider(height: 40),
+                ],
               ),
-
-            const Divider(height: 40),
 
             // Section 4: Create Descriptor
-            Text(
-              '4. Create Descriptor',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
+            if (publicKeysWithAlias.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '4. Create Descriptor',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  CustomButton(
+                    onPressed: () => _createDescriptor(),
+                    backgroundColor: Colors.white, // White background
+                    foregroundColor:
+                        Colors.black, // Bitcoin green color for text
+                    icon: Icons.create, // Icon you want to use
+                    iconColor: Colors.green, // Color for the icon
+                    label: 'Create Descriptor',
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 10),
-            CustomButton(
-              onPressed: () => _createDescriptor(),
-              backgroundColor: Colors.white, // White background
-              foregroundColor: Colors.black, // Bitcoin green color for text
-              icon: Icons.create, // Icon you want to use
-              iconColor: Colors.green, // Color for the icon
-              label: 'Create Descriptor',
-            ),
           ],
         ),
       ),
     );
   }
 
-  void _showAddPublicKeyDialog() {
+  void _showAddPublicKeyDialog({Map<String, String>? key, isUpdating = false}) {
     final TextEditingController publicKeyController = TextEditingController();
     final TextEditingController aliasController = TextEditingController();
+
+    String? currentPublicKey;
+    String? currentAlias;
+    String? errorMessage;
+
+    if (isUpdating && key != null) {
+      currentPublicKey = key['publicKey'];
+      currentAlias = key['alias'];
+      publicKeyController.text = currentPublicKey ?? '';
+      aliasController.text = currentAlias ?? '';
+    }
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.black, // Set the background color
-          shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(16.0), // Optional rounded corners
-          ),
-          title: const Text('Add Public Key'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: publicKeyController,
-                decoration: CustomTextFieldStyles.textFieldDecoration(
-                    context: context,
-                    labelText: 'Enter Public Key',
-                    hintText: 'Enter Public Key'),
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return AlertDialog(
+              backgroundColor: Colors.black, // Set the background color
+              shape: RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(16.0), // Optional rounded corners
+              ),
+              title: Text(isUpdating ? 'Edit Public Key' : 'Add Public Key',
+                  style: TextStyle(color: Colors.white)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: publicKeyController,
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText: 'Enter Public Key',
+                      hintText: 'Enter Public Key',
+                    ),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: aliasController,
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText: 'Enter Alias',
+                      hintText: 'Enter Alias Name',
+                    ),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorMessage!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.green,
+                  ),
+                  child: const Text('Cancel'),
                 ),
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: aliasController,
-                decoration: CustomTextFieldStyles.textFieldDecoration(
-                  context: context,
-                  labelText: 'Enter Alias',
-                  hintText: 'Enter Alias Name',
+                TextButton(
+                  onPressed: () {
+                    final String newPublicKey = publicKeyController.text.trim();
+                    final String newAlias = aliasController.text.trim();
+
+                    if (newPublicKey.isEmpty || newAlias.isEmpty) {
+                      setDialogState(() {
+                        errorMessage = 'Both fields are required.';
+                      });
+                      return;
+                    }
+
+                    // Exclude the current key when checking for duplicates
+                    bool publicKeyExists = publicKeysWithAlias.any((entry) =>
+                        entry['publicKey']?.toLowerCase() ==
+                            newPublicKey.toLowerCase() &&
+                        entry['publicKey']?.toLowerCase() !=
+                            currentPublicKey?.toLowerCase());
+
+                    bool aliasExists = publicKeysWithAlias.any((entry) =>
+                        entry['alias']?.toLowerCase() ==
+                            newAlias.toLowerCase() &&
+                        entry['alias']?.toLowerCase() !=
+                            currentAlias?.toLowerCase());
+
+                    if (publicKeyExists) {
+                      setDialogState(() {
+                        errorMessage = 'This public key already exists.';
+                      });
+                    } else if (aliasExists) {
+                      setDialogState(() {
+                        errorMessage = 'This alias already exists.';
+                      });
+                    } else {
+                      if (isUpdating) {
+                        setState(() {
+                          key!['publicKey'] = newPublicKey;
+                          key['alias'] = newAlias;
+                        });
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Multisig updated successfully'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      } else {
+                        setState(() {
+                          publicKeysWithAlias.add({
+                            'publicKey': newPublicKey,
+                            'alias': newAlias,
+                          });
+                        });
+                        Navigator.pop(context);
+                      }
+                    }
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.green,
+                  ),
+                  child: Text(isUpdating ? 'Save' : 'Add'),
                 ),
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.green,
-              ),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  if (publicKeyController.text.isNotEmpty &&
-                      aliasController.text.isNotEmpty) {
-                    publicKeysWithAlias.add({
-                      'publicKey': publicKeyController.text,
-                      'alias': aliasController.text,
-                    });
-                  }
-                });
-                Navigator.pop(context);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.green,
-              ),
-              child: const Text('Add'),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );
   }
 
-  void _showAddTimelockDialog() {
+  void _showAddTimelockDialog(
+      {Map<String, dynamic>? condition, isUpdating = false}) {
     final TextEditingController thresholdController = TextEditingController();
     final TextEditingController olderController = TextEditingController();
-    List<Map<String, String>> selectedPubKeys =
+    List<Map<String, dynamic>> selectedPubKeys =
         []; // Store both pubkey and alias
+
+    String? currentThreshold;
+    String? currentOlder;
+    List<Map<String, dynamic>> updatedPubkeys = [];
+
+    if (isUpdating && condition != null) {
+      currentThreshold = condition['threshold']?.toString();
+      currentOlder = condition['older']?.toString();
+      thresholdController.text = currentThreshold ?? '';
+      olderController.text = currentOlder ?? '';
+
+      // Ensure pubkeys is correctly extracted as a list
+      if (condition['pubkeys'] is String) {
+        // Decode JSON string if needed
+        updatedPubkeys =
+            List<Map<String, dynamic>>.from(jsonDecode(condition['pubkeys']));
+      } else if (condition['pubkeys'] is List) {
+        updatedPubkeys =
+            List<Map<String, dynamic>>.from(condition['pubkeys'] as List);
+      }
+
+      selectedPubKeys = updatedPubkeys.map((entry) {
+        return {
+          'publicKey': entry['publicKey']!,
+          'alias': entry['alias']!,
+        };
+      }).toList();
+    }
 
     showDialog(
       context: context,
@@ -772,37 +867,16 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 borderRadius:
                     BorderRadius.circular(16.0), // Optional rounded corners
               ),
-              title: const Text('Add Timelock Condition'),
+              title: Text(
+                isUpdating
+                    ? 'Edit Timelock Condition'
+                    : 'Add Timelock Condition',
+                style: const TextStyle(color: Colors.white),
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextFormField(
-                      controller: thresholdController,
-                      decoration: CustomTextFieldStyles.textFieldDecoration(
-                        context: context,
-                        labelText: 'Enter Threshold',
-                        hintText: 'Threshold',
-                      ),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      controller: olderController,
-                      decoration: CustomTextFieldStyles.textFieldDecoration(
-                        context: context,
-                        labelText: 'Enter Older Value',
-                        hintText: 'Older (timelock)',
-                      ),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 10),
                     if (publicKeysWithAlias.isNotEmpty)
                       Wrap(
                         spacing: 8.0,
@@ -822,6 +896,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                                     'alias': key['alias']!
                                   });
                                 }
+                                // print(selectedPubKeys);
                               });
                             },
                             child: Container(
@@ -843,6 +918,59 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                           );
                         }).toList(),
                       ),
+                    const SizedBox(height: 10),
+                    if (selectedPubKeys.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: thresholdController,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                if (int.tryParse(value) != null &&
+                                    int.parse(value) > selectedPubKeys.length) {
+                                  // If the entered value exceeds the max, reset it to the max
+                                  thresholdController.text =
+                                      selectedPubKeys.length.toString();
+                                  thresholdController.selection =
+                                      TextSelection.fromPosition(
+                                    TextPosition(
+                                        offset:
+                                            thresholdController.text.length),
+                                  );
+                                } else {
+                                  thresholdController.text = value;
+                                }
+                              });
+                            },
+                            decoration:
+                                CustomTextFieldStyles.textFieldDecoration(
+                              context: context,
+                              labelText: 'Enter Threshold',
+                              hintText: 'Threshold',
+                            ),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 10),
+                          TextFormField(
+                            controller: olderController,
+                            decoration:
+                                CustomTextFieldStyles.textFieldDecoration(
+                              context: context,
+                              labelText: 'Enter Older Value',
+                              hintText: 'Older (timelock)',
+                            ),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -859,23 +987,69 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     if (thresholdController.text.isNotEmpty &&
                         olderController.text.isNotEmpty &&
                         selectedPubKeys.isNotEmpty) {
-                      setState(() {
-                        // Add the new timelock condition to the list
-                        timelockConditions.add({
-                          'threshold': thresholdController.text,
-                          'older': olderController.text,
-                          'pubkeys': selectedPubKeys.map((pubKey) {
-                            return {
-                              'publicKey': pubKey['publicKey']!,
-                              'alias': pubKey['alias']!,
-                            };
-                          }).toList(),
-                        });
-                      });
+                      // Convert input to integer for accurate comparison
+                      int newOlder = int.tryParse(olderController.text) ?? -1;
+                      final newPubkeys = selectedPubKeys;
+                      final String newThreshold =
+                          thresholdController.text.trim();
+
+                      // Check if older value already exists in the list
+                      bool isDuplicateOlder = timelockConditions.any(
+                        (existingCondition) =>
+                            int.tryParse(
+                                    existingCondition['older'].toString()) ==
+                                newOlder &&
+                            existingCondition['older'].toString() !=
+                                currentOlder,
+                      );
+
+                      if (isDuplicateOlder) {
+                        // Show an error message instead of adding a duplicate
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content:
+                                Text('Error: This Older value already exists!'),
+                            duration: Duration(seconds: 2),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      } else {
+                        if (isUpdating) {
+                          setState(() {
+                            // Update the condition with new values
+                            condition!['threshold'] = newThreshold;
+                            condition['older'] = newOlder.toString();
+                            condition['pubkeys'] = jsonEncode(newPubkeys);
+                          });
+
+                          Navigator.pop(context);
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Timelock condition updated successfully',
+                              ),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        } else {
+                          setState(() {
+                            // Add the new timelock condition to the list
+                            timelockConditions.add({
+                              'threshold': thresholdController.text,
+                              'older': olderController.text,
+                              'pubkeys': jsonEncode(newPubkeys),
+                            });
+                            print(timelockConditions);
+                          });
+
+                          // Close the dialog after adding the condition
+                          Navigator.pop(context);
+                        }
+                      }
                     } else {
                       print('Validation Failed: One or more fields are empty');
                     }
-                    Navigator.pop(context);
                   },
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.green,
@@ -907,7 +1081,12 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
         // Extract and process pubkeys while preserving aliases
         List<Map<String, String>> updatedPubKeys =
-            (condition['pubkeys'] as List).map((key) {
+            (condition['pubkeys'] is String
+                    ? List<Map<String, dynamic>>.from(
+                        jsonDecode(condition['pubkeys']))
+                    : List<Map<String, dynamic>>.from(
+                        condition['pubkeys'] as List<dynamic>))
+                .map((key) {
           // Extract the original key and alias
           String originalKey = key['publicKey'] as String;
           String alias = key['alias'] as String;
@@ -949,7 +1128,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     // If any section is missing, stop further processing
     if (_isDescriptorNameMissing ||
         _isThresholdMissing ||
-        _arePublicKeysMissing) {
+        _arePublicKeysMissing ||
+        _isYourPubKeyMissing) {
       return;
     }
 
@@ -1185,36 +1365,92 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   'descriptorName': _descriptorName,
                 });
 
-                // // Request storage permission (required for Android 11 and below)
-                // if (await Permission.storage.request().isGranted) {
-                // Get default Downloads directory
-                final directory = Directory('/storage/emulated/0/Download');
-                if (!await directory.exists()) {
-                  await directory.create(recursive: true);
+                // Request storage permission (required for Android 11 and below)
+                if (await Permission.storage.request().isGranted) {
+                  // Get default Downloads directory
+                  final directory = Directory('/storage/emulated/0/Download');
+                  if (!await directory.exists()) {
+                    await directory.create(recursive: true);
+                  }
+
+                  String fileName = '$_descriptorName.json';
+                  String filePath = '${directory.path}/$fileName';
+                  File file = File(filePath);
+
+                  // Check if the file already exists
+                  if (await file.exists()) {
+                    final shouldProceed = await showDialog<bool>(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            backgroundColor: Colors
+                                .grey[900], // Dark background for the dialog
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                  20.0), // Rounded corners
+                            ),
+                            title: const Text('File Already Exists'),
+                            content: const Text(
+                              ' A file with the same name already exists. Do you want to save it anyway?',
+                            ),
+                            actions: [
+                              InkwellButton(
+                                onTap: () {
+                                  Navigator.of(context).pop(false);
+                                },
+                                label: 'Cancel',
+                                backgroundColor: Colors.white,
+                                textColor: Colors.black,
+                                icon: Icons.cancel_rounded,
+                                iconColor: Colors.redAccent,
+                              ),
+                              InkwellButton(
+                                onTap: () {
+                                  Navigator.of(context).pop(true);
+                                },
+                                label: 'Yes',
+                                backgroundColor: Colors.white,
+                                textColor: Colors.black,
+                                icon: Icons.check_circle,
+                                iconColor: Colors.greenAccent,
+                              ),
+                            ],
+                          );
+                        });
+
+                    // If the user chooses not to proceed, exit
+                    if (!shouldProceed!) {
+                      return;
+                    }
+
+                    // Increment the file name index until a unique file name is found
+                    int index = 1;
+                    while (await file.exists()) {
+                      fileName = '$_descriptorName($index).json';
+                      filePath = '${directory.path}/$fileName';
+                      file = File(filePath);
+                      index++;
+                    }
+                  }
+
+                  // Write JSON data to the file
+                  await file.writeAsString(data);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content:
+                          Text('File saved to ${directory.path}/$fileName'),
+                    ),
+                  );
+                } else {
+                  // Permission denied
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          'Storage permission is required to save the file'),
+                    ),
+                  );
                 }
-
-                final fileName = '$_descriptorName.json';
-
-                final filePath = '${directory.path}/$fileName';
-                final file = File(filePath);
-
-                // Write JSON data to the file
-                await file.writeAsString(data);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('File saved to ${directory.path}/$fileName'),
-                  ),
-                );
-                // } else {
-                //   // Permission denied
-                //   ScaffoldMessenger.of(context).showSnackBar(
-                //     const SnackBar(
-                //       content: Text(
-                //           'Storage permission is required to save the file'),
-                //     ),
-                //   );
-                // }
               },
               style: TextButton.styleFrom(
                 foregroundColor: Colors.green,
@@ -1224,19 +1460,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
             TextButton(
               onPressed: () {
                 // print('_mnemonic: $_mnemonic');
-                _generatePublicKey();
 
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => SharedWallet(
-                      descriptor: _finalDescriptor,
-                      mnemonic: _mnemonic!,
-                      pubKeysAlias: publicKeysWithAlias,
-                      descriptorName: _descriptorName,
-                    ),
-                  ),
-                );
+                _navigateToSharedWallet();
               },
               style: TextButton.styleFrom(
                 foregroundColor: Colors.green,

@@ -24,13 +24,14 @@ class WalletDataAdapter extends TypeAdapter<WalletData> {
       transactions: (fields[4] as List)
           .map((dynamic e) => (e as Map).cast<String, dynamic>())
           .toList(),
+      currentHeight: fields[5] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, WalletData obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.address)
       ..writeByte(1)
@@ -40,7 +41,9 @@ class WalletDataAdapter extends TypeAdapter<WalletData> {
       ..writeByte(3)
       ..write(obj.availableBalance)
       ..writeByte(4)
-      ..write(obj.transactions);
+      ..write(obj.transactions)
+      ..writeByte(5)
+      ..write(obj.currentHeight);
   }
 
   @override

@@ -12,11 +12,13 @@ import 'package:package_info_plus/package_info_plus.dart';
 class BaseScaffold extends StatefulWidget {
   final Widget body;
   final Text title;
+  final bool isTestnet; // Add a flag to indicate Testnet or Mainnet
 
   const BaseScaffold({
     super.key,
     required this.title,
     required this.body,
+    this.isTestnet = true, // Default to Mainnet if not specified
   });
 
   @override
@@ -93,7 +95,22 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
     return Scaffold(
       appBar: AppBar(
-        title: widget.title,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            widget.title,
+            if (widget
+                .isTestnet) // Show the Testnet banner if `isTestnet` is true
+              const Text(
+                'You are on Testnet!',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: Icon(
@@ -108,16 +125,25 @@ class BaseScaffoldState extends State<BaseScaffold> {
         ],
       ),
       drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildDrawerHeader(context),
             const SizedBox(height: 10),
-            _buildPersonalWalletTile(context),
-            const SizedBox(height: 10),
-            _buildSharedWalletTiles(context),
-            const SizedBox(height: 10),
-            _buildCreateSharedWalletTile(context),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _buildPersonalWalletTile(context),
+                  const SizedBox(height: 10),
+                  _buildSharedWalletTiles(context),
+                  const SizedBox(height: 10),
+                  _buildCreateSharedWalletTile(context),
+                ],
+              ),
+            ),
+            const Divider(),
+            _buildSettingsTile(context),
           ],
         ),
       ),
@@ -353,6 +379,32 @@ class BaseScaffoldState extends State<BaseScaffold> {
         onTap: () {
           Navigator.of(context).pushNamedAndRemoveUntil(
               '/shared_wallet', (Route<dynamic> route) => false);
+        },
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile(BuildContext context) {
+    return Card(
+      elevation: 6,
+      shadowColor: Colors.greenAccent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        leading: const Icon(
+          Icons.settings,
+          color: Colors.green,
+        ),
+        title: const Text(
+          'Settings',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        onTap: () {
+          Navigator.of(context).pushNamed('/settings');
         },
       ),
     );

@@ -19,11 +19,15 @@ class WalletData extends HiveObject {
   @HiveField(4)
   List<Map<String, dynamic>> transactions; // Store transaction IDs or details
 
+  @HiveField(5)
+  int currentHeight;
+
   WalletData({
     required this.address,
     required this.balance,
     required this.ledgerBalance,
     required this.availableBalance,
     required this.transactions,
+    required this.currentHeight,
   });
 }

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
@@ -23,10 +24,11 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
   String? publicKey;
   String? _descriptor;
   String? _mnemonic;
-  String receivingKey = "";
   String changeKey = "";
   String privKey = "";
   String _status = 'Idle';
+
+  String? initialPubKey;
 
   late Box<dynamic> descriptorBox;
 
@@ -41,7 +43,29 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
 
   bool _isDescriptorValid = true;
 
-  Future<void> _generatePublicKey() async {
+  @override
+  void initState() {
+    super.initState();
+
+    // Add a listner to the TextEditingController
+    _descriptorController.addListener(() {
+      if (_descriptorController.text.isNotEmpty) {
+        _descriptor = _descriptorController.text;
+        _validateDescriptor(_descriptor.toString());
+      }
+    });
+
+    _generatePublicKey(isGenerating: false);
+  }
+
+  @override
+  void dispose() {
+    // Dispose of the controller to avoid memory leaks
+    _descriptorController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _generatePublicKey({bool isGenerating = true}) async {
     var walletBox = Hive.box('walletBox');
 
     String savedMnemonic = walletBox.get('walletMnemonic');
@@ -70,7 +94,10 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
     _mnemonic = savedMnemonic;
 
     setState(() {
-      receivingKey = receivingPublicKey.toString();
+      if (isGenerating) {
+        publicKey = receivingPublicKey.toString();
+      }
+      initialPubKey = receivingPublicKey.toString();
       changeKey = changePublicKey.toString();
     });
   }
@@ -196,13 +223,18 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
   // Asynchronous method to validate the descriptor
   Future<bool> _validateDescriptor(String descriptor) async {
     try {
-      bool isValid = await _walletService.isValidDescriptor(descriptor);
+      ValidationResult result = await _walletService.isValidDescriptor(
+          descriptor, initialPubKey.toString());
+
+      // print(result.toString());
 
       setState(() {
-        _isDescriptorValid = isValid;
-        _status = isValid ? 'Descriptor is valid' : 'Invalid Descriptor';
+        _isDescriptorValid = result.isValid;
+        _status = result.isValid
+            ? 'Descriptor is valid'
+            : result.errorMessage ?? 'Invalid Descriptor';
       });
-      return isValid;
+      return result.isValid;
     } catch (e) {
       setState(() {
         _isDescriptorValid = false;
@@ -216,6 +248,8 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
     String lottieAnimation;
     String statusText;
 
+    // print('_status: $_status');
+
     if (_status.startsWith('Idle')) {
       lottieAnimation = 'assets/animations/idle.json';
       statusText = 'Idle - Ready to Import';
@@ -223,9 +257,10 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
       lottieAnimation = 'assets/animations/creating_wallet.json';
       statusText = 'Descriptor is valid - You can proceed';
     } else if (_status.contains('Invalid Descriptor') ||
-        _status.contains('Error')) {
+        _status.contains('Error') ||
+        _status.contains('Please enter a valid descriptor!')) {
       lottieAnimation = 'assets/animations/error_cross.json';
-      statusText = 'Invalid Descriptor - Please check your input';
+      statusText = 'Invalid Descriptor - $_status';
     } else if (_status.contains('Success')) {
       lottieAnimation = 'assets/animations/success.json';
       statusText = 'Navigating to your wallet';
@@ -300,10 +335,6 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                     key: _formKey,
                     child: TextFormField(
                       controller: _descriptorController,
-                      onChanged: (value) {
-                        _descriptor = value;
-                        _validateDescriptor(value);
-                      },
                       decoration: CustomTextFieldStyles.textFieldDecoration(
                         context: context,
                         labelText: 'Descriptor',
@@ -327,47 +358,48 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                   const SizedBox(height: 16),
 
                   // Public Key display with copy functionality
-                  Container(
-                    padding: const EdgeInsets.all(12.0),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      border: Border.all(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withAlpha(150),
+                  if (publicKey != null)
+                    Container(
+                      padding: const EdgeInsets.all(12.0),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withAlpha(150),
+                        ),
+                        borderRadius: BorderRadius.circular(8.0),
                       ),
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: SelectableText(
-                            'Public Key: $receivingKey',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Theme.of(context).colorScheme.onSurface,
-                              fontWeight: FontWeight.w500,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: SelectableText(
+                              'Public Key: $publicKey',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Theme.of(context).colorScheme.onSurface,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy, color: Colors.green),
-                          tooltip: 'Copy to Clipboard',
-                          onPressed: () {
-                            Clipboard.setData(
-                                ClipboardData(text: publicKey ?? ''));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content:
-                                      Text('Public Key copied to clipboard')),
-                            );
-                          },
-                        ),
-                      ],
+                          IconButton(
+                            icon: const Icon(Icons.copy, color: Colors.green),
+                            tooltip: 'Copy to Clipboard',
+                            onPressed: () {
+                              Clipboard.setData(
+                                  ClipboardData(text: publicKey ?? ''));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content:
+                                        Text('Public Key copied to clipboard')),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
 
                   const SizedBox(height: 16),
 
@@ -398,15 +430,15 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                   // Import Shared Wallet Button
                   CustomButton(
                     onPressed: () async {
-                      _generatePublicKey();
-
-                      if (_formKey.currentState!.validate()) {
+                      if (_formKey.currentState!.validate() ||
+                          (_status.contains('Success') ||
+                              _status.startsWith('Descriptor is valid'))) {
                         await Future.delayed(const Duration(milliseconds: 500));
 
                         _navigateToSharedWallet();
                       } else {
                         setState(() {
-                          _status = 'Please enter a valid wallet!';
+                          _status = 'Please enter a valid descriptor!';
                         });
                       }
                     },

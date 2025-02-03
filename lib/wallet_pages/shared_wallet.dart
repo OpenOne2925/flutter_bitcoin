@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
+import 'package:flutter_wallet/services/settings_provider.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
@@ -14,6 +15,7 @@ import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/utilities/qr_scanner_page.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:hive/hive.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 /// SharedWallet Page
@@ -114,13 +116,19 @@ class SharedWalletState extends State<SharedWallet> {
   late Timer _timer;
   String _elapsedTime = '';
 
-  int balance = 0;
   int ledBalance = 0;
   int avBalance = 0;
+  double ledCurrencyBalance = 0.0;
+  double avCurrencyBalance = 0.0;
+
+  DateTime? _timeStamp;
 
   List<Map<String, dynamic>> _transactions = [];
 
   bool _isLoading = true;
+
+  bool showInSatoshis = true; // Toggle display state
+
   int _currentHeight = 0;
 
   late Box<dynamic> descriptorBox;
@@ -136,6 +144,7 @@ class SharedWalletState extends State<SharedWallet> {
 
   late WalletData? _walletData;
   late Wallet wallet;
+  late SettingsProvider settingsProvider;
   late WalletService walletService;
 
   final WalletStorageService _walletStorageService = WalletStorageService();
@@ -145,6 +154,7 @@ class SharedWalletState extends State<SharedWallet> {
     super.initState();
 
     walletService = WalletService();
+    settingsProvider = SettingsProvider();
 
     openBoxAndCheckWallet();
   }
@@ -287,6 +297,7 @@ class SharedWalletState extends State<SharedWallet> {
             _transactions = _walletData!.transactions.map((tx) {
               return {'txid': tx}; // Convert to transaction format you expect
             }).toList();
+            _currentHeight = _walletData!.currentHeight;
             _isLoading = false;
           });
         }
@@ -300,14 +311,11 @@ class SharedWalletState extends State<SharedWallet> {
         await walletService.saveLocalData(wallet);
 
         // Fetch the balance of the wallet
-        final availableBalance =
-            await walletService.getAvailableBalance(address);
+        final availableBalance = wallet.getBalance().confirmed.toInt();
+        final ledgerBalance = wallet.getBalance().total.toInt();
+
         setState(() {
           avBalance = availableBalance; // Set the balance
-        });
-
-        final ledgerBalance = await walletService.getLedgerBalance(address);
-        setState(() {
           ledBalance = ledgerBalance; // Set the balance
         });
 
@@ -367,13 +375,11 @@ class SharedWalletState extends State<SharedWallet> {
       });
 
       // Fetch the balance of the wallet
-      final availableBalance = await walletService.getAvailableBalance(address);
+      final availableBalance = wallet.getBalance().confirmed.toInt();
+      final ledgerBalance = wallet.getBalance().total.toInt();
+
       setState(() {
         avBalance = availableBalance; // Set the available balance
-      });
-
-      final ledgerBalance = await walletService.getLedgerBalance(address);
-      setState(() {
         ledBalance = ledgerBalance; // Set the ledger balance
       });
 
@@ -398,8 +404,11 @@ class SharedWalletState extends State<SharedWallet> {
   Future<void> _fetchCurrentBlockHeight() async {
     int currentHeight = await walletService.fetchCurrentBlockHeight();
 
+    DateTime? blockTimestamp = await walletService.fetchBlockTimestamp();
+
     setState(() {
       _currentHeight = currentHeight;
+      _timeStamp = blockTimestamp;
     });
   }
 
@@ -1092,6 +1101,7 @@ class SharedWalletState extends State<SharedWallet> {
           _transactions = _walletData!.transactions.map((tx) {
             return {'txid': tx}; // Convert to transaction format you expect
           }).toList();
+          _currentHeight = _walletData!.currentHeight;
           _isLoading = false;
         });
       }
@@ -1107,9 +1117,9 @@ class SharedWalletState extends State<SharedWallet> {
       });
 
       // Fetch and set the balance of the specific address
-      int ledgerBalance = await walletService.getLedgerBalance(walletAddress);
-      int availableBalance =
-          await walletService.getAvailableBalance(walletAddress);
+      int ledgerBalance = wallet.getBalance().total.toInt();
+      int availableBalance = wallet.getBalance().confirmed.toInt();
+
       setState(() {
         ledBalance = ledgerBalance;
         avBalance = availableBalance;
@@ -1365,37 +1375,90 @@ class SharedWalletState extends State<SharedWallet> {
                     'descriptorName': _descriptorName,
                   });
 
-                  // // Request storage permission (required for Android 11 and below)
-                  // if (await Permission.storage.request().isGranted) {
-                  // Get default Downloads directory
-                  final directory = Directory('/storage/emulated/0/Download');
-                  if (!await directory.exists()) {
-                    await directory.create(recursive: true);
+                  // Request storage permission (required for Android 11 and below)
+                  if (await Permission.storage.request().isGranted) {
+                    // Get default Downloads directory
+                    final directory = Directory('/storage/emulated/0/Download');
+                    if (!await directory.exists()) {
+                      await directory.create(recursive: true);
+                    }
+
+                    String fileName = '$_descriptorName.json';
+                    String filePath = '${directory.path}/$fileName';
+                    File file = File(filePath);
+
+                    // Check if the file already exists
+                    if (await file.exists()) {
+                      final shouldProceed = await showDialog<bool>(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              backgroundColor: Colors
+                                  .grey[900], // Dark background for the dialog
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                    20.0), // Rounded corners
+                              ),
+                              title: const Text('File Already Exists'),
+                              content: const Text(
+                                  ' A file with the same name already exists. Do you want to save it anyway?'),
+                              actions: [
+                                InkwellButton(
+                                  onTap: () {
+                                    Navigator.of(context).pop(false);
+                                  },
+                                  label: 'Cancel',
+                                  backgroundColor: Colors.white,
+                                  textColor: Colors.black,
+                                  icon: Icons.cancel_rounded,
+                                  iconColor: Colors.redAccent,
+                                ),
+                                InkwellButton(
+                                  onTap: () {
+                                    Navigator.of(context).pop(true);
+                                  },
+                                  label: 'Yes',
+                                  backgroundColor: Colors.white,
+                                  textColor: Colors.black,
+                                  icon: Icons.check_circle,
+                                  iconColor: Colors.greenAccent,
+                                ),
+                              ],
+                            );
+                          });
+
+                      // If the user chooses not to proceed, exit
+                      if (!shouldProceed!) {
+                        return;
+                      }
+
+                      // Increment the file name index until a unique file name is found
+                      int index = 1;
+                      while (await file.exists()) {
+                        fileName = '$_descriptorName($index).json';
+                        filePath = '${directory.path}/$fileName';
+                        file = File(filePath);
+                        index++;
+                      }
+                    }
+                    // Write JSON data to the file
+                    await file.writeAsString(data);
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content:
+                            Text('File saved to ${directory.path}/$fileName'),
+                      ),
+                    );
+                  } else {
+                    // Permission denied
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'Storage permission is required to save the file'),
+                      ),
+                    );
                   }
-
-                  final fileName = '$_descriptorName.json';
-
-                  final filePath = '${directory.path}/$fileName';
-                  final file = File(filePath);
-
-                  // Write JSON data to the file
-                  await file.writeAsString(data);
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content:
-                          Text('File saved to ${directory.path}/$fileName'),
-                    ),
-                  );
-                  // } else {
-                  //   // Permission denied
-                  //   ScaffoldMessenger.of(context).showSnackBar(
-                  //     const SnackBar(
-                  //       content: Text(
-                  //           'Storage permission is required to save the file'),
-                  //     ),
-                  //   );
-                  // }
                 },
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.green,
@@ -1600,15 +1663,15 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   // TODO: Try to see if you can generalize this method
-  void _sortTransactionsByConfirmedTime() {
+  void _sortTransactionsByConfirmations() {
     _transactions.sort((a, b) {
-      // Extract block times for comparison
-      final blockTimeA =
-          a['status']?['block_time'] ?? 0; // Default to 0 if not confirmed
-      final blockTimeB = b['status']?['block_time'] ?? 0;
+      // Extract the number of confirmations for comparison
+      final confirmationsA =
+          a['status']?['confirmations'] ?? 0; // Default to 0 if not confirmed
+      final confirmationsB = b['status']?['confirmations'] ?? 0;
 
-      // Sort by block time in descending order (newest first)
-      return blockTimeB.compareTo(blockTimeA);
+      // Sort by number of confirmations in descending order (highest first)
+      return confirmationsB.compareTo(confirmationsA);
     });
   }
 
@@ -1620,6 +1683,19 @@ class SharedWalletState extends State<SharedWallet> {
     } else {
       return '${duration.inHours} hours';
     }
+  }
+
+  void _convertCurrency() async {
+    final currencyLedUsd = await walletService.convertSatoshisToCurrency(
+        ledBalance, settingsProvider.currency);
+    final currencyAvUsd = await walletService.convertSatoshisToCurrency(
+        avBalance, settingsProvider.currency);
+
+    setState(() {
+      ledCurrencyBalance = currencyLedUsd;
+      avCurrencyBalance = currencyAvUsd;
+      showInSatoshis = !showInSatoshis;
+    });
   }
 
   ///
@@ -1653,9 +1729,32 @@ class SharedWalletState extends State<SharedWallet> {
                 padding: const EdgeInsets.all(8.0),
                 children: [
                   _buildInfoBox(
-                    'Current Block Height',
-                    'We are currently at Block Height: $_currentHeight',
-                    () {},
+                    'Address',
+                    Text(
+                      address,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'We are currently at Block Height: $_currentHeight\n'
+                          'Timestamp: $_timeStamp',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                    () {
+                      // Handle tap action here
+                    },
+                    showCopyButton: true,
                     subtitle: (DateTime.now()
                                 .difference(_lastRefreshed)
                                 .inHours >=
@@ -1663,37 +1762,70 @@ class SharedWalletState extends State<SharedWallet> {
                         ? '$_elapsedTime have passed! \nIt\'s time to refresh!'
                         : null,
                   ),
-                  // Display wallet address
-                  _buildInfoBox(
-                    'Address',
-                    address,
+
+                  _buildWidgetInfoBox(
+                    'Balance',
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Show the primary available balance
+                        showInSatoshis
+                            ? Text('$avBalance sats') // Wrap in Text widget
+                            : Text.rich(
+                                TextSpan(
+                                  text:
+                                      '${avCurrencyBalance.toStringAsFixed(2)} ',
+                                  style: const TextStyle(
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: settingsProvider.currency,
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                        const SizedBox(height: 8), // Add spacing
+
+                        // Calculate and show the difference
+                        showInSatoshis
+                            ? Text(
+                                '${ledBalance - avBalance} sats',
+                                style: TextStyle(
+                                  color: (ledBalance - avBalance) >= 0
+                                      ? Colors.green
+                                      : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ) // Wrap in Text widget
+                            : Text.rich(
+                                TextSpan(
+                                  text:
+                                      '${(ledCurrencyBalance - avCurrencyBalance).toStringAsFixed(2)} ',
+                                  style: TextStyle(
+                                    decoration: TextDecoration.lineThrough,
+                                    color: (ledBalance - avBalance) >= 0
+                                        ? Colors.green
+                                        : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: settingsProvider.currency,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ],
+                    ),
                     () {
-                      // Handle tap events for Address
+                      _convertCurrency();
                     },
-                    showCopyButton: true,
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildInfoBox(
-                          'Ledger \nBalance',
-                          '$ledBalance sats',
-                          () {},
-                        ),
-                      ),
-                      const SizedBox(width: 8), // Add space between the boxes
-                      Expanded(
-                        child: _buildInfoBox(
-                          'Available \nBalance',
-                          '$avBalance sats',
-                          () {},
-                        ),
-                      ),
-                    ],
                   ),
                   _buildTransactionsBox(), // Transactions box should scroll along with the rest
                   const SizedBox(height: 8), // Add some spacing
-                  _buildInfoBox(
+                  _buildInfoBoxMultisig(
                     'MultiSig Transactions',
                     _txToSend != null
                         ? _txToSend.toString()
@@ -1832,7 +1964,166 @@ class SharedWalletState extends State<SharedWallet> {
   ///
 
   // Box for displaying general wallet info with onTap functionality
-  Widget _buildInfoBox(String title, String data, VoidCallback onTap,
+  Widget _buildInfoBox(
+      String title, Widget section1, Widget section2, VoidCallback onTap,
+      {bool showCopyButton = false, String? subtitle}) {
+    return GestureDetector(
+      onTap: onTap, // Detects tap and calls the passed function
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0), // Rounded corners
+        ),
+        elevation: 4, // Subtle shadow for depth
+        color: Colors.white, // Match button background
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // First Section with Copy Button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: section1,
+                  ),
+                  if (showCopyButton) // Display copy button if true
+                    IconButton(
+                      icon: const Icon(Icons.copy, color: Colors.green),
+                      tooltip: 'Copy to clipboard',
+                      onPressed: () {
+                        // Assuming section1 is Text, extract the text for copying
+                        if (section1 is Text) {
+                          Clipboard.setData(
+                              ClipboardData(text: (section1).data ?? ''));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Copied to clipboard"),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                ],
+              ),
+
+              // Divider Between Sections
+              const Divider(
+                height: 20,
+                thickness: 1,
+                color: Colors.grey,
+              ),
+
+              // Second Section Without Copy Button
+              section2,
+
+              if (subtitle != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWidgetInfoBox(String title, Widget data, VoidCallback onTap,
+      {bool showCopyButton = false,
+      String? subtitle,
+      TextStyle? dataTextStyle}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        elevation: 4,
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: DefaultTextStyle(
+                      style: dataTextStyle ??
+                          const TextStyle(
+                            fontSize: 16,
+                            color: Colors.black, // Default to black
+                          ),
+                      child: data, // Display the passed widget here
+                    ),
+                  ),
+                  if (showCopyButton)
+                    IconButton(
+                      icon: const Icon(Icons.copy, color: Colors.green),
+                      tooltip: 'Copy to clipboard',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: data.toString()));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Copied to clipboard"),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Box for displaying general wallet info with onTap functionality
+  Widget _buildInfoBoxMultisig(String title, String data, VoidCallback onTap,
       {bool showCopyButton = false, String? subtitle}) {
     return GestureDetector(
       onTap: onTap, // Detects tap and calls the passed function
@@ -1905,7 +2196,7 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   Widget _buildTransactionsBox() {
-    _sortTransactionsByConfirmedTime();
+    _sortTransactionsByConfirmations();
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),

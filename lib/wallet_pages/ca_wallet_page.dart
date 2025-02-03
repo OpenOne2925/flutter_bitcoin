@@ -31,6 +31,13 @@ class CAWalletPageState extends State<CAWalletPage> {
   @override
   void initState() {
     super.initState();
+
+    _mnemonicController.addListener(() {
+      if (_mnemonicController.text.isNotEmpty) {
+        _mnemonic = _mnemonicController.text;
+        _validateMnemonic(_mnemonic.toString());
+      }
+    });
   }
 
   Future<void> _createWallet() async {
@@ -158,8 +165,6 @@ class CAWalletPageState extends State<CAWalletPage> {
               TextFormField(
                 controller: _mnemonicController,
                 onChanged: (value) async {
-                  _validateMnemonic(value);
-
                   setState(() {
                     _mnemonic = value;
                   });

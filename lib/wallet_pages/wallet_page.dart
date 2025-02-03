@@ -3,6 +3,7 @@ import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_wallet/services/settings_provider.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
@@ -34,7 +35,12 @@ class WalletPageState extends State<WalletPage> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
 
+  bool showInSatoshis = true; // Toggle display state
+  double ledCurrencyBalance = 0.0;
+  double avCurrencyBalance = 0.0;
+
   int _currentHeight = 0;
+  DateTime? _timeStamp;
 
   late DateTime _lastRefreshed;
   late Timer _timer;
@@ -51,12 +57,15 @@ class WalletPageState extends State<WalletPage> {
 
   List<Map<String, dynamic>> _transactions = [];
 
+  late SettingsProvider settingsProvider;
+
   @override
   void initState() {
     super.initState();
 
     // Initialize WalletService
     walletService = WalletService();
+    settingsProvider = SettingsProvider();
 
     // Load wallet data and fetch the block height only once when the widget is initialized
     _loadWalletFromHive();
@@ -99,8 +108,11 @@ class WalletPageState extends State<WalletPage> {
   Future<void> _fetchCurrentBlockHeight() async {
     int currentHeight = await walletService.fetchCurrentBlockHeight();
 
+    DateTime? blockTimestamp = await walletService.fetchBlockTimestamp();
+
     setState(() {
       _currentHeight = currentHeight;
+      _timeStamp = blockTimestamp;
     });
   }
 
@@ -174,6 +186,7 @@ class WalletPageState extends State<WalletPage> {
             _transactions = _walletData!.transactions.map((tx) {
               return {'txid': tx}; // Convert to transaction format you expect
             }).toList();
+            _currentHeight = _walletData!.currentHeight;
             _isLoading = false;
           });
 
@@ -195,6 +208,10 @@ class WalletPageState extends State<WalletPage> {
       } else {
         _fetchCurrentBlockHeight();
         wallet = await walletService.loadSavedWallet(null);
+        // Fetch and set the balance of the specific address
+
+        await walletService.syncWallet(wallet);
+
         // print(wallet);
         await walletService.saveLocalData(wallet);
         // If no offline data is available, proceed to fetch online data
@@ -206,10 +223,8 @@ class WalletPageState extends State<WalletPage> {
           address = walletAddress;
         });
 
-        // Fetch and set the balance of the specific address
-        int ledgerBalance = await walletService.getLedgerBalance(walletAddress);
-        int availableBalance =
-            await walletService.getAvailableBalance(walletAddress);
+        int ledgerBalance = wallet.getBalance().total.toInt();
+        int availableBalance = wallet.getBalance().confirmed.toInt();
         setState(() {
           ledBalance = ledgerBalance;
           avBalance = availableBalance;
@@ -377,7 +392,10 @@ class WalletPageState extends State<WalletPage> {
           ],
         );
       },
-    );
+    ).then((_) {
+      _recipientController.clear();
+      _amountController.clear();
+    });
   }
 
   // Method to display the QR code in a dialog
@@ -682,15 +700,15 @@ class WalletPageState extends State<WalletPage> {
     }
   }
 
-  void _sortTransactionsByConfirmedTime() {
+  void _sortTransactionsByConfirmations() {
     _transactions.sort((a, b) {
-      // Extract block times for comparison
-      final blockTimeA =
-          a['status']?['block_time'] ?? 0; // Default to 0 if not confirmed
-      final blockTimeB = b['status']?['block_time'] ?? 0;
+      // Extract the number of confirmations for comparison
+      final confirmationsA =
+          a['status']?['confirmations'] ?? 0; // Default to 0 if not confirmed
+      final confirmationsB = b['status']?['confirmations'] ?? 0;
 
-      // Sort by block time in descending order (newest first)
-      return blockTimeB.compareTo(blockTimeA);
+      // Sort by number of confirmations in descending order (highest first)
+      return confirmationsB.compareTo(confirmationsA);
     });
   }
 
@@ -702,6 +720,19 @@ class WalletPageState extends State<WalletPage> {
     } else {
       return '${duration.inHours} hours';
     }
+  }
+
+  void _convertCurrency() async {
+    final currencyLedUsd = await walletService.convertSatoshisToCurrency(
+        ledBalance, settingsProvider.currency);
+    final currencyAvUsd = await walletService.convertSatoshisToCurrency(
+        avBalance, settingsProvider.currency);
+
+    setState(() {
+      ledCurrencyBalance = currencyLedUsd;
+      avCurrencyBalance = currencyAvUsd;
+      showInSatoshis = !showInSatoshis;
+    });
   }
 
   @override
@@ -719,9 +750,32 @@ class WalletPageState extends State<WalletPage> {
                 padding: const EdgeInsets.all(8.0),
                 children: [
                   _buildInfoBox(
-                    'Current Block Height',
-                    'We are currently at Block Height: $_currentHeight',
-                    () {},
+                    'Address',
+                    Text(
+                      address,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'We are currently at Block Height: $_currentHeight\n'
+                          'Timestamp: $_timeStamp',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                    () {
+                      // Handle tap action here
+                    },
+                    showCopyButton: true,
                     subtitle: (DateTime.now()
                                 .difference(_lastRefreshed)
                                 .inHours >=
@@ -729,24 +783,66 @@ class WalletPageState extends State<WalletPage> {
                         ? '$_elapsedTime have passed! \nIt\'s time to refresh!'
                         : null,
                   ),
-                  _buildInfoBox(
-                    'Address',
-                    address,
-                    () {},
-                    showCopyButton: true,
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildInfoBox(
-                            'Ledger \nBalance', '$ledBalance sats', () {}),
-                      ),
-                      const SizedBox(width: 8), // Add space between the boxes
-                      Expanded(
-                        child: _buildInfoBox(
-                            'Available \nBalance', '$avBalance sats', () {}),
-                      ),
-                    ],
+
+                  _buildWidgetInfoBox(
+                    'Balance',
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Show the primary available balance
+                        showInSatoshis
+                            ? Text('$avBalance sats') // Wrap in Text widget
+                            : Text.rich(
+                                TextSpan(
+                                  text:
+                                      '${avCurrencyBalance.toStringAsFixed(2)} ',
+                                  style: const TextStyle(
+                                    decoration: TextDecoration.lineThrough,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: settingsProvider.currency,
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                        const SizedBox(height: 8), // Add spacing
+
+                        // Calculate and show the difference
+                        showInSatoshis
+                            ? Text(
+                                '${ledBalance - avBalance} sats',
+                                style: TextStyle(
+                                  color: (ledBalance - avBalance) >= 0
+                                      ? Colors.green
+                                      : Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ) // Wrap in Text widget
+                            : Text.rich(
+                                TextSpan(
+                                  text:
+                                      '${(ledCurrencyBalance - avCurrencyBalance).toStringAsFixed(2)} ',
+                                  style: TextStyle(
+                                    decoration: TextDecoration.lineThrough,
+                                    color: (ledBalance - avBalance) >= 0
+                                        ? Colors.green
+                                        : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: settingsProvider.currency,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ],
+                    ),
+                    () {
+                      _convertCurrency();
+                    },
                   ),
                   _buildTransactionsBox(), // Transactions box should scroll along with the rest
                 ],
@@ -828,7 +924,8 @@ class WalletPageState extends State<WalletPage> {
   }
 
   // Box for displaying general wallet info with onTap functionality
-  Widget _buildInfoBox(String title, String data, VoidCallback onTap,
+  Widget _buildInfoBox(
+      String title, Widget section1, Widget section2, VoidCallback onTap,
       {bool showCopyButton = false, String? subtitle}) {
     return GestureDetector(
       onTap: onTap, // Detects tap and calls the passed function
@@ -844,12 +941,97 @@ class WalletPageState extends State<WalletPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Title
               Text(
                 title,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.green, // Match button text color
+                  color: Colors.green,
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // First Section with Copy Button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: section1,
+                  ),
+                  if (showCopyButton) // Display copy button if true
+                    IconButton(
+                      icon: const Icon(Icons.copy, color: Colors.green),
+                      tooltip: 'Copy to clipboard',
+                      onPressed: () {
+                        // Assuming section1 is Text, extract the text for copying
+                        if (section1 is Text) {
+                          Clipboard.setData(
+                              ClipboardData(text: (section1).data ?? ''));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Copied to clipboard"),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                ],
+              ),
+
+              // Divider Between Sections
+              const Divider(
+                height: 20,
+                thickness: 1,
+                color: Colors.grey,
+              ),
+
+              // Second Section Without Copy Button
+              section2,
+
+              if (subtitle != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWidgetInfoBox(String title, Widget data, VoidCallback onTap,
+      {bool showCopyButton = false,
+      String? subtitle,
+      TextStyle? dataTextStyle}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        elevation: 4,
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
                 ),
               ),
               const SizedBox(height: 8),
@@ -857,21 +1039,21 @@ class WalletPageState extends State<WalletPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Text(
-                      data,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.black, // Black text to match theme
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    child: DefaultTextStyle(
+                      style: dataTextStyle ??
+                          const TextStyle(
+                            fontSize: 16,
+                            color: Colors.black, // Default to black
+                          ),
+                      child: data, // Display the passed widget here
                     ),
                   ),
-                  if (showCopyButton) // Display copy button if true
+                  if (showCopyButton)
                     IconButton(
                       icon: const Icon(Icons.copy, color: Colors.green),
                       tooltip: 'Copy to clipboard',
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: data));
+                        Clipboard.setData(ClipboardData(text: data.toString()));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text("Copied to clipboard"),
@@ -889,7 +1071,7 @@ class WalletPageState extends State<WalletPage> {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: Colors.red, // Lighter color for secondary text
+                    color: Colors.red,
                   ),
                 ),
               ],
@@ -901,7 +1083,7 @@ class WalletPageState extends State<WalletPage> {
   }
 
   Widget _buildTransactionsBox() {
-    _sortTransactionsByConfirmedTime();
+    _sortTransactionsByConfirmations();
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
