@@ -3,12 +3,14 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:english_words/english_words.dart';
+import 'package:convert/convert.dart';
 
 /// WalletService Class
 ///
@@ -585,6 +587,29 @@ class WalletService {
     }
   }
 
+  List<Map<String, dynamic>> sortTransactionsByConfirmations(
+      List<Map<String, dynamic>> transactions, int currentHeight) {
+    transactions.sort((a, b) {
+      // Extract block height values (if null, assume unconfirmed)
+      final blockHeightA = a['status']?['block_height'];
+      final blockHeightB = b['status']?['block_height'];
+
+      // Extract the number of confirmations for comparison
+      // Determine confirmations (if unconfirmed, set to -1 to prioritize them first)
+      final confirmationsA =
+          (blockHeightA != null) ? currentHeight - blockHeightA : -1;
+      final confirmationsB =
+          (blockHeightB != null) ? currentHeight - blockHeightB : -1;
+
+      int result = confirmationsA.compareTo(confirmationsB);
+
+      // Sort by number of confirmations in descending order (highest first)
+      return result;
+    });
+
+    return transactions;
+  }
+
   ///
   ///
   ///
@@ -772,9 +797,10 @@ class WalletService {
       address: currentAddress,
       balance: int.parse(getBalance(wallet).toString()),
       ledgerBalance: wallet.getBalance().total.toInt(),
-      availableBalance: wallet.getBalance().confirmed.toInt(),
+      availableBalance: wallet.getBalance().spendable.toInt(),
       transactions: await getTransactions(currentAddress),
       currentHeight: await fetchCurrentBlockHeight(),
+      timeStamp: await fetchBlockTimestamp(),
     );
 
     // Save the data to Hive
@@ -1143,6 +1169,120 @@ class WalletService {
     return result;
   }
 
+  List<String> getSignersFromPsbt(PartiallySignedTransaction psbt) {
+    final serializedPsbt = psbt.jsonSerialize();
+
+    // printPrettyJson(serializedPsbt);
+    // printInChunks(psbt.asString());
+
+    // Parse JSON
+    Map<String, dynamic> psbtDecoded = jsonDecode(serializedPsbt);
+
+    // Map to store public key -> fingerprint
+    Map<String, String> pubKeyToFingerprint = {};
+
+    // Extract fingerprints from bip32_derivation
+    if (psbtDecoded.containsKey('inputs')) {
+      for (var input in psbtDecoded['inputs']) {
+        if (input.containsKey('bip32_derivation')) {
+          List<dynamic> bip32Derivations = input['bip32_derivation'];
+
+          for (var derivation in bip32Derivations) {
+            if (derivation.length >= 2) {
+              String pubKey = derivation[0]; // Public Key
+              String fingerprint =
+                  derivation[1][0]; // First 4 bytes (fingerprint)
+
+              // Store mapping
+              pubKeyToFingerprint[pubKey] = fingerprint;
+            }
+          }
+        }
+      }
+    }
+
+    // List to store fingerprints of signing keys
+    List<String> signingFingerprints = [];
+
+    // Extract public keys from partial_sigs
+    if (psbtDecoded.containsKey('inputs')) {
+      for (var input in psbtDecoded['inputs']) {
+        if (input.containsKey('partial_sigs')) {
+          Map<String, dynamic> partialSigs = input['partial_sigs'];
+
+          partialSigs.forEach((pubKey, sigData) {
+            if (pubKeyToFingerprint.containsKey(pubKey)) {
+              // Store fingerprint if the pubKey has signed
+              signingFingerprints.add(pubKeyToFingerprint[pubKey]!);
+            }
+          });
+        }
+      }
+    }
+
+    // Print fingerprints of signing public keys
+    print("Fingerprints of signing public keys: $signingFingerprints");
+
+    return signingFingerprints.toSet().toList();
+  }
+
+  List<String> getAliasesFromFingerprint(
+      List<Map<String, String>> pubKeysAlias, List<String> signers) {
+    // Initialize an empty map for public key aliases
+    Map<String, String> pubKeysAliasMap = {};
+
+    // Print the original pubKeysAlias list
+    print("widget.pubKeysAlias (List of Maps): $pubKeysAlias");
+
+    // Flatten the list of maps into a single map
+    for (var map in pubKeysAlias) {
+      print("Processing map: $map");
+
+      if (map.containsKey("publicKey") && map.containsKey("alias")) {
+        String publicKeyRaw =
+            map["publicKey"].toString(); // e.g. "[42e5d2a0/84'/1'/0']tpubDC..."
+        String alias = map["alias"].toString();
+
+        // Extract fingerprint (inside brackets)
+        RegExp regex = RegExp(r"\[(.*?)\]");
+        Match? match = regex.firstMatch(publicKeyRaw);
+
+        if (match != null) {
+          String fingerprint =
+              match.group(1)!.split("/")[0]; // Extract first part (fingerprint)
+          print("Extracted Fingerprint: $fingerprint -> Alias: $alias");
+
+          pubKeysAliasMap[fingerprint] = alias; // Store the mapping
+        }
+      }
+    }
+
+    // Print the final fingerprint-to-alias mapping
+    print("Final pubKeysAliasMap (Flattened): $pubKeysAliasMap");
+
+    // Initialize list for signer aliases
+    List<String> signersAliases = [];
+
+    // Match fingerprints to aliases
+    for (String fingerprint in signers) {
+      print("Checking fingerprint: $fingerprint");
+
+      if (pubKeysAliasMap.containsKey(fingerprint)) {
+        String alias = pubKeysAliasMap[fingerprint]!;
+        print("Match found! Fingerprint: $fingerprint -> Alias: $alias");
+        signersAliases.add(alias);
+      } else {
+        print("No match found for fingerprint: $fingerprint");
+        signersAliases.add("Unknown ($fingerprint)");
+      }
+    }
+
+    // Print final mapping of signers to aliases
+    print("Final Signers with Aliases: $signersAliases");
+
+    return signersAliases;
+  }
+
   // Method to create a PSBT for a multisig transaction, this psbt is signed by the first user
   Future<String?> createPartialTx(String descriptor, String mnemonic,
       String recipientAddressStr, BigInt amount, int? chosenPath,
@@ -1485,6 +1625,8 @@ class WalletService {
         } else {
           print('Signing returned false');
 
+          // printInChunks(txBuilderResult.$1.asString());
+
           final psbtString = base64Encode(txBuilderResult.$1.serialize());
 
           return psbtString;
@@ -1561,6 +1703,7 @@ class WalletService {
           allowGrinding: true,
         ),
       );
+      printInChunks('Transaction Signed: $psbt');
 
       if (signed) {
         print('Signing returned true');
@@ -1622,6 +1765,15 @@ class WalletService {
     final jsonObject = json.decode(jsonString);
     const encoder = JsonEncoder.withIndent('  ');
     printInChunks(encoder.convert(jsonObject));
+  }
+
+  void printPsbtJson(String serializedPsbt) {
+    final jsonObject = json.decode(serializedPsbt);
+
+    // Pretty-print JSON with indentation
+    final prettyJson = JsonEncoder.withIndent('  ').convert(jsonObject);
+
+    print(prettyJson);
   }
 
   String generateRandomName() {

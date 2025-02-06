@@ -39,7 +39,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 ///
 /// #### Transaction Management
 /// - **`_sendTx`**: Handles transaction creation and signing, including multi-signature paths and time-locked transactions.
-/// - **`_sortTransactionsByConfirmedTime`**: Sorts transactions by block confirmation time.
+/// - **`_sortTransactionsByConfirmations`**: Sorts transactions by block confirmation time.
 ///
 /// #### User Interaction and Dialogs
 /// - **`_showQRCodeDialog`**: Displays the wallet's QR code for receiving Bitcoin.
@@ -130,6 +130,8 @@ class SharedWalletState extends State<SharedWallet> {
   bool showInSatoshis = true; // Toggle display state
 
   int _currentHeight = 0;
+
+  List<String> signersList = [];
 
   late Box<dynamic> descriptorBox;
 
@@ -311,7 +313,7 @@ class SharedWalletState extends State<SharedWallet> {
         await walletService.saveLocalData(wallet);
 
         // Fetch the balance of the wallet
-        final availableBalance = wallet.getBalance().confirmed.toInt();
+        final availableBalance = wallet.getBalance().spendable.toInt();
         final ledgerBalance = wallet.getBalance().total.toInt();
 
         setState(() {
@@ -319,11 +321,15 @@ class SharedWalletState extends State<SharedWallet> {
           ledBalance = ledgerBalance; // Set the balance
         });
 
+        await _fetchCurrentBlockHeight();
+
         // Fetch and set the transactions
         List<Map<String, dynamic>> transactions =
             await walletService.getTransactions(address);
-
-        await _fetchCurrentBlockHeight();
+        transactions = walletService.sortTransactionsByConfirmations(
+          transactions,
+          _currentHeight,
+        );
 
         setState(() {
           _transactions = transactions;
@@ -375,7 +381,7 @@ class SharedWalletState extends State<SharedWallet> {
       });
 
       // Fetch the balance of the wallet
-      final availableBalance = wallet.getBalance().confirmed.toInt();
+      final availableBalance = wallet.getBalance().spendable.toInt();
       final ledgerBalance = wallet.getBalance().total.toInt();
 
       setState(() {
@@ -386,6 +392,11 @@ class SharedWalletState extends State<SharedWallet> {
       // Fetch and set the transactions
       List<Map<String, dynamic>> transactions =
           await walletService.getTransactions(address);
+      transactions = walletService.sortTransactionsByConfirmations(
+        transactions,
+        _currentHeight,
+      );
+
       setState(() {
         _transactions = transactions;
       });
@@ -464,6 +475,8 @@ class SharedWalletState extends State<SharedWallet> {
 
     // print('extractedData: $extractedData');
 
+    List<String>? signers;
+
     PartiallySignedTransaction psbt;
 
     bool isSelectable = true;
@@ -480,11 +493,17 @@ class SharedWalletState extends State<SharedWallet> {
               Text(isCreating ? 'Sending Menu' : 'Sign MultiSig Transaction'),
           content: StatefulBuilder(
             builder: (BuildContext context, StateSetter setState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min, // Adjust the size of the dialog
-                children: [
-                  isCreating
-                      ? TextFormField(
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.7),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      mainAxisSize:
+                          MainAxisSize.min, // Adjust the size of the dialog
+                      children: [
+                        TextFormField(
+                          readOnly: !isCreating,
                           controller: _recipientController,
                           decoration: CustomTextFieldStyles.textFieldDecoration(
                             context: context,
@@ -494,378 +513,466 @@ class SharedWalletState extends State<SharedWallet> {
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
-                        )
-                      : TextFormField(
-                          controller: _psbtController,
-                          onFieldSubmitted: (value) async {
-                            psbt = await PartiallySignedTransaction.fromString(
-                                _psbtController.text);
+                        ),
 
-                            Transaction result = psbt.extractTx();
+                        Visibility(
+                          visible: !isCreating,
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _psbtController,
+                                onFieldSubmitted: (event) async {
+                                  try {
+                                    psbt = await PartiallySignedTransaction
+                                        .fromString(_psbtController.text);
 
-                            final outputs = await result.output();
+                                    Transaction result = psbt.extractTx();
 
-                            bool isInternalTransaction = false;
+                                    final outputs = await result.output();
 
-                            int totalSpent = 0;
+                                    signers =
+                                        walletService.getSignersFromPsbt(psbt);
 
-                            isInternalTransaction =
-                                await walletService.areEqualAddresses(outputs);
+                                    final signersAliases =
+                                        walletService.getAliasesFromFingerprint(
+                                            widget.pubKeysAlias, signers!);
 
-                            for (final output in outputs) {
-                              final receiverAddress = await walletService
-                                  .getAddressFromScript(output);
+                                    bool isInternalTransaction = false;
 
-                              // print('receiverAddress: $receiverAddress');
+                                    int totalSpent = 0;
 
-                              if (isInternalTransaction) {
-                                totalSpent += output.value.toInt();
-                              } else if (receiverAddress.asString() !=
-                                  address) {
-                                totalSpent += output.value.toInt();
-                              }
-                            }
+                                    isInternalTransaction = await walletService
+                                        .areEqualAddresses(outputs);
 
-                            setState(() {
-                              _signingAmountController.text =
-                                  totalSpent.toString();
-                            });
+                                    Address? receiverAddress;
 
-                            // print("Total spent: $totalSpent");
+                                    for (final output in outputs) {
+                                      receiverAddress = await walletService
+                                          .getAddressFromScript(output);
 
-                            // walletService.printInChunks(psbt.asString());
-                          },
-                          decoration: CustomTextFieldStyles.textFieldDecoration(
-                            context: context,
-                            labelText: 'Psbt',
-                            hintText: 'Enter psbt',
-                          ),
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface,
+                                      // TODO: Do not add change address
+
+                                      print(
+                                          'receiverAddress: $receiverAddress');
+
+                                      if (isInternalTransaction) {
+                                        totalSpent += output.value.toInt();
+                                      } else if (receiverAddress.asString() !=
+                                          address) {
+                                        totalSpent += output.value.toInt();
+                                      }
+                                    }
+
+                                    setState(() {
+                                      _signingAmountController.text =
+                                          totalSpent.toString();
+                                      signersList = signersAliases;
+                                      _recipientController.text =
+                                          receiverAddress.toString();
+                                    });
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Invalid PSBT: $e',
+                                            style:
+                                                TextStyle(color: Colors.white)),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+
+                                  // print("Total spent: $totalSpent");
+
+                                  // walletService.printInChunks(psbt.asString());
+                                },
+                                decoration:
+                                    CustomTextFieldStyles.textFieldDecoration(
+                                  context: context,
+                                  labelText: 'Psbt',
+                                  hintText: 'Enter psbt',
+                                ),
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
-                  const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
-                  isCreating
-                      ? TextFormField(
-                          controller: _amountController,
-                          onFieldSubmitted: (value) {
-                            setState(() {
-                              // print('Editing');
-                            });
-                          },
-                          decoration: CustomTextFieldStyles.textFieldDecoration(
-                            context: context,
-                            labelText: 'Amount (Sats)',
-                            hintText: 'Enter Amount',
+                        if (signersList.isNotEmpty)
+                          Visibility(
+                            visible: signersList.isNotEmpty,
+                            child: Column(
+                              children: [
+                                Wrap(
+                                  spacing: 8.0,
+                                  runSpacing: 6.0,
+                                  children: signersList.map((signer) {
+                                    return Chip(
+                                      label: Text(
+                                        signer,
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                      backgroundColor: Colors.green,
+                                      avatar: Icon(Icons.verified,
+                                          color: Colors.white),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                            ),
                           ),
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                          keyboardType: TextInputType.number,
-                        )
-                      : TextFormField(
-                          controller: _signingAmountController,
-                          readOnly: true,
-                          onChanged: (value) {
-                            setState(() {
-                              // print('Editing');
-                            });
-                          },
-                          decoration: CustomTextFieldStyles.textFieldDecoration(
-                            context: context,
-                            labelText: 'Amount (Sats)',
-                            hintText: 'Enter Amount',
-                          ),
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                          keyboardType: TextInputType.number,
-                        ),
 
-                  const SizedBox(height: 16),
-
-                  // Dropdown for selecting the spending path
-                  DropdownButtonFormField<Map<String, dynamic>>(
-                    value: selectedPath,
-                    items: extractedData.map((data) {
-                      // Check if the item meets the condition
-                      isSelectable = walletService.checkCondition(
-                        data,
-                        utxos,
                         isCreating
-                            ? _amountController.text
-                            : _signingAmountController.text,
-                        _currentHeight,
-                      );
-
-                      // print(isSelectable);
-
-                      // Replace fingerprints with aliases
-                      List<String> aliases =
-                          (data['fingerprints'] as List<dynamic>)
-                              .map<String>((fingerprint) {
-                        final matchedAlias = widget.pubKeysAlias.firstWhere(
-                          (pubKeyAlias) =>
-                              pubKeyAlias['publicKey']!.contains(fingerprint),
-                          orElse: () =>
-                              {'alias': fingerprint}, // Fallback to fingerprint
-                        );
-                        return matchedAlias['alias'] ?? fingerprint;
-                      }).toList();
-
-                      return DropdownMenuItem<Map<String, dynamic>>(
-                        value: data,
-                        enabled:
-                            isSelectable, // Disable interaction for unselectable items
-                        child: Text(
-                          "Type: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK: ${data['timelock']} blocks' : 'MULTISIG'}, "
-                          "${data['threshold'] != null ? '${data['threshold']} of ${aliases.length}, ' : ''} Keys: ${aliases.join(', ')}",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isSelectable
-                                ? Colors.white
-                                : Colors.grey, // Use gray for unselectable
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    onTap: () {
-                      setState(() {
-                        // print('Rebuilding');
-                      });
-                    },
-                    onChanged: (Map<String, dynamic>? newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          selectedPath = newValue; // Update the selected path
-                          selectedIndex = extractedData
-                              .indexOf(newValue); // Update the index
-                        });
-                      } else {
-                        // Optionally handle the selection of unselectable items
-                        print("This item is unavailable.");
-                      }
-                    },
-                    selectedItemBuilder: (BuildContext context) {
-                      return extractedData.map((data) {
-                        isSelectable = walletService.checkCondition(
-                          data,
-                          utxos,
-                          isCreating
-                              ? _amountController.text
-                              : _signingAmountController.text,
-                          _currentHeight,
-                        );
-
-                        // print(isSelectable);
-
-                        return Text(
-                          "Type: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK' : 'MULTISIG'} ${data['threshold']}, ...",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isSelectable ? Colors.white : Colors.grey,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList();
-                    },
-                    decoration: InputDecoration(
-                      labelText: 'Select Spending Path',
-                      labelStyle: const TextStyle(color: Colors.white),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.white),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.green),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    dropdownColor: Colors.grey[850],
-                    style: const TextStyle(color: Colors.white),
-                    icon:
-                        const Icon(Icons.arrow_drop_down, color: Colors.white),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  if (isCreating)
-                    InkwellButton(
-                      onTap: () async {
-                        try {
-                          // Validate recipient address
-                          if (_recipientController.text.isEmpty) {
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  backgroundColor:
-                                      Colors.grey[900], // Dark background color
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20.0),
-                                  ),
-                                  title: Row(
-                                    children: [
-                                      Icon(Icons.error, color: Colors.red),
-                                      SizedBox(width: 8),
-                                      Text('Error',
-                                          style:
-                                              TextStyle(color: Colors.white)),
-                                    ],
-                                  ),
-                                  content: Text(
-                                    'Please enter a recipient address.',
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(),
-                                      child: Text('OK',
-                                          style:
-                                              TextStyle(color: Colors.green)),
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                            return; // Exit the function early if validation fails
-                          }
-
-                          try {
-                            walletService
-                                .validateAddress(_recipientController.text);
-                          } catch (e) {
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  title: Row(
-                                    children: [
-                                      Icon(Icons.error, color: Colors.red),
-                                      SizedBox(width: 8),
-                                      Text('Invalid Address'),
-                                    ],
-                                  ),
-                                  content: Text(e.toString()),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(),
-                                      child: Text('OK'),
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                            return; // Exit the function early if address is invalid
-                          }
-
-                          // Validate spending path
-                          if (selectedPath == null) {
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return AlertDialog(
-                                  backgroundColor:
-                                      Colors.grey[900], // Dark background color
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20.0),
-                                  ),
-                                  title: Row(
-                                    children: [
-                                      Icon(Icons.error, color: Colors.red),
-                                      SizedBox(width: 8),
-                                      Text('Error',
-                                          style:
-                                              TextStyle(color: Colors.white)),
-                                    ],
-                                  ),
-                                  content: Text(
-                                    'Please select a spending path.',
-                                    style: TextStyle(color: Colors.white70),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.of(context).pop(),
-                                      child: Text('OK',
-                                          style:
-                                              TextStyle(color: Colors.green)),
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
-                            return; // Exit the function early if validation fails
-                          }
-
-                          final availableBalance =
-                              wallet.getBalance().confirmed;
-
-                          final String recipientAddress =
-                              _recipientController.text.toString();
-
-                          final spendingPaths =
-                              walletService.extractAllPaths(policy);
-
-                          final int sendAllBalance =
-                              int.parse((await walletService.createPartialTx(
-                            _descriptor.toString(),
-                            widget.mnemonic,
-                            recipientAddress,
-                            availableBalance,
-                            selectedIndex,
-                            isSendAllBalance: true,
-                            spendingPaths: spendingPaths,
-                          ))!);
-
-                          _amountController.text = sendAllBalance.toString();
-                        } catch (e) {
-                          print('Error: $e');
-                          showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return AlertDialog(
-                                backgroundColor:
-                                    Colors.grey[900], // Dark background color
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20.0),
+                            ? TextFormField(
+                                controller: _amountController,
+                                onFieldSubmitted: (value) {
+                                  setState(() {
+                                    // print('Editing');
+                                  });
+                                },
+                                decoration:
+                                    CustomTextFieldStyles.textFieldDecoration(
+                                  context: context,
+                                  labelText: 'Amount (Sats)',
+                                  hintText: 'Enter Amount',
                                 ),
-                                title: Row(
-                                  children: [
-                                    Icon(Icons.error, color: Colors.red),
-                                    SizedBox(width: 8),
-                                    Text('Error',
-                                        style: TextStyle(color: Colors.white)),
-                                  ],
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
                                 ),
-                                content: Text(
-                                  'An error occurred: ${e.toString()}',
-                                  style: TextStyle(color: Colors.white70),
+                                keyboardType: TextInputType.number,
+                              )
+                            : TextFormField(
+                                controller: _signingAmountController,
+                                readOnly: true,
+                                onChanged: (value) {
+                                  setState(() {
+                                    // print('Editing');
+                                  });
+                                },
+                                decoration:
+                                    CustomTextFieldStyles.textFieldDecoration(
+                                  context: context,
+                                  labelText: 'Amount (Sats)',
+                                  hintText: 'Enter Amount',
                                 ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(),
-                                    child: Text('OK',
-                                        style: TextStyle(color: Colors.green)),
-                                  ),
-                                ],
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+
+                        const SizedBox(height: 16),
+
+                        // Dropdown for selecting the spending path
+                        DropdownButtonFormField<Map<String, dynamic>>(
+                          value: selectedPath,
+                          items: extractedData.map((data) {
+                            // Check if the item meets the condition
+                            isSelectable = walletService.checkCondition(
+                              data,
+                              utxos,
+                              isCreating
+                                  ? _amountController.text
+                                  : _signingAmountController.text,
+                              _currentHeight,
+                            );
+
+                            // print(isSelectable);
+
+                            // Replace fingerprints with aliases
+                            List<String> aliases =
+                                (data['fingerprints'] as List<dynamic>)
+                                    .map<String>((fingerprint) {
+                              final matchedAlias =
+                                  widget.pubKeysAlias.firstWhere(
+                                (pubKeyAlias) => pubKeyAlias['publicKey']!
+                                    .contains(fingerprint),
+                                orElse: () => {
+                                  'alias': fingerprint
+                                }, // Fallback to fingerprint
                               );
+                              return matchedAlias['alias'] ?? fingerprint;
+                            }).toList();
+
+                            return DropdownMenuItem<Map<String, dynamic>>(
+                              value: data,
+                              enabled:
+                                  isSelectable, // Disable interaction for unselectable items
+                              child: Text(
+                                "Type: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK: ${data['timelock']} blocks' : 'MULTISIG'}, "
+                                "${data['threshold'] != null ? '${data['threshold']} of ${aliases.length}, ' : ''} Keys: ${aliases.join(', ')}",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isSelectable
+                                      ? Colors.white
+                                      : Colors
+                                          .grey, // Use gray for unselectable
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onTap: () {
+                            setState(() {
+                              // print('Rebuilding');
+                            });
+                          },
+                          onChanged: (Map<String, dynamic>? newValue) {
+                            if (newValue != null) {
+                              setState(() {
+                                selectedPath =
+                                    newValue; // Update the selected path
+                                selectedIndex = extractedData
+                                    .indexOf(newValue); // Update the index
+                              });
+                            } else {
+                              // Optionally handle the selection of unselectable items
+                              print("This item is unavailable.");
+                            }
+                          },
+                          selectedItemBuilder: (BuildContext context) {
+                            return extractedData.map((data) {
+                              isSelectable = walletService.checkCondition(
+                                data,
+                                utxos,
+                                isCreating
+                                    ? _amountController.text
+                                    : _signingAmountController.text,
+                                _currentHeight,
+                              );
+
+                              // print(isSelectable);
+
+                              return Text(
+                                "Type: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK' : 'MULTISIG'} ${data['threshold']}, ...",
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color:
+                                      isSelectable ? Colors.white : Colors.grey,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList();
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'Select Spending Path',
+                            labelStyle: const TextStyle(color: Colors.white),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: const BorderSide(color: Colors.white),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: const BorderSide(color: Colors.green),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          dropdownColor: Colors.grey[850],
+                          style: const TextStyle(color: Colors.white),
+                          icon: const Icon(Icons.arrow_drop_down,
+                              color: Colors.white),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        if (isCreating)
+                          InkwellButton(
+                            onTap: () async {
+                              try {
+                                // Validate recipient address
+                                if (_recipientController.text.isEmpty) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        backgroundColor: Colors
+                                            .grey[900], // Dark background color
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(20.0),
+                                        ),
+                                        title: Row(
+                                          children: [
+                                            Icon(Icons.error,
+                                                color: Colors.red),
+                                            SizedBox(width: 8),
+                                            Text('Error',
+                                                style: TextStyle(
+                                                    color: Colors.white)),
+                                          ],
+                                        ),
+                                        content: Text(
+                                          'Please enter a recipient address.',
+                                          style:
+                                              TextStyle(color: Colors.white70),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.of(context).pop(),
+                                            child: Text('OK',
+                                                style: TextStyle(
+                                                    color: Colors.green)),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                  return; // Exit the function early if validation fails
+                                }
+
+                                try {
+                                  walletService.validateAddress(
+                                      _recipientController.text);
+                                } catch (e) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        title: Row(
+                                          children: [
+                                            Icon(Icons.error,
+                                                color: Colors.red),
+                                            SizedBox(width: 8),
+                                            Text('Invalid Address'),
+                                          ],
+                                        ),
+                                        content: Text(e.toString()),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.of(context).pop(),
+                                            child: Text('OK'),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                  return; // Exit the function early if address is invalid
+                                }
+
+                                // Validate spending path
+                                if (selectedPath == null) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AlertDialog(
+                                        backgroundColor: Colors
+                                            .grey[900], // Dark background color
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(20.0),
+                                        ),
+                                        title: Row(
+                                          children: [
+                                            Icon(Icons.error,
+                                                color: Colors.red),
+                                            SizedBox(width: 8),
+                                            Text('Error',
+                                                style: TextStyle(
+                                                    color: Colors.white)),
+                                          ],
+                                        ),
+                                        content: Text(
+                                          'Please select a spending path.',
+                                          style:
+                                              TextStyle(color: Colors.white70),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.of(context).pop(),
+                                            child: Text('OK',
+                                                style: TextStyle(
+                                                    color: Colors.green)),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                  return; // Exit the function early if validation fails
+                                }
+
+                                final availableBalance =
+                                    wallet.getBalance().spendable;
+
+                                final String recipientAddress =
+                                    _recipientController.text.toString();
+
+                                final spendingPaths =
+                                    walletService.extractAllPaths(policy);
+
+                                final int sendAllBalance = int.parse(
+                                    (await walletService.createPartialTx(
+                                  _descriptor.toString(),
+                                  widget.mnemonic,
+                                  recipientAddress,
+                                  availableBalance,
+                                  selectedIndex,
+                                  isSendAllBalance: true,
+                                  spendingPaths: spendingPaths,
+                                ))!);
+
+                                _amountController.text =
+                                    sendAllBalance.toString();
+                              } catch (e) {
+                                print('Error: $e');
+                                showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return AlertDialog(
+                                      backgroundColor: Colors
+                                          .grey[900], // Dark background color
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(20.0),
+                                      ),
+                                      title: Row(
+                                        children: [
+                                          Icon(Icons.error, color: Colors.red),
+                                          SizedBox(width: 8),
+                                          Text('Error',
+                                              style: TextStyle(
+                                                  color: Colors.white)),
+                                        ],
+                                      ),
+                                      content: Text(
+                                        'An error occurred: ${e.toString()}',
+                                        style: TextStyle(color: Colors.white70),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.of(context).pop(),
+                                          child: Text('OK',
+                                              style: TextStyle(
+                                                  color: Colors.green)),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                              }
                             },
-                          );
-                        }
-                      },
-                      label: 'Send All',
-                      icon: Icons.account_balance_wallet_rounded,
-                      backgroundColor: Colors.green,
-                      textColor: Colors.white,
-                      iconColor: Colors.white,
+                            label: 'Send All',
+                            icon: Icons.account_balance_wallet_rounded,
+                            backgroundColor: Colors.green,
+                            textColor: Colors.white,
+                            iconColor: Colors.white,
+                          ),
+                      ],
                     ),
-                ],
+                  ),
+                ),
               );
             },
           ),
@@ -947,6 +1054,8 @@ class SharedWalletState extends State<SharedWallet> {
       _psbtController.clear();
       _signingAmountController.clear();
       _amountController.clear();
+
+      signersList = [];
 
       selectedPath = null; // Reset the dropdown selection
       selectedIndex = null; // Reset the selected index
@@ -1065,6 +1174,11 @@ class SharedWalletState extends State<SharedWallet> {
 
     // Start a timer to update elapsed time every second
     _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel(); // Cancella il timer se il widget è stato smontato
+        return;
+      }
+
       setState(() {
         final duration = DateTime.now().difference(_lastRefreshed);
         _elapsedTime = _formatDuration(duration);
@@ -1102,6 +1216,7 @@ class SharedWalletState extends State<SharedWallet> {
             return {'txid': tx}; // Convert to transaction format you expect
           }).toList();
           _currentHeight = _walletData!.currentHeight;
+          _timeStamp = _walletData!.timeStamp;
           _isLoading = false;
         });
       }
@@ -1111,6 +1226,8 @@ class SharedWalletState extends State<SharedWallet> {
 
       await _fetchCurrentBlockHeight();
 
+      await walletService.saveLocalData(wallet);
+
       String walletAddress = walletService.getAddress(wallet);
       setState(() {
         address = walletAddress;
@@ -1118,7 +1235,7 @@ class SharedWalletState extends State<SharedWallet> {
 
       // Fetch and set the balance of the specific address
       int ledgerBalance = wallet.getBalance().total.toInt();
-      int availableBalance = wallet.getBalance().confirmed.toInt();
+      int availableBalance = wallet.getBalance().spendable.toInt();
 
       setState(() {
         ledBalance = ledgerBalance;
@@ -1128,6 +1245,12 @@ class SharedWalletState extends State<SharedWallet> {
       // Fetch and set the transactions
       List<Map<String, dynamic>> transactions =
           await walletService.getTransactions(walletAddress);
+
+      transactions = walletService.sortTransactionsByConfirmations(
+        transactions,
+        _currentHeight,
+      );
+
       setState(() {
         _transactions = transactions;
       });
@@ -1662,19 +1785,6 @@ class SharedWalletState extends State<SharedWallet> {
     );
   }
 
-  // TODO: Try to see if you can generalize this method
-  void _sortTransactionsByConfirmations() {
-    _transactions.sort((a, b) {
-      // Extract the number of confirmations for comparison
-      final confirmationsA =
-          a['status']?['confirmations'] ?? 0; // Default to 0 if not confirmed
-      final confirmationsB = b['status']?['confirmations'] ?? 0;
-
-      // Sort by number of confirmations in descending order (highest first)
-      return confirmationsB.compareTo(confirmationsA);
-    });
-  }
-
   String _formatDuration(Duration duration) {
     if (duration.inSeconds < 60) {
       return '${duration.inSeconds} seconds';
@@ -1716,6 +1826,17 @@ class SharedWalletState extends State<SharedWallet> {
 
   @override
   Widget build(BuildContext context) {
+    // Calculate the difference
+    int balanceDifference = ledBalance - avBalance;
+    double currencyDifference = ledCurrencyBalance - avCurrencyBalance;
+
+    // Determine color and sign
+    Color balanceColor = balanceDifference > 0
+        ? Colors.green
+        : (balanceDifference < 0 ? Colors.red : Colors.grey);
+
+    String sign = balanceDifference > 0 ? "+" : "";
+
     return BaseScaffold(
       title: Text(_descriptorName),
       body: RefreshIndicator(
@@ -1791,29 +1912,23 @@ class SharedWalletState extends State<SharedWallet> {
                         // Calculate and show the difference
                         showInSatoshis
                             ? Text(
-                                '${ledBalance - avBalance} sats',
+                                '$sign$balanceDifference sats',
                                 style: TextStyle(
-                                  color: (ledBalance - avBalance) >= 0
-                                      ? Colors.green
-                                      : Colors.red,
+                                  color: balanceColor,
                                   fontWeight: FontWeight.bold,
                                 ),
-                              ) // Wrap in Text widget
+                              )
                             : Text.rich(
                                 TextSpan(
                                   text:
-                                      '${(ledCurrencyBalance - avCurrencyBalance).toStringAsFixed(2)} ',
+                                      '$sign${currencyDifference.toStringAsFixed(2)} ',
                                   style: TextStyle(
                                     decoration: TextDecoration.lineThrough,
-                                    color: (ledBalance - avBalance) >= 0
-                                        ? Colors.green
-                                        : Colors.red,
+                                    color: balanceColor,
                                     fontWeight: FontWeight.bold,
                                   ),
                                   children: [
-                                    TextSpan(
-                                      text: settingsProvider.currency,
-                                    ),
+                                    TextSpan(text: settingsProvider.currency),
                                   ],
                                 ),
                               ),
@@ -2196,8 +2311,6 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   Widget _buildTransactionsBox() {
-    _sortTransactionsByConfirmations();
-
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(
@@ -2253,8 +2366,13 @@ class SharedWalletState extends State<SharedWallet> {
       tx = tx['txid'];
     }
 
-    // Safely access vout[0] for the amount received and receiver address
+    // Extract confirmation status
+    final blockHeight = tx['status']?['block_height'];
+    final confirmations =
+        blockHeight != null ? _currentHeight - blockHeight : -1;
+    final isConfirmed = confirmations >= 0;
 
+    // Safely access vout[0] for the amount received and receiver address
     final firstVout = tx['vout'] != null && tx['vout'].isNotEmpty
         ? tx['vout'].firstWhere(
             (vout) => (vout['scriptpubkey_address'] ==
@@ -2301,6 +2419,10 @@ class SharedWalletState extends State<SharedWallet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Icon(
+                  isConfirmed ? Icons.check_circle : Icons.timelapse,
+                  color: isConfirmed ? Colors.green : Colors.orange,
+                ),
                 Text(
                   'Amount: $amount',
                   style: const TextStyle(

@@ -22,6 +22,9 @@ class WalletData extends HiveObject {
   @HiveField(5)
   int currentHeight;
 
+  @HiveField(6)
+  DateTime? timeStamp;
+
   WalletData({
     required this.address,
     required this.balance,
@@ -29,5 +32,6 @@ class WalletData extends HiveObject {
     required this.availableBalance,
     required this.transactions,
     required this.currentHeight,
+    required this.timeStamp,
   });
 }

@@ -1134,8 +1134,10 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     }
 
     // Extract only the public keys from the list of public keys with alias
-    List<String> extractedPublicKeys =
-        publicKeysWithAlias.map((entry) => entry['publicKey']!).toList();
+    List<String> extractedPublicKeys = publicKeysWithAlias
+        .map((entry) => entry['publicKey']!)
+        .toList()
+      ..sort(); // Sort alphabetically
 
     // Format the public keys for the descriptor
     String formattedKeys =
@@ -1148,6 +1150,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     _handleTimelocks();
 
     if (timelockConditions.isNotEmpty) {
+      timelockConditions.sort(
+          (a, b) => int.parse(a['older']).compareTo(int.parse(b['older'])));
       // Build timelock condition string
       List<String> formattedTimelocks = timelockConditions.map((condition) {
         String threshold = condition['threshold'];
@@ -1156,7 +1160,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
         // Extract only the publicKey values from pubkeys
         List<String> pubkeys = (condition['pubkeys'] as List)
             .map((key) => key['publicKey'] as String)
-            .toList();
+            .toList()
+          ..sort(); // Sort alphabetically
 
         // Construct multi condition for the current timelock
         String pubkeysString = pubkeys.join(',');
@@ -1174,6 +1179,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     } else {
       finalDescriptor = 'wsh($multi)';
     }
+
+    _walletService.printInChunks(finalDescriptor);
 
     setState(() {
       _finalDescriptor = finalDescriptor.replaceAll(' ', '');

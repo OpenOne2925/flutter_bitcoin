@@ -70,12 +70,14 @@ class WalletPageState extends State<WalletPage> {
     // Load wallet data and fetch the block height only once when the widget is initialized
     _loadWalletFromHive();
     _loadWalletData();
-    _fetchCurrentBlockHeight();
+    // _fetchCurrentBlockHeight();
   }
 
   @override
   void dispose() {
     _timer.cancel(); // Cancel the timer when the widget is disposed
+    _recipientController.dispose();
+    _amountController.dispose();
     super.dispose();
   }
 
@@ -142,6 +144,11 @@ class WalletPageState extends State<WalletPage> {
 
     // Start a timer to update elapsed time every second
     _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel(); // Cancella il timer se il widget è stato smontato
+        return;
+      }
+
       setState(() {
         final duration = DateTime.now().difference(_lastRefreshed);
         _elapsedTime = _formatDuration(duration);
@@ -156,15 +163,10 @@ class WalletPageState extends State<WalletPage> {
       if (connectivityResult.contains(ConnectivityResult.none)) {
         // print('Offline mode: Loading wallet data from local storage');
 
-        try {
-          final savedWallet = await walletService.loadSavedWallet(null);
-          setState(() {
-            wallet = savedWallet;
-          });
-        } catch (e) {
-          // print('No Data Found Locally');
-          throw ('No Data Found Locally');
-        }
+        final savedWallet = await walletService.loadSavedWallet(null);
+        setState(() {
+          wallet = savedWallet;
+        });
 
         var addressInfo =
             wallet.getAddress(addressIndex: const AddressIndex.peek(index: 0));
@@ -187,6 +189,7 @@ class WalletPageState extends State<WalletPage> {
               return {'txid': tx}; // Convert to transaction format you expect
             }).toList();
             _currentHeight = _walletData!.currentHeight;
+            _timeStamp = _walletData!.timeStamp;
             _isLoading = false;
           });
 
@@ -224,7 +227,8 @@ class WalletPageState extends State<WalletPage> {
         });
 
         int ledgerBalance = wallet.getBalance().total.toInt();
-        int availableBalance = wallet.getBalance().confirmed.toInt();
+        int availableBalance = wallet.getBalance().spendable.toInt();
+
         setState(() {
           ledBalance = ledgerBalance;
           avBalance = availableBalance;
@@ -233,6 +237,11 @@ class WalletPageState extends State<WalletPage> {
         // Fetch and set the transactions
         List<Map<String, dynamic>> transactions =
             await walletService.getTransactions(walletAddress);
+        transactions = walletService.sortTransactionsByConfirmations(
+          transactions,
+          _currentHeight,
+        );
+
         setState(() {
           _transactions = transactions;
         });
@@ -312,7 +321,7 @@ class WalletPageState extends State<WalletPage> {
                 onTap: () async {
                   try {
                     final int availableBalance =
-                        wallet.getBalance().confirmed.toInt();
+                        wallet.getBalance().spendable.toInt();
 
                     final String recipientAddress =
                         _recipientController.text.toString();
@@ -700,18 +709,6 @@ class WalletPageState extends State<WalletPage> {
     }
   }
 
-  void _sortTransactionsByConfirmations() {
-    _transactions.sort((a, b) {
-      // Extract the number of confirmations for comparison
-      final confirmationsA =
-          a['status']?['confirmations'] ?? 0; // Default to 0 if not confirmed
-      final confirmationsB = b['status']?['confirmations'] ?? 0;
-
-      // Sort by number of confirmations in descending order (highest first)
-      return confirmationsB.compareTo(confirmationsA);
-    });
-  }
-
   String _formatDuration(Duration duration) {
     if (duration.inSeconds < 60) {
       return '${duration.inSeconds} seconds';
@@ -737,6 +734,17 @@ class WalletPageState extends State<WalletPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Calculate the difference
+    int balanceDifference = ledBalance - avBalance;
+    double currencyDifference = ledCurrencyBalance - avCurrencyBalance;
+
+    // Determine color and sign
+    Color balanceColor = balanceDifference > 0
+        ? Colors.green
+        : (balanceDifference < 0 ? Colors.red : Colors.grey);
+
+    String sign = balanceDifference > 0 ? "+" : "";
+
     return BaseScaffold(
       title: const Text('Wallet Page'),
       body: RefreshIndicator(
@@ -812,29 +820,23 @@ class WalletPageState extends State<WalletPage> {
                         // Calculate and show the difference
                         showInSatoshis
                             ? Text(
-                                '${ledBalance - avBalance} sats',
+                                '$sign$balanceDifference sats',
                                 style: TextStyle(
-                                  color: (ledBalance - avBalance) >= 0
-                                      ? Colors.green
-                                      : Colors.red,
+                                  color: balanceColor,
                                   fontWeight: FontWeight.bold,
                                 ),
-                              ) // Wrap in Text widget
+                              )
                             : Text.rich(
                                 TextSpan(
                                   text:
-                                      '${(ledCurrencyBalance - avCurrencyBalance).toStringAsFixed(2)} ',
+                                      '$sign${currencyDifference.toStringAsFixed(2)} ',
                                   style: TextStyle(
                                     decoration: TextDecoration.lineThrough,
-                                    color: (ledBalance - avBalance) >= 0
-                                        ? Colors.green
-                                        : Colors.red,
+                                    color: balanceColor,
                                     fontWeight: FontWeight.bold,
                                   ),
                                   children: [
-                                    TextSpan(
-                                      text: settingsProvider.currency,
-                                    ),
+                                    TextSpan(text: settingsProvider.currency),
                                   ],
                                 ),
                               ),
@@ -1083,8 +1085,6 @@ class WalletPageState extends State<WalletPage> {
   }
 
   Widget _buildTransactionsBox() {
-    _sortTransactionsByConfirmations();
-
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(
@@ -1138,8 +1138,13 @@ class WalletPageState extends State<WalletPage> {
       tx = tx['txid'];
     }
 
-    // Safely access vout[0] for the amount received and receiver address
+    // Extract confirmation status
+    final blockHeight = tx['status']?['block_height'];
+    final confirmations =
+        blockHeight != null ? _currentHeight - blockHeight : -1;
+    final isConfirmed = confirmations >= 0;
 
+    // Safely access vout[0] for the amount received and receiver address
     final firstVout = tx['vout'] != null && tx['vout'].isNotEmpty
         ? tx['vout'].firstWhere(
             (vout) => (vout['scriptpubkey_address'] ==
@@ -1183,6 +1188,10 @@ class WalletPageState extends State<WalletPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Icon(
+              isConfirmed ? Icons.check_circle : Icons.timelapse,
+              color: isConfirmed ? Colors.green : Colors.orange,
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
