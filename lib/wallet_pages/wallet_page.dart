@@ -14,6 +14,8 @@ import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:hive/hive.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:showcaseview/showcaseview.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -59,6 +61,23 @@ class WalletPageState extends State<WalletPage> {
 
   late SettingsProvider settingsProvider;
 
+  bool _enableTutorial = false;
+
+  final GlobalKey _addressBoxKey = GlobalKey();
+  final GlobalKey _addressKey = GlobalKey();
+  final GlobalKey _timestampKey = GlobalKey();
+  final GlobalKey _balanceBoxKey = GlobalKey();
+  final GlobalKey _avBalanceKey = GlobalKey();
+  final GlobalKey _ledBalanceKey = GlobalKey();
+  final GlobalKey _transactionBoxKey = GlobalKey();
+  final GlobalKey _mnemonicBoxKey = GlobalKey();
+  final GlobalKey _sendTxKey = GlobalKey();
+  final GlobalKey _scanQrKey = GlobalKey();
+  final GlobalKey _receiveBitcoinKey = GlobalKey();
+  final GlobalKey _recipientFieldKey = GlobalKey();
+  final GlobalKey _amountFieldKey = GlobalKey();
+  final GlobalKey _sendAllKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +89,7 @@ class WalletPageState extends State<WalletPage> {
     // Load wallet data and fetch the block height only once when the widget is initialized
     _loadWalletFromHive();
     _loadWalletData();
+    _checkAndStartTutorial();
     // _fetchCurrentBlockHeight();
   }
 
@@ -105,6 +125,35 @@ class WalletPageState extends State<WalletPage> {
 
       _isInitialized = true; // Set the flag to true to prevent re-running
     }
+  }
+
+  Future<void> _checkAndStartTutorial() async {
+    var settingsBox = Hive.box('settingsBox');
+
+    _enableTutorial = settingsBox.get('enableTutorial') ?? false;
+
+    if (_enableTutorial) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _startInitialShowcase();
+      });
+    }
+  }
+
+  // Function to start showcase tutorial with optional callback
+  void _startInitialShowcase() {
+    ShowCaseWidget.of(context).startShowCase([
+      _addressBoxKey,
+      _addressKey,
+      _timestampKey,
+      _balanceBoxKey,
+      _avBalanceKey,
+      _ledBalanceKey,
+      _transactionBoxKey,
+      _mnemonicBoxKey,
+      _sendTxKey,
+      _scanQrKey,
+      _receiveBitcoinKey,
+    ]);
   }
 
   Future<void> _fetchCurrentBlockHeight() async {
@@ -226,12 +275,15 @@ class WalletPageState extends State<WalletPage> {
           address = walletAddress;
         });
 
-        int ledgerBalance = wallet.getBalance().total.toInt();
-        int availableBalance = wallet.getBalance().spendable.toInt();
+        Map<String, int> balance =
+            await walletService.getBitcoinBalance(address);
+
+        // print("Confirmed Balance: ${balance['confirmedBalance']} sats");
+        // print("Pending Balance: ${balance['pendingBalance']} sats");
 
         setState(() {
-          ledBalance = ledgerBalance;
-          avBalance = availableBalance;
+          avBalance = balance['confirmedBalance']!;
+          ledBalance = balance['pendingBalance']!;
         });
 
         // Fetch and set the transactions
@@ -267,138 +319,202 @@ class WalletPageState extends State<WalletPage> {
 
     if (!mounted) return;
 
+    if (_enableTutorial) {
+      ShowCaseWidget.of(context).startShowCase([
+        _recipientFieldKey,
+        _amountFieldKey,
+        _sendAllKey,
+      ]);
+    }
+
+    final rootContext = context;
+
     showDialog(
-      context: context,
+      context: rootContext,
       builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.grey[900], // Dark background color for dialog
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.0), // Rounded corners
-          ),
-          title: const Text(
-            'Sending Menu',
-            style: TextStyle(color: Colors.white), // Custom title text color
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // TextField for Recipient Address
-              TextFormField(
-                controller: _recipientController, // Use the controller here
-                decoration: CustomTextFieldStyles.textFieldDecoration(
-                  context: context,
-                  labelText: 'Recipient Address',
-                  hintText: 'Enter Recipient\'s Address',
-                ),
-                style: TextStyle(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface, // Dynamic text color
-                ),
-              ),
-              const SizedBox(height: 16), // Add spacing between fields
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return StatefulBuilder(
+              builder: (context, setDialogState) {
+                String? errorMessage;
 
-              // TextField for Amount
-              TextFormField(
-                controller: _amountController, // Use the controller here
-                decoration: CustomTextFieldStyles.textFieldDecoration(
-                  context: context,
-                  labelText: 'Amount',
-                  hintText: 'Enter Amount (Sats)',
-                ),
-                style: TextStyle(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface, // Dynamic text color
-                ),
-                keyboardType: TextInputType.number, // Numeric input
-              ),
-
-              const SizedBox(height: 16),
-
-              // "Send All" Button
-              InkwellButton(
-                onTap: () async {
-                  try {
-                    final int availableBalance =
-                        wallet.getBalance().spendable.toInt();
-
-                    final String recipientAddress =
-                        _recipientController.text.toString();
-
-                    final int sendAllBalance =
-                        await walletService.calculateSendAllBalance(
-                      recipientAddress: recipientAddress,
-                      wallet: wallet,
-                      availableBalance: availableBalance,
-                      walletService: walletService,
-                    );
-
-                    _amountController.text = sendAllBalance.toString();
-                    print('Final Send All Balance: $sendAllBalance');
-                  } catch (e) {
-                    print('Error: $e');
-                    _amountController.text = 'No balance Available';
-                  }
-                },
-                label: 'Send All',
-                icon: Icons.account_balance_wallet_rounded,
-                backgroundColor: Colors.green,
-                textColor: Colors.white,
-                iconColor: Colors.white,
-              ),
-            ],
-          ),
-          actions: [
-            InkwellButton(
-              onTap: () {
-                Navigator.of(context).pop(); // Close dialog
-              },
-              label: 'Cancel',
-              backgroundColor: Colors.white,
-              textColor: Colors.black,
-            ),
-            InkwellButton(
-              onTap: () async {
-                try {
-                  final String recipientAddressStr = _recipientController.text;
-                  final int amount = int.parse(_amountController.text);
-                  final String changeAddressStr = address;
-
-                  await walletService.sendTx(
-                    recipientAddressStr,
-                    BigInt.from(amount),
-                    wallet,
-                    changeAddressStr,
-                  );
-
-                  // Show a success message
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Transaction created successfully.'),
-                      backgroundColor: Colors.green,
+                return AlertDialog(
+                  backgroundColor: Colors.grey[900], // Dark background
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.0),
+                  ),
+                  title: const Text(
+                    'Sending Menu',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  content: Container(
+                    width: constraints.maxWidth * 0.9, // Set width dynamically
+                    constraints: BoxConstraints(
+                      maxHeight: constraints.maxHeight * 0.6, // Limit height
                     ),
-                  );
-                } catch (e) {
-                  // Show error message in a snackbar
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        e.toString(),
-                        style: TextStyle(color: Colors.white),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize:
+                            MainAxisSize.min, // Prevents infinite height
+                        children: [
+                          // TextField for Recipient Address
+                          Showcase(
+                            key: _recipientFieldKey,
+                            description:
+                                'Tap here to create and broadcast a transaction.',
+                            child: TextFormField(
+                              controller: _recipientController,
+                              decoration:
+                                  CustomTextFieldStyles.textFieldDecoration(
+                                context: context,
+                                labelText: 'Recipient Address',
+                                hintText: 'Enter Recipient\'s Address',
+                              ),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                          if (errorMessage != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                errorMessage,
+                                style: const TextStyle(
+                                    color: Colors.red, fontSize: 14),
+                              ),
+                            ),
+
+                          const SizedBox(height: 16),
+
+                          // TextField for Amount
+                          Showcase(
+                            key: _amountFieldKey,
+                            description:
+                                'Tap here to create and broadcast a transaction.',
+                            child: TextFormField(
+                              controller: _amountController,
+                              decoration:
+                                  CustomTextFieldStyles.textFieldDecoration(
+                                context: context,
+                                labelText: 'Amount',
+                                hintText: 'Enter Amount (Sats)',
+                              ),
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // "Use Available Balance" Button
+                          Showcase(
+                            key: _sendAllKey,
+                            description:
+                                'This will use your available spendable balance, remember to first enter an address so the size of the transaction can be calculated correctly.',
+                            child: InkwellButton(
+                              onTap: () async {
+                                try {
+                                  final int availableBalance =
+                                      wallet.getBalance().spendable.toInt();
+
+                                  final String recipientAddress =
+                                      _recipientController.text.toString();
+
+                                  final int sendAllBalance = await walletService
+                                      .calculateSendAllBalance(
+                                    recipientAddress: recipientAddress,
+                                    wallet: wallet,
+                                    availableBalance: availableBalance,
+                                    walletService: walletService,
+                                  );
+
+                                  _amountController.text =
+                                      sendAllBalance.toString();
+                                  print(
+                                      'Final Send All Balance: $sendAllBalance');
+                                } catch (e) {
+                                  print('Error: $e');
+                                  _amountController.text =
+                                      'No balance Available';
+                                }
+                              },
+                              label: 'Use Available Balance',
+                              icon: Icons.account_balance_wallet_rounded,
+                              backgroundColor: Colors.blue,
+                              textColor: Colors.white,
+                              iconColor: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
-                      backgroundColor: Colors.red,
                     ),
-                  );
-                }
+                  ),
+                  actions: [
+                    InkwellButton(
+                      onTap: () {
+                        Navigator.of(context).pop(); // Close dialog
+                      },
+                      label: 'Cancel',
+                      backgroundColor: Colors.white,
+                      textColor: Colors.black,
+                    ),
+                    InkwellButton(
+                      onTap: () async {
+                        try {
+                          final String recipientAddressStr =
+                              _recipientController.text;
 
-                Navigator.of(context).pop();
+                          if (recipientAddressStr.isEmpty) {
+                            setState(() {
+                              errorMessage = 'Recipient address is required!';
+                            });
+                            return;
+                          }
+
+                          final int amount = int.parse(_amountController.text);
+                          final String changeAddressStr = address;
+
+                          await walletService.sendTx(
+                            recipientAddressStr,
+                            BigInt.from(amount),
+                            wallet,
+                            changeAddressStr,
+                          );
+
+                          // Show a success message
+                          ScaffoldMessenger.of(rootContext).showSnackBar(
+                            SnackBar(
+                              content:
+                                  Text('Transaction created successfully.'),
+                              backgroundColor: Colors.blue,
+                            ),
+                          );
+                        } catch (e) {
+                          // Show error message in a snackbar
+                          ScaffoldMessenger.of(rootContext).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                e.toString(),
+                                style: TextStyle(color: Colors.white),
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+
+                        Navigator.of(context).pop();
+                      },
+                      label: 'Send',
+                      backgroundColor: Colors.blue,
+                      textColor: Colors.white,
+                    ),
+                  ],
+                );
               },
-              label: 'Submit',
-              backgroundColor: Colors.green,
-              textColor: Colors.white,
-            ),
-          ],
+            );
+          },
         );
       },
     ).then((_) {
@@ -408,9 +524,9 @@ class WalletPageState extends State<WalletPage> {
   }
 
   // Method to display the QR code in a dialog
-  void _showQRCodeDialog(String address) {
+  void _showQRCodeDialog(BuildContext rootContext, String address) {
     showDialog(
-      context: context,
+      context: rootContext,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: Colors.grey[900], // Dark background for the dialog
@@ -423,7 +539,7 @@ class WalletPageState extends State<WalletPage> {
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green, // Highlighted title color
+              color: Colors.blue, // Highlighted title color
             ),
           ),
           content: ConstrainedBox(
@@ -478,11 +594,11 @@ class WalletPageState extends State<WalletPage> {
                     IconButton(
                       icon: const Icon(
                         Icons.copy,
-                        color: Colors.green, // Highlighted icon color
+                        color: Colors.blue, // Highlighted icon color
                       ),
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: address));
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        ScaffoldMessenger.of(rootContext).showSnackBar(
                           SnackBar(
                             content: const Text('Address copied to clipboard!'),
                             backgroundColor: Colors.white,
@@ -512,12 +628,12 @@ class WalletPageState extends State<WalletPage> {
   }
 
   // Function to show a PIN input dialog
-  void _showPinDialog(BuildContext context) {
+  void _showPinDialog(BuildContext rootContext) {
     TextEditingController pinController =
         TextEditingController(); // Controller for the PIN input
 
     showDialog(
-      context: context,
+      context: rootContext,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: Colors.grey[900], // Dark background for the dialog
@@ -530,7 +646,7 @@ class WalletPageState extends State<WalletPage> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green,
+              color: Colors.blue,
             ),
           ),
           content: Column(
@@ -550,12 +666,12 @@ class WalletPageState extends State<WalletPage> {
                 keyboardType: TextInputType.number, // Numeric input
                 obscureText: true, // Obscure input for security
                 decoration: CustomTextFieldStyles.textFieldDecoration(
-                  context: context,
+                  context: rootContext,
                   labelText: 'Enter PIN',
                   hintText: 'Enter PIN',
                 ),
                 style: TextStyle(
-                  color: Theme.of(context)
+                  color: Theme.of(rootContext)
                       .colorScheme
                       .onSurface, // Dynamic text color
                 ),
@@ -577,10 +693,11 @@ class WalletPageState extends State<WalletPage> {
               onTap: () {
                 String pin = pinController.text;
                 if (pin.length == 6) {
-                  verifyPin(pinController); // Call the verification function
+                  verifyPin(rootContext,
+                      pinController); // Call the verification function
                 } else {
                   // Show an error if the PIN is invalid
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(rootContext).showSnackBar(
                     const SnackBar(
                       content: Text(
                         'Invalid PIN',
@@ -592,7 +709,7 @@ class WalletPageState extends State<WalletPage> {
                 }
               },
               label: 'Confirm',
-              backgroundColor: Colors.green,
+              backgroundColor: Colors.blue,
               textColor: Colors.white,
               icon: Icons.check_rounded,
               iconColor: Colors.white,
@@ -603,107 +720,121 @@ class WalletPageState extends State<WalletPage> {
     );
   }
 
-  void verifyPin(TextEditingController pinController) async {
+  void verifyPin(
+      BuildContext rootContext, TextEditingController pinController) async {
     var walletBox = Hive.box('walletBox');
     String? savedPin = walletBox.get('userPin');
 
     String savedMnemonic = walletBox.get('walletMnemonic');
 
     if (savedPin == pinController.text) {
-      Navigator.of(context).pop(); // Close the PIN dialog
+      // Navigator.of(context).pop(); // Close the PIN dialog
 
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            backgroundColor: Colors.grey[900], // Dark background for the dialog
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20.0), // Rounded corners
-            ),
-            title: const Text(
-              'Your Mnemonic',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.green, // Highlighted title color
-              ),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Text(
-                  'Here is your saved mnemonic:',
+      Future.delayed(
+        Duration(milliseconds: 200),
+        () {
+          showDialog(
+            context: rootContext,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                backgroundColor:
+                    Colors.grey[900], // Dark background for the dialog
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20.0), // Rounded corners
+                ),
+                title: const Text(
+                  'Your Mnemonic',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white70, // Softer text color
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue, // Highlighted title color
                   ),
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12.0),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[800],
-                    borderRadius: BorderRadius.circular(8.0), // Rounded edges
-                    border: Border.all(
-                      color: Colors.green, // Border color for emphasis
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Here is your saved mnemonic:',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white70, // Softer text color
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: SelectableText(
-                          savedMnemonic,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.white70, // Softer text color
-                          ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12.0),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[800],
+                        borderRadius:
+                            BorderRadius.circular(8.0), // Rounded edges
+                        border: Border.all(
+                          color: Colors.blue, // Border color for emphasis
                         ),
                       ),
-                      const SizedBox(width: 8), // Space between text and icon
-                      IconButton(
-                        icon: const Icon(
-                          Icons.copy,
-                          color: Colors.green, // Highlighted icon color
-                        ),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: savedMnemonic));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content:
-                                  const Text('Mnemonic copied to clipboard!'),
-                              backgroundColor: Colors.white,
-                              duration: const Duration(seconds: 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: SelectableText(
+                              savedMnemonic,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.white70, // Softer text color
+                              ),
                             ),
-                          );
-                        },
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.copy,
+                              color: Colors.blue, // Highlighted icon color
+                            ),
+                            onPressed: () {
+                              Clipboard.setData(
+                                  ClipboardData(text: savedMnemonic));
+                              // Close the dialog first
+                              Navigator.of(context).pop();
+
+                              // Show the SnackBar AFTER the dialog is fully closed
+                              ScaffoldMessenger.of(rootContext).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('Mnemonic copied to clipboard!'),
+                                  backgroundColor: Colors.white,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            actions: [
-              InkwellButton(
-                onTap: () {
-                  Navigator.of(context)
-                      .pop(); // Close the dialog without action
-                },
-                label: 'Close',
-                backgroundColor: Colors.green,
-                textColor: Colors.white,
-                icon: Icons.close,
-              ),
-            ],
+                actions: [
+                  InkwellButton(
+                    onTap: () {
+                      Navigator.of(context).pop();
+                    },
+                    label: 'Close',
+                    backgroundColor: Colors.blue,
+                    textColor: Colors.white,
+                    icon: Icons.close,
+                  ),
+                ],
+              );
+            },
           );
         },
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(rootContext).showSnackBar(
         const SnackBar(content: Text('Incorrect PIN')),
       );
     }
@@ -734,16 +865,10 @@ class WalletPageState extends State<WalletPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate the difference
-    int balanceDifference = ledBalance - avBalance;
-    double currencyDifference = ledCurrencyBalance - avCurrencyBalance;
-
     // Determine color and sign
-    Color balanceColor = balanceDifference > 0
-        ? Colors.green
-        : (balanceDifference < 0 ? Colors.red : Colors.grey);
-
-    String sign = balanceDifference > 0 ? "+" : "";
+    Color balanceColor = ledBalance > 0
+        ? Colors.blue
+        : (ledBalance < 0 ? Colors.red : Colors.grey);
 
     return BaseScaffold(
       title: const Text('Wallet Page'),
@@ -757,96 +882,128 @@ class WalletPageState extends State<WalletPage> {
               child: ListView(
                 padding: const EdgeInsets.all(8.0),
                 children: [
-                  _buildInfoBox(
-                    'Address',
-                    Text(
-                      address,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.black,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'We are currently at Block Height: $_currentHeight\n'
-                          'Timestamp: $_timeStamp',
+                  Showcase(
+                    key: _addressBoxKey,
+                    description: 'This is your address box.',
+                    child: _buildInfoBox(
+                      'Address',
+                      Showcase(
+                        key: _addressKey,
+                        description: 'This is your address.',
+                        child: Text(
+                          address,
                           style: const TextStyle(
                             fontSize: 16,
                             color: Colors.black,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Showcase(
+                            key: _timestampKey,
+                            description:
+                                'This is the current date and block height.',
+                            child: Text(
+                              'We are currently at Block Height: $_currentHeight\n'
+                              'Timestamp: $_timeStamp',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      () {
+                        // Handle tap action here
+                      },
+                      showCopyButton: true,
+                      subtitle: (DateTime.now()
+                                  .difference(_lastRefreshed)
+                                  .inHours >=
+                              2)
+                          ? '$_elapsedTime have passed! \nIt\'s time to refresh!'
+                          : null,
                     ),
-                    () {
-                      // Handle tap action here
-                    },
-                    showCopyButton: true,
-                    subtitle: (DateTime.now()
-                                .difference(_lastRefreshed)
-                                .inHours >=
-                            2)
-                        ? '$_elapsedTime have passed! \nIt\'s time to refresh!'
-                        : null,
                   ),
-
-                  _buildWidgetInfoBox(
-                    'Balance',
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Show the primary available balance
-                        showInSatoshis
-                            ? Text('$avBalance sats') // Wrap in Text widget
-                            : Text.rich(
-                                TextSpan(
-                                  text:
-                                      '${avCurrencyBalance.toStringAsFixed(2)} ',
-                                  style: const TextStyle(
-                                    decoration: TextDecoration.lineThrough,
-                                  ),
-                                  children: [
-                                    TextSpan(
-                                      text: settingsProvider.currency,
+                  Showcase(
+                    key: _balanceBoxKey,
+                    description: 'This is your balance box.',
+                    child: _buildWidgetInfoBox(
+                      'Balance',
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Show the primary available balance
+                          showInSatoshis
+                              ? Showcase(
+                                  key: _avBalanceKey,
+                                  description:
+                                      'This is your available balance. Tap to show currency value',
+                                  child: Text('$avBalance sats'),
+                                )
+                              : Text.rich(
+                                  TextSpan(
+                                    text:
+                                        '${avCurrencyBalance.toStringAsFixed(2)} ',
+                                    style: const TextStyle(
+                                      decoration: TextDecoration.lineThrough,
                                     ),
-                                  ],
-                                ),
-                              ),
-
-                        const SizedBox(height: 8), // Add spacing
-
-                        // Calculate and show the difference
-                        showInSatoshis
-                            ? Text(
-                                '$sign$balanceDifference sats',
-                                style: TextStyle(
-                                  color: balanceColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            : Text.rich(
-                                TextSpan(
-                                  text:
-                                      '$sign${currencyDifference.toStringAsFixed(2)} ',
-                                  style: TextStyle(
-                                    decoration: TextDecoration.lineThrough,
-                                    color: balanceColor,
-                                    fontWeight: FontWeight.bold,
+                                    children: [
+                                      TextSpan(
+                                        text: settingsProvider.currency,
+                                      ),
+                                    ],
                                   ),
-                                  children: [
-                                    TextSpan(text: settingsProvider.currency),
-                                  ],
                                 ),
-                              ),
-                      ],
+
+                          const SizedBox(height: 8), // Add spacing
+
+                          // Calculate and show the difference
+                          showInSatoshis
+                              ? Showcase(
+                                  key: _ledBalanceKey,
+                                  description:
+                                      'This is your ledger balance. Here will be displayed how much non confirmed balance you have.',
+                                  child: Text(
+                                    '$ledBalance sats',
+                                    style: TextStyle(
+                                      color: balanceColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                              : Text.rich(
+                                  TextSpan(
+                                    text:
+                                        '${ledCurrencyBalance.toStringAsFixed(2)} ',
+                                    style: TextStyle(
+                                      decoration: TextDecoration.lineThrough,
+                                      color: balanceColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    children: [
+                                      TextSpan(text: settingsProvider.currency),
+                                    ],
+                                  ),
+                                ),
+                        ],
+                      ),
+                      () {
+                        _convertCurrency();
+                      },
                     ),
-                    () {
-                      _convertCurrency();
-                    },
                   ),
-                  _buildTransactionsBox(), // Transactions box should scroll along with the rest
+                  Showcase(
+                    key: _transactionBoxKey,
+                    description:
+                        'This is your transactions box. Here will be displayed all your Bitcoin transactions, tap on each one for more info.',
+                    child:
+                        _buildTransactionsBox(), // Transactions box should scroll along with the rest
+                  ),
                 ],
               ),
             ),
@@ -856,62 +1013,84 @@ class WalletPageState extends State<WalletPage> {
                 padding: const EdgeInsets.all(8.0),
                 child: Column(
                   children: [
-                    CustomButton(
-                      onPressed: () {
-                        _showPinDialog(context);
-                      },
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.green,
-                      icon: Icons.remove_red_eye, // Icon for the new button
-                      iconColor: Colors.black,
-                      label: 'Mnemonic',
+                    Showcase(
+                      key: _mnemonicBoxKey,
+                      description:
+                          'This is where your mnemonic is stored, remember your PIN? Use it to access it.',
+                      child: CustomButton(
+                        onPressed: () {
+                          _showPinDialog(context);
+                        },
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.blue,
+                        icon: Icons.remove_red_eye, // Icon for the new button
+                        iconColor: Colors.black,
+                        label: 'Mnemonic',
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         // Send Button
-                        CustomButton(
-                          onPressed: () {
-                            _sendTx(); // Call your send transaction function
-                          },
-                          backgroundColor: Colors.white, // White background
-                          foregroundColor:
-                              Colors.green, // Bitcoin green color for text
-                          icon: Icons.arrow_upward, // Icon you want to use
-                          iconColor: Colors.green, // Color for the icon
+                        Showcase(
+                          key: _sendTxKey,
+                          description:
+                              'Tap here to create and broadcast a transaction.',
+                          child: CustomButton(
+                            onPressed: () {
+                              _sendTx(); // Call your send transaction function
+                            },
+                            backgroundColor: Colors.white, // White background
+                            foregroundColor:
+                                Colors.blue, // Bitcoin green color for text
+                            icon: Icons.arrow_upward, // Icon you want to use
+                            iconColor: Colors.blue, // Color for the icon
+                          ),
                         ),
                         const SizedBox(width: 8),
                         // Scan to Send Button
-                        CustomButton(
-                          onPressed: () async {
-                            final recipientAddressStr = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const QRScannerPage()),
-                            );
-                            if (recipientAddressStr != null) {
-                              _sendTx(recipientAddressQr: recipientAddressStr);
-                            }
-                          },
-                          backgroundColor: Colors.white, // White background
-                          foregroundColor:
-                              Colors.green, // Bitcoin green color for text
-                          icon: Icons.qr_code, // Icon you want to use
-                          iconColor: Colors.black, // Color for the icon
+                        Showcase(
+                          key: _scanQrKey,
+                          description:
+                              'Tap here to scan a Bitcoin QrCode and send a transaction.',
+                          child: CustomButton(
+                            onPressed: () async {
+                              final recipientAddressStr = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        const QRScannerPage()),
+                              );
+                              if (recipientAddressStr != null) {
+                                _sendTx(
+                                    recipientAddressQr: recipientAddressStr);
+                              }
+                            },
+                            backgroundColor: Colors.white, // White background
+                            foregroundColor:
+                                Colors.blue, // Bitcoin green color for text
+                            icon: Icons.qr_code, // Icon you want to use
+                            iconColor: Colors.black, // Color for the icon
+                          ),
                         ),
                         const SizedBox(width: 8),
                         // Receive Bitcoin Button
-                        CustomButton(
-                          onPressed: () {
-                            // Show the QR code for receiving
-                            _showQRCodeDialog(address);
-                          },
-                          backgroundColor: Colors.white, // White background
-                          foregroundColor:
-                              Colors.green, // Bitcoin green color for text
-                          icon: Icons.arrow_downward, // Icon you want to use
-                          iconColor: Colors.green, // Color for the icon
+                        Showcase(
+                          key: _receiveBitcoinKey,
+                          description:
+                              'Tap here to visualize your address and generated QrCode.',
+                          child: CustomButton(
+                            onPressed: () {
+                              // Show the QR code for receiving
+                              _showQRCodeDialog(context, address);
+                            },
+                            backgroundColor: Colors.white, // White background
+                            foregroundColor:
+                                Colors.blue, // Bitcoin green color for text
+                            icon: Icons.arrow_downward, // Icon you want to use
+                            iconColor: Colors.blue, // Color for the icon
+                          ),
                         ),
                       ],
                     ),
@@ -949,7 +1128,7 @@ class WalletPageState extends State<WalletPage> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.green,
+                  color: Colors.blue,
                 ),
               ),
               const SizedBox(height: 8),
@@ -963,13 +1142,13 @@ class WalletPageState extends State<WalletPage> {
                   ),
                   if (showCopyButton) // Display copy button if true
                     IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.green),
+                      icon: const Icon(Icons.copy, color: Colors.blue),
                       tooltip: 'Copy to clipboard',
                       onPressed: () {
-                        // Assuming section1 is Text, extract the text for copying
-                        if (section1 is Text) {
-                          Clipboard.setData(
-                              ClipboardData(text: (section1).data ?? ''));
+                        // Extract text from section1 if it's a Showcase containing a Text widget
+                        if (section1 is Showcase && (section1.child is Text)) {
+                          Clipboard.setData(ClipboardData(
+                              text: (section1.child as Text).data ?? ''));
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text("Copied to clipboard"),
@@ -1033,7 +1212,7 @@ class WalletPageState extends State<WalletPage> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.green,
+                  color: Colors.blue,
                 ),
               ),
               const SizedBox(height: 8),
@@ -1052,7 +1231,7 @@ class WalletPageState extends State<WalletPage> {
                   ),
                   if (showCopyButton)
                     IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.green),
+                      icon: const Icon(Icons.copy, color: Colors.blue),
                       tooltip: 'Copy to clipboard',
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: data.toString()));
@@ -1097,12 +1276,12 @@ class WalletPageState extends State<WalletPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Transactions',
+            Text(
+              '${_transactions.length} Transactions',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.green, // Match button text color
+                color: Colors.blue, // Match button text color
               ),
             ),
             const SizedBox(height: 8),
@@ -1115,13 +1294,20 @@ class WalletPageState extends State<WalletPage> {
                         child: ListView.builder(
                           itemCount: _transactions.length,
                           itemBuilder: (context, index) {
-                            return GestureDetector(
-                              onTap: () {
-                                _showTransactionsDialog(
-                                    context, _transactions[index]);
-                              },
-                              child:
-                                  _buildTransactionItem(_transactions[index]),
+                            final tx = _transactions[index];
+
+                            return KeyedSubtree(
+                              key: ValueKey(tx['txid']),
+                              child: GestureDetector(
+                                onTap: () {
+                                  _showTransactionsDialog(
+                                    context,
+                                    _transactions[index],
+                                  );
+                                },
+                                child:
+                                    _buildTransactionItem(_transactions[index]),
+                              ),
                             );
                           },
                         ),
@@ -1133,86 +1319,164 @@ class WalletPageState extends State<WalletPage> {
   }
 
   Widget _buildTransactionItem(Map<String, dynamic> tx) {
-    // Unwrap the transaction if it is wrapped inside an extra 'txid' key
-    if (tx.containsKey('txid') && tx['txid'] is Map) {
-      tx = tx['txid'];
-    }
-
     // Extract confirmation status
     final blockHeight = tx['status']?['block_height'];
     final confirmations =
         blockHeight != null ? _currentHeight - blockHeight : -1;
     final isConfirmed = confirmations >= 0;
 
-    // Safely access vout[0] for the amount received and receiver address
-    final firstVout = tx['vout'] != null && tx['vout'].isNotEmpty
-        ? tx['vout'].firstWhere(
-            (vout) => (vout['scriptpubkey_address'] ==
-                address), // Check if the address matches
-            orElse: () => null,
-          )
-        : null;
-
-    final receiver =
-        firstVout != null && firstVout['scriptpubkey_address'] != null
-            ? firstVout['scriptpubkey_address'] ?? 'Unknown Receiver'
-            : 'Unknown Receiver';
-
+    // Transaction fee
     final fee = tx['fee'] ?? 0;
 
-    final isReceived = tx['vout'] != null &&
-        tx['vout'].any((vout) => vout['scriptpubkey_address'] == address);
+    // Extract all input addresses (senders) and their total input value
+    final inputAddresses = tx['vin']
+            ?.map((vin) => vin['prevout']?['scriptpubkey_address'] as String?)
+            ?.where((addr) => addr != null)
+            ?.toSet() ??
+        {};
 
-    final amount = isReceived
-        ? tx['vout']
-            .where((vout) => vout['scriptpubkey_address'] == address)
-            .fold<int>(
-              0,
-              (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
-            )
-        : tx['vin'].fold<int>(
-              0,
-              (int sum, dynamic vin) =>
-                  sum + ((vin['prevout']?['value'] as int?) ?? 0),
-            ) -
-            fee;
+    final totalInput = tx['vin']?.fold<int>(
+          0,
+          (int sum, dynamic vin) =>
+              sum + ((vin['prevout']?['value'] as int?) ?? 0),
+        ) ??
+        0;
+
+    // Extract all output addresses (receivers) and their total output value
+    final outputAddresses = tx['vout']
+            ?.map((vout) => vout['scriptpubkey_address'] as String?)
+            ?.where((addr) => addr != null)
+            ?.toSet() ??
+        {};
+
+    final totalOutput = tx['vout']?.fold<int>(
+          0,
+          (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+        ) ??
+        0;
+
+    // Check if transaction is sent, received, or internal
+    final isSent = inputAddresses.contains(address); // Sent transaction
+    final isReceived =
+        outputAddresses.contains(address); // Received transaction
+    final isInternal = inputAddresses.length == 1 &&
+        inputAddresses.contains(address) &&
+        outputAddresses.length == 1 &&
+        outputAddresses.contains(address); // Internal transaction
+
+    // Determine the amount sent/received
+    int amount = 0;
+
+    if (isInternal) {
+      amount = totalOutput; // Full amount in an internal transaction
+    } else if (isSent) {
+      amount = tx['vout']
+              ?.where((vout) =>
+                  vout['scriptpubkey_address'] !=
+                  address) // Exclude own address
+              ?.fold<int>(
+                0,
+                (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+              ) ??
+          0;
+    } else if (isReceived) {
+      amount = tx['vout']
+              ?.where((vout) =>
+                  vout['scriptpubkey_address'] ==
+                  address) // Include only own address
+              ?.fold<int>(
+                0,
+                (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+              ) ??
+          0;
+    }
+
+    // Extract specific sender/recipient address
+    String? counterpartyAddress;
+
+    if (isSent) {
+      counterpartyAddress = outputAddresses
+          .where((addr) => addr != address) // Exclude own address
+          .join(', ');
+    } else if (isReceived) {
+      // If multiple input addresses exist, the sender is likely the one contributing the most BTC.
+      if (inputAddresses.isNotEmpty) {
+        counterpartyAddress =
+            inputAddresses.first; // Default to the first sender
+
+        // Find the input with the highest value (likely the fee payer)
+        int highestInputValue = 0;
+        String? feePayerAddress;
+
+        for (var vin in tx['vin']) {
+          String? inputAddr = vin['prevout']?['scriptpubkey_address'];
+          int inputValue = vin['prevout']?['value'] ?? 0;
+
+          if (inputAddr != null && inputValue > highestInputValue) {
+            highestInputValue = inputValue;
+            feePayerAddress = inputAddr;
+          }
+        }
+
+        // Use the highest input as the sender if found
+        if (feePayerAddress != null) {
+          counterpartyAddress = feePayerAddress;
+        }
+      }
+    }
 
     return Card(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0), // Rounded corners
+        borderRadius: BorderRadius.circular(8.0),
       ),
-      elevation: 2, // Light shadow for transaction items
-      color: Colors.white, // Match button background
+      elevation: 2,
+      color: isInternal
+          ? Colors.orange
+          : Colors.white, // Change color for internal tx
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              isConfirmed ? Icons.check_circle : Icons.timelapse,
-              color: isConfirmed ? Colors.green : Colors.orange,
-            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Icon(
+                  isConfirmed ? Icons.check_circle : Icons.timelapse,
+                  color: isConfirmed ? Colors.blue : Colors.orange,
+                ),
                 Text(
-                  'Amount: $amount',
+                  isInternal
+                      ? "Internal \n$amount satoshis transferred"
+                      : '${isSent ? "Sent" : "Received"}: $amount satoshis',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black, // Match text color
+                    color: Colors.black,
                   ),
                 ),
-                const Icon(Icons.chevron_right,
-                    color: Colors.green), // Arrow icon color
+                const Icon(Icons.chevron_right, color: Colors.blue),
               ],
             ),
             const SizedBox(height: 4),
-            Text(
-              'Receiver: $receiver',
-              style: const TextStyle(
-                  fontSize: 14, color: Colors.grey), // Grey for secondary text
-            ),
+            if (!isInternal)
+              Text(
+                isSent
+                    ? "To: $counterpartyAddress"
+                    : "From: $counterpartyAddress",
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black,
+                ),
+              ),
+            const SizedBox(height: 4),
+            if (isSent || isInternal)
+              Text(
+                isInternal
+                    ? '$fee satoshis spent in fees'
+                    : 'Fee: $fee satoshis',
+                style: const TextStyle(fontSize: 14, color: Colors.black),
+              ),
           ],
         ),
       ),
@@ -1220,56 +1484,85 @@ class WalletPageState extends State<WalletPage> {
   }
 
   void _showTransactionsDialog(
-    BuildContext context,
+    BuildContext rootContext,
     Map<String, dynamic> transaction,
   ) {
-    // Extract transaction details
-    final fee = transaction['fee'] ?? 0;
+    final txid = transaction['txid'];
 
-    final sender = (transaction['vin'] != null && transaction['vin'].isNotEmpty)
-        ? (transaction['vin'][0]['prevout']?['scriptpubkey_address'] ??
-            'Unknown Sender')
-        : 'Unknown Sender';
-
-    final receiver =
-        transaction['vout'] != null && transaction['vout'].isNotEmpty
-            ? (transaction['vout'].firstWhere(
-                  (vout) => vout['scriptpubkey_address'] == address,
-                  orElse: () => null,
-                )?['scriptpubkey_address'] ??
-                'Unknown Receiver')
-            : 'Unknown Receiver';
-
-    final isReceived = transaction['vout'] != null &&
-        transaction['vout']
-            .any((vout) => vout['scriptpubkey_address'] == address);
-
-    final amount = isReceived
-        ? transaction['vout']
-            .where((vout) => vout['scriptpubkey_address'] == address)
-            .fold<int>(
-              0,
-              (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
-            )
-        : transaction['vin'].fold<int>(
-              0,
-              (int sum, dynamic vin) =>
-                  sum + ((vin['prevout']?['value'] as int?) ?? 0),
-            ) -
-            fee;
-
-    final isConfirmed = transaction['status']?['confirmed'] ?? false;
-    final blockHeight =
-        isConfirmed ? transaction['status']['block_height'] : 'Unconfirmed';
+    // Extract confirmation details
+    final blockHeight = transaction['status']?['block_height'];
+    final isConfirmed = blockHeight != null;
+    final confirmations = isConfirmed ? _currentHeight - blockHeight : -1;
     final blockTime = isConfirmed
         ? DateTime.fromMillisecondsSinceEpoch(
             (transaction['status']['block_time'] ?? 0) * 1000,
           ).toLocal()
         : 'Unconfirmed';
 
+    // Extract transaction fee
+    final fee = transaction['fee'] ?? 0;
+
+    // Extract all input addresses (senders)
+    final Set<String> inputAddresses = (transaction['vin'] as List<dynamic>)
+        .map((vin) => vin['prevout']['scriptpubkey_address'] as String)
+        .toSet();
+
+    final int totalInput = transaction['vin']?.fold<int>(
+          0,
+          (int sum, dynamic vin) =>
+              sum + ((vin['prevout']?['value'] as int?) ?? 0),
+        ) ??
+        0;
+
+    // Extract all ouput addresses (receivers
+    final Set<String> outputAddresses = (transaction['vout'] as List<dynamic>)
+        .map((vout) => vout['scriptpubkey_address'] as String)
+        .toSet();
+
+    final int totalOutput = transaction['vout']?.fold<int>(
+          0,
+          (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+        ) ??
+        0;
+
+    // Determine if transaction is sent, received, or internal
+    final bool isSent = inputAddresses.contains(address);
+    final bool isReceived = outputAddresses.contains(address);
+    final bool isInternal = inputAddresses.length == 1 &&
+        inputAddresses.contains(address) &&
+        outputAddresses.length == 1 &&
+        outputAddresses.contains(address);
+
+    // Determine the actual amount sent/received
+    int amount = 0;
+
+    if (isInternal) {
+      amount = totalOutput;
+    } else if (isSent) {
+      amount = transaction['vout']
+              ?.where((vout) =>
+                  vout['scriptpubkey_address'] !=
+                  address) // Exclude own address
+              ?.fold<int>(
+                0,
+                (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+              ) ??
+          0;
+    } else if (isReceived) {
+      amount = transaction['vout']
+              ?.where((vout) =>
+                  vout['scriptpubkey_address'] ==
+                  address) // Include own address
+              ?.fold<int>(
+                0,
+                (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+              ) ??
+          0;
+    }
+
     // Build the dialog
     showDialog(
-      context: context,
+      context: rootContext,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: Colors.grey[900],
@@ -1282,7 +1575,7 @@ class WalletPageState extends State<WalletPage> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green,
+              color: Colors.blue,
             ),
           ),
           content: SingleChildScrollView(
@@ -1295,113 +1588,191 @@ class WalletPageState extends State<WalletPage> {
                   decoration: BoxDecoration(
                     color: Colors.grey[850],
                     borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: Colors.green),
+                    border: Border.all(color: Colors.blue),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Transaction Type
                       Text(
-                        isReceived
-                            ? 'Received Transaction'
-                            : 'Sent Transaction',
+                        isInternal
+                            ? "Internal Transaction"
+                            : isSent
+                                ? 'Sent Transaction'
+                                : 'Received Transaction',
                         style: const TextStyle(
                           fontSize: 18,
-                          color: Colors.green,
+                          color: Colors.blue,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 8),
+
+                      // Sender Addresses
                       const Text(
-                        "Sender Information",
+                        "Senders",
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: Colors.blue,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      GestureDetector(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(
-                              text: sender)); // Copy text to clipboard
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Copied to clipboard: $sender'),
-                              duration: const Duration(seconds: 2),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: inputAddresses.map((sender) {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[850],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue),
                             ),
-                          ); // Optional feedback
-                        },
-                        child: Text(
-                          sender,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        "Receiver Information",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      GestureDetector(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(
-                              text: receiver)); // Copy text to clipboard
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Copied to clipboard: $receiver'),
-                              duration: const Duration(seconds: 2),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    sender,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white70,
+                                      overflow: TextOverflow
+                                          .ellipsis, // Handle long addresses
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.copy,
+                                      color: Colors.blue, size: 20),
+                                  onPressed: () {
+                                    Clipboard.setData(
+                                        ClipboardData(text: sender));
+                                    ScaffoldMessenger.of(rootContext)
+                                        .showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            'Copied to clipboard: $sender'),
+                                        duration: const Duration(seconds: 1),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
-                          ); // Optional feedback
-                        },
-                        child: Text(
-                          receiver,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white70,
-                          ),
-                        ),
+                          );
+                        }).toList(),
                       ),
+
                       const SizedBox(height: 8),
+
+                      // Receiver Addresses
                       const Text(
-                        "Transaction Details",
+                        "Receivers",
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: Colors.blue,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: outputAddresses.map((receiver) {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[850],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    receiver,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white70,
+                                      overflow: TextOverflow
+                                          .ellipsis, // Handle long addresses
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.copy,
+                                      color: Colors.blue, size: 20),
+                                  onPressed: () {
+                                    Clipboard.setData(
+                                        ClipboardData(text: receiver));
+                                    ScaffoldMessenger.of(rootContext)
+                                        .showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            'Copied to clipboard: $receiver'),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Amount Sent/Received
+                      const Text(
+                        "Amount",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
                       Text(
-                        "Amount: ${amount.abs()} sats",
+                        "$amount satoshis",
                         style: const TextStyle(
                           fontSize: 14,
                           color: Colors.white70,
                         ),
                       ),
-                      Text(
-                        "Fee: $fee sats",
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        ),
-                      ),
                       const SizedBox(height: 8),
+
+                      // Transaction Fee
+                      if (isSent || isInternal) ...[
+                        const Text(
+                          "Transaction Fee",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        Text(
+                          "$fee satoshis",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // Confirmation Details
                       const Text(
                         "Confirmation Details",
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: Colors.blue,
                         ),
                       ),
-                      const SizedBox(height: 4),
                       Text(
                         isConfirmed
                             ? "Confirmed at block: $blockHeight"
@@ -1419,6 +1790,28 @@ class WalletPageState extends State<WalletPage> {
                             color: Colors.white70,
                           ),
                         ),
+
+                      GestureDetector(
+                        onTap: () async {
+                          final Uri url = Uri.parse(
+                              "https://mempool.space/testnet4/tx/$txid/");
+
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url,
+                                mode: LaunchMode.externalApplication);
+                          } else {
+                            throw "Could not launch $url";
+                          }
+                        },
+                        child: Text(
+                          "Visit the Mempool",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1426,15 +1819,14 @@ class WalletPageState extends State<WalletPage> {
             ),
           ),
           actions: [
-            InkwellButton(
-              onTap: () {
+            TextButton(
+              onPressed: () {
                 Navigator.of(context).pop();
               },
-              label: 'Close',
-              backgroundColor: Colors.white,
-              textColor: Colors.black,
-              icon: Icons.cancel_rounded,
-              iconColor: Colors.black,
+              child: const Text(
+                'Close',
+                style: TextStyle(color: Colors.blue),
+              ),
             ),
           ],
         );

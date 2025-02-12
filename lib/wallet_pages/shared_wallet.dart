@@ -17,6 +17,7 @@ import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:hive/hive.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// SharedWallet Page
 ///
@@ -128,6 +129,7 @@ class SharedWalletState extends State<SharedWallet> {
   bool _isLoading = true;
 
   bool showInSatoshis = true; // Toggle display state
+  bool isPubKeyVisible = false;
 
   int _currentHeight = 0;
 
@@ -144,12 +146,25 @@ class SharedWalletState extends State<SharedWallet> {
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
       GlobalKey<RefreshIndicatorState>();
 
+  int avgBlockTime = 0;
+  List<dynamic> utxos = [];
+
   late WalletData? _walletData;
   late Wallet wallet;
   late SettingsProvider settingsProvider;
   late WalletService walletService;
+  late List<Map<String, dynamic>> spendingPaths;
+  late Map<String, dynamic> policy;
+  late Policy externalWalletPolicy;
+  late String myFingerPrint;
+  late String myAlias;
+  late String myPubKey;
+  late List<Map<String, dynamic>> mySpendingPaths;
+  final TextEditingController _pubKeyController = TextEditingController();
 
   final WalletStorageService _walletStorageService = WalletStorageService();
+
+  bool isInitialized = false;
 
   @override
   void initState() {
@@ -158,7 +173,14 @@ class SharedWalletState extends State<SharedWallet> {
     walletService = WalletService();
     settingsProvider = SettingsProvider();
 
-    openBoxAndCheckWallet();
+    setState(() {
+      _lastRefreshed = DateTime.now();
+      _elapsedTime = 'Just now'; // Reset elapsed time on refresh
+    });
+
+    openBoxAndCheckWallet().then((_) {
+      _initializeSpendingPaths();
+    });
   }
 
   @override
@@ -255,9 +277,9 @@ class SharedWalletState extends State<SharedWallet> {
 
     if (existingDescriptor != null) {
       // print('Wallet with this mnemonic already exists.');
-      loadWallet();
+      await loadWallet();
     } else {
-      createWalletFromDescriptor();
+      await createWalletFromDescriptor();
     }
 
     await _syncWallet();
@@ -269,7 +291,6 @@ class SharedWalletState extends State<SharedWallet> {
       wallet = await walletService.createSharedWallet(widget.descriptor);
 
       setState(() {
-        // balance = wallet.getBalance().total.toInt();
         address = wallet
             .getAddress(
               addressIndex: const AddressIndex.peek(index: 0),
@@ -312,13 +333,12 @@ class SharedWalletState extends State<SharedWallet> {
 
         await walletService.saveLocalData(wallet);
 
-        // Fetch the balance of the wallet
-        final availableBalance = wallet.getBalance().spendable.toInt();
-        final ledgerBalance = wallet.getBalance().total.toInt();
+        Map<String, int> balance =
+            await walletService.getBitcoinBalance(address);
 
         setState(() {
-          avBalance = availableBalance; // Set the balance
-          ledBalance = ledgerBalance; // Set the balance
+          avBalance = balance['confirmedBalance']!; // Set the available balance
+          ledBalance = balance['pendingBalance']!; // Set the ledger balance
         });
 
         await _fetchCurrentBlockHeight();
@@ -380,13 +400,11 @@ class SharedWalletState extends State<SharedWallet> {
         address = wallAddress;
       });
 
-      // Fetch the balance of the wallet
-      final availableBalance = wallet.getBalance().spendable.toInt();
-      final ledgerBalance = wallet.getBalance().total.toInt();
+      Map<String, int> balance = await walletService.getBitcoinBalance(address);
 
       setState(() {
-        avBalance = availableBalance; // Set the available balance
-        ledBalance = ledgerBalance; // Set the ledger balance
+        avBalance = balance['confirmedBalance']!; // Set the available balance
+        ledBalance = balance['pendingBalance']!; // Set the ledger balance
       });
 
       // Fetch and set the transactions
@@ -409,6 +427,55 @@ class SharedWalletState extends State<SharedWallet> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  /// Helper method to extract wallet policies and spending paths
+  Future<void> _initializeSpendingPaths() async {
+    try {
+      // Extract wallet policies
+      externalWalletPolicy = wallet.policies(KeychainKind.externalChain)!;
+      policy = jsonDecode(externalWalletPolicy.asString());
+
+      // Convert mnemonic to object
+      Mnemonic trueMnemonic = await Mnemonic.fromString(widget.mnemonic);
+
+      // Define derivation paths
+      final hardenedDerivationPath =
+          await DerivationPath.create(path: "m/84h/1h/0h");
+      final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+
+      // Derive descriptor keys
+      final (receivingSecretKey, receivingPublicKey) =
+          await walletService.deriveDescriptorKeys(
+        hardenedDerivationPath,
+        receivingDerivationPath,
+        trueMnemonic,
+      );
+
+      print('pubkey: $receivingPublicKey');
+
+      // Extract fingerprint
+      final RegExp regex = RegExp(r'\[([^\]]+)\]');
+      final Match? match = regex.firstMatch(receivingPublicKey.asString());
+
+      // Extract spending paths
+      setState(() {
+        spendingPaths = walletService.extractAllPaths(policy);
+        myFingerPrint = match!.group(1)!.split('/')[0];
+        myAlias = walletService.getAliasesFromFingerprint(
+            widget.pubKeysAlias, [myFingerPrint]).first;
+        mySpendingPaths =
+            walletService.extractDataByFingerprint(policy, myFingerPrint);
+        myPubKey = receivingPublicKey.toString();
+        _pubKeyController.text = myPubKey;
+
+        isInitialized = true; // Mark as loaded
+      });
+
+      print('myAlias: $myAlias');
+    } catch (e) {
+      print("Error initializing spending paths: $e");
     }
   }
 
@@ -435,43 +502,12 @@ class SharedWalletState extends State<SharedWallet> {
 
     if (!mounted) return;
 
-    final externalWalletPolicy = wallet.policies(KeychainKind.externalChain)!;
-
-    // walletService.printPrettyJson(externalWalletPolicy.toString());
-
-    final Map<String, dynamic> policy =
-        jsonDecode(externalWalletPolicy.asString());
-
-    // print('Bool: $multiSig');
-    Mnemonic trueMnemonic = await Mnemonic.fromString(widget.mnemonic);
-
-    final hardenedDerivationPath =
-        await DerivationPath.create(path: "m/84h/1h/0h");
-
-    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
-
-    final (receivingSecretKey, receivingPublicKey) =
-        await walletService.deriveDescriptorKeys(
-      hardenedDerivationPath,
-      receivingDerivationPath,
-      trueMnemonic,
-    );
-
-    // Extract the content inside square brackets
-    final RegExp regex = RegExp(r'\[([^\]]+)\]');
-    final Match? match = regex.firstMatch(receivingPublicKey.asString());
-
-    final String targetFingerprint = match!.group(1)!.split('/')[0];
-    // print("Fingerprint: $targetFingerprint");
-
     final extractedData =
-        walletService.extractDataByFingerprint(policy, targetFingerprint);
+        walletService.extractDataByFingerprint(policy, myFingerPrint);
 
     if (extractedData.isNotEmpty) {
       selectedPath = extractedData[0]; // Default to the first path
     }
-
-    final utxos = await walletService.getUtxos(address);
 
     // print('extractedData: $extractedData');
 
@@ -481,8 +517,10 @@ class SharedWalletState extends State<SharedWallet> {
 
     bool isSelectable = true;
 
+    final rootContext = context;
+
     showDialog(
-      context: context,
+      context: rootContext,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: Colors.grey[900], // Dark background color for dialog
@@ -529,7 +567,7 @@ class SharedWalletState extends State<SharedWallet> {
 
                                     Transaction result = psbt.extractTx();
 
-                                    final outputs = await result.output();
+                                    final outputs = result.output();
 
                                     signers =
                                         walletService.getSignersFromPsbt(psbt);
@@ -549,7 +587,7 @@ class SharedWalletState extends State<SharedWallet> {
 
                                     for (final output in outputs) {
                                       receiverAddress = await walletService
-                                          .getAddressFromScript(output);
+                                          .getAddressFromScriptOutput(output);
 
                                       // TODO: Do not add change address
 
@@ -617,7 +655,7 @@ class SharedWalletState extends State<SharedWallet> {
                                         signer,
                                         style: TextStyle(color: Colors.white),
                                       ),
-                                      backgroundColor: Colors.green,
+                                      backgroundColor: Colors.blue,
                                       avatar: Icon(Icons.verified,
                                           color: Colors.white),
                                       shape: RoundedRectangleBorder(
@@ -702,6 +740,7 @@ class SharedWalletState extends State<SharedWallet> {
                                   'alias': fingerprint
                                 }, // Fallback to fingerprint
                               );
+
                               return matchedAlias['alias'] ?? fingerprint;
                             }).toList();
 
@@ -772,7 +811,7 @@ class SharedWalletState extends State<SharedWallet> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderSide: const BorderSide(color: Colors.green),
+                              borderSide: const BorderSide(color: Colors.blue),
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
@@ -821,7 +860,7 @@ class SharedWalletState extends State<SharedWallet> {
                                                 Navigator.of(context).pop(),
                                             child: Text('OK',
                                                 style: TextStyle(
-                                                    color: Colors.green)),
+                                                    color: Colors.blue)),
                                           ),
                                         ],
                                       );
@@ -893,7 +932,7 @@ class SharedWalletState extends State<SharedWallet> {
                                                 Navigator.of(context).pop(),
                                             child: Text('OK',
                                                 style: TextStyle(
-                                                    color: Colors.green)),
+                                                    color: Colors.blue)),
                                           ),
                                         ],
                                       );
@@ -907,9 +946,6 @@ class SharedWalletState extends State<SharedWallet> {
 
                                 final String recipientAddress =
                                     _recipientController.text.toString();
-
-                                final spendingPaths =
-                                    walletService.extractAllPaths(policy);
 
                                 final int sendAllBalance = int.parse(
                                     (await walletService.createPartialTx(
@@ -955,7 +991,7 @@ class SharedWalletState extends State<SharedWallet> {
                                               Navigator.of(context).pop(),
                                           child: Text('OK',
                                               style: TextStyle(
-                                                  color: Colors.green)),
+                                                  color: Colors.blue)),
                                         ),
                                       ],
                                     );
@@ -963,9 +999,9 @@ class SharedWalletState extends State<SharedWallet> {
                                 );
                               }
                             },
-                            label: 'Send All',
+                            label: 'Use Available Balance',
                             icon: Icons.account_balance_wallet_rounded,
-                            backgroundColor: Colors.green,
+                            backgroundColor: Colors.blue,
                             textColor: Colors.white,
                             iconColor: Colors.white,
                           ),
@@ -1020,16 +1056,16 @@ class SharedWalletState extends State<SharedWallet> {
                     _txToSend = result;
                   });
 
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(rootContext).showSnackBar(
                     SnackBar(
                       content: Text(isCreating
                           ? 'Transaction Created Successfully.'
                           : 'Transaction Signed Successfully'),
-                      backgroundColor: Colors.green,
+                      backgroundColor: Colors.blue,
                     ),
                   );
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(rootContext).showSnackBar(
                     SnackBar(
                       content: Text(
                         e.toString(),
@@ -1043,7 +1079,7 @@ class SharedWalletState extends State<SharedWallet> {
                 Navigator.of(context).pop();
               },
               label: 'Submit',
-              backgroundColor: Colors.green,
+              backgroundColor: Colors.blue,
               textColor: Colors.white,
             ),
           ],
@@ -1078,7 +1114,7 @@ class SharedWalletState extends State<SharedWallet> {
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green, // Highlighted title color
+              color: Colors.blue, // Highlighted title color
             ),
           ),
           content: ConstrainedBox(
@@ -1133,7 +1169,7 @@ class SharedWalletState extends State<SharedWallet> {
                     IconButton(
                       icon: const Icon(
                         Icons.copy,
-                        color: Colors.green, // Highlighted icon color
+                        color: Colors.blue, // Highlighted icon color
                       ),
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: address));
@@ -1167,6 +1203,8 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   Future<void> _syncWallet() async {
+    // walletService.printTransactionDetails();
+
     setState(() {
       _lastRefreshed = DateTime.now();
       _elapsedTime = 'Just now'; // Reset elapsed time on refresh
@@ -1233,13 +1271,11 @@ class SharedWalletState extends State<SharedWallet> {
         address = walletAddress;
       });
 
-      // Fetch and set the balance of the specific address
-      int ledgerBalance = wallet.getBalance().total.toInt();
-      int availableBalance = wallet.getBalance().spendable.toInt();
+      Map<String, int> balance = await walletService.getBitcoinBalance(address);
 
       setState(() {
-        ledBalance = ledgerBalance;
-        avBalance = availableBalance;
+        avBalance = balance['confirmedBalance']!;
+        ledBalance = balance['pendingBalance']!;
       });
 
       // Fetch and set the transactions
@@ -1254,6 +1290,17 @@ class SharedWalletState extends State<SharedWallet> {
       setState(() {
         _transactions = transactions;
       });
+
+      // Fetch the average block time
+      final averageBlockTime = await walletService.fetchAverageBlockTime();
+
+      // Fetch all transactions for the wallet
+      final walletUtxos = await walletService.getUtxos(address);
+
+      setState(() {
+        avgBlockTime = averageBlockTime;
+        utxos = walletUtxos;
+      });
     }
   }
 
@@ -1262,8 +1309,10 @@ class SharedWalletState extends State<SharedWallet> {
     TextEditingController pinController =
         TextEditingController(); // Controller for the PIN input
 
+    final rootContext = context;
+
     showDialog(
-      context: context,
+      context: rootContext,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: Colors.grey[900], // Dark background for the dialog
@@ -1276,7 +1325,7 @@ class SharedWalletState extends State<SharedWallet> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green,
+              color: Colors.blue,
             ),
           ),
           content: Column(
@@ -1323,10 +1372,11 @@ class SharedWalletState extends State<SharedWallet> {
               onTap: () {
                 String pin = pinController.text;
                 if (pin.length == 6) {
+                  Navigator.of(context).pop();
                   verifyPin(pinController); // Call the verification function
                 } else {
                   // Show an error if the PIN is invalid
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(rootContext).showSnackBar(
                     const SnackBar(
                       content: Text(
                         'Invalid PIN',
@@ -1338,7 +1388,7 @@ class SharedWalletState extends State<SharedWallet> {
                 }
               },
               label: 'Confirm',
-              backgroundColor: Colors.green,
+              backgroundColor: Colors.blue,
               textColor: Colors.white,
               icon: Icons.check_rounded,
               iconColor: Colors.white,
@@ -1354,12 +1404,11 @@ class SharedWalletState extends State<SharedWallet> {
     String? savedPin = walletBox.get('userPin');
 
     String savedMnemonic = walletBox.get('walletMnemonic');
+    final rootContext = context;
 
     if (savedPin == pinController.text) {
-      Navigator.of(context).pop(); // Close the PIN dialog
-
       showDialog(
-        context: context,
+        context: rootContext,
         builder: (BuildContext context) {
           return AlertDialog(
             backgroundColor: Colors.grey[900], // Dark background for the dialog
@@ -1372,7 +1421,7 @@ class SharedWalletState extends State<SharedWallet> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.green, // Highlighted title color
+                color: Colors.blue, // Highlighted title color
               ),
             ),
             content: Column(
@@ -1394,7 +1443,7 @@ class SharedWalletState extends State<SharedWallet> {
                     color: Colors.grey[800],
                     borderRadius: BorderRadius.circular(8.0), // Rounded edges
                     border: Border.all(
-                      color: Colors.green, // Border color for emphasis
+                      color: Colors.blue, // Border color for emphasis
                     ),
                   ),
                   child: Row(
@@ -1414,7 +1463,7 @@ class SharedWalletState extends State<SharedWallet> {
                       IconButton(
                         icon: const Icon(
                           Icons.copy,
-                          color: Colors.green, // Highlighted icon color
+                          color: Colors.blue, // Highlighted icon color
                         ),
                         onPressed: () {
                           Clipboard.setData(ClipboardData(text: savedMnemonic));
@@ -1447,7 +1496,7 @@ class SharedWalletState extends State<SharedWallet> {
                     color: Colors.grey[800],
                     borderRadius: BorderRadius.circular(8.0), // Rounded edges
                     border: Border.all(
-                      color: Colors.green, // Border color for emphasis
+                      color: Colors.blue, // Border color for emphasis
                     ),
                   ),
                   child: Row(
@@ -1468,12 +1517,12 @@ class SharedWalletState extends State<SharedWallet> {
                       IconButton(
                         icon: const Icon(
                           Icons.copy,
-                          color: Colors.green, // Highlighted icon color
+                          color: Colors.blue, // Highlighted icon color
                         ),
                         onPressed: () {
                           Clipboard.setData(
                               ClipboardData(text: _descriptor.toString()));
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(rootContext).showSnackBar(
                             SnackBar(
                               content:
                                   const Text('Descriptor copied to clipboard!'),
@@ -1513,7 +1562,7 @@ class SharedWalletState extends State<SharedWallet> {
                     // Check if the file already exists
                     if (await file.exists()) {
                       final shouldProceed = await showDialog<bool>(
-                          context: context,
+                          context: rootContext,
                           builder: (BuildContext context) {
                             return AlertDialog(
                               backgroundColor: Colors
@@ -1544,7 +1593,7 @@ class SharedWalletState extends State<SharedWallet> {
                                   backgroundColor: Colors.white,
                                   textColor: Colors.black,
                                   icon: Icons.check_circle,
-                                  iconColor: Colors.greenAccent,
+                                  iconColor: Colors.blueAccent,
                                 ),
                               ],
                             );
@@ -1567,7 +1616,7 @@ class SharedWalletState extends State<SharedWallet> {
                     // Write JSON data to the file
                     await file.writeAsString(data);
 
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    ScaffoldMessenger.of(rootContext).showSnackBar(
                       SnackBar(
                         content:
                             Text('File saved to ${directory.path}/$fileName'),
@@ -1575,7 +1624,7 @@ class SharedWalletState extends State<SharedWallet> {
                     );
                   } else {
                     // Permission denied
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    ScaffoldMessenger.of(rootContext).showSnackBar(
                       const SnackBar(
                         content: Text(
                             'Storage permission is required to save the file'),
@@ -1584,7 +1633,7 @@ class SharedWalletState extends State<SharedWallet> {
                   }
                 },
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.green,
+                  foregroundColor: Colors.blue,
                 ),
                 child: const Text('Download Descriptor'),
               ),
@@ -1594,7 +1643,7 @@ class SharedWalletState extends State<SharedWallet> {
                       .pop(); // Close the dialog without action
                 },
                 label: 'Close',
-                backgroundColor: Colors.green,
+                backgroundColor: Colors.blue,
                 textColor: Colors.white,
                 icon: Icons.close,
               ),
@@ -1603,7 +1652,7 @@ class SharedWalletState extends State<SharedWallet> {
         },
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(rootContext).showSnackBar(
         const SnackBar(content: Text('Incorrect PIN')),
       );
     }
@@ -1613,15 +1662,6 @@ class SharedWalletState extends State<SharedWallet> {
     BuildContext context,
     Map<String, dynamic> policy,
   ) async {
-    // Extract all available spending paths from the policy
-    final spendingPaths = walletService.extractAllPaths(policy);
-
-    // Fetch the average block time
-    final avgBlockTime = await walletService.fetchAverageBlockTime();
-
-    // Fetch all transactions for the wallet
-    final utxos = await walletService.getUtxos(address);
-
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1636,7 +1676,7 @@ class SharedWalletState extends State<SharedWallet> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green,
+              color: Colors.blue,
             ),
           ),
           content: SingleChildScrollView(
@@ -1725,7 +1765,7 @@ class SharedWalletState extends State<SharedWallet> {
                   decoration: BoxDecoration(
                     color: Colors.grey[850],
                     borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: Colors.green),
+                    border: Border.all(color: Colors.blue),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1734,7 +1774,7 @@ class SharedWalletState extends State<SharedWallet> {
                         "Type: ${pathInfo['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK' : 'MULTISIG'}",
                         style: const TextStyle(
                           fontSize: 16,
-                          color: Colors.green,
+                          color: Colors.blue,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -1747,13 +1787,27 @@ class SharedWalletState extends State<SharedWallet> {
                               ),
                             )
                           : const SizedBox.shrink(),
-                      Text(
-                        "Keys: ${pathAliases.join(', ')}",
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            for (int i = 0; i < pathAliases.length; i++)
+                              TextSpan(
+                                text: pathAliases[i] +
+                                    (i == pathAliases.length - 1
+                                        ? ""
+                                        : ", "), // Remove comma for last item
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white70,
+                                  fontWeight: pathAliases[i] == myAlias
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
+
                       Text(
                         "Transaction info:",
                         style: const TextStyle(
@@ -1826,16 +1880,10 @@ class SharedWalletState extends State<SharedWallet> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculate the difference
-    int balanceDifference = ledBalance - avBalance;
-    double currencyDifference = ledCurrencyBalance - avCurrencyBalance;
-
     // Determine color and sign
-    Color balanceColor = balanceDifference > 0
-        ? Colors.green
-        : (balanceDifference < 0 ? Colors.red : Colors.grey);
-
-    String sign = balanceDifference > 0 ? "+" : "";
+    Color balanceColor = ledBalance > 0
+        ? Colors.blue
+        : (ledBalance < 0 ? Colors.red : Colors.grey);
 
     return BaseScaffold(
       title: Text(_descriptorName),
@@ -1862,18 +1910,113 @@ class SharedWalletState extends State<SharedWallet> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          children: [
+                            showInSatoshis
+                                ? Text(
+                                    '$avBalance sats',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 16,
+                                    ),
+                                  )
+                                : Text.rich(
+                                    TextSpan(
+                                      text:
+                                          '${avCurrencyBalance.toStringAsFixed(2)} ',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.black,
+                                        decoration: TextDecoration.lineThrough,
+                                      ),
+                                      children: [
+                                        TextSpan(
+                                          text: settingsProvider.currency,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                            const SizedBox(width: 8),
+                            ledBalance != 0
+                                ? showInSatoshis
+                                    ? Text(
+                                        ledBalance > 0
+                                            ? '+ $ledBalance sats'
+                                            : '$ledBalance sats',
+                                        style: TextStyle(
+                                          color: balanceColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      )
+                                    : Text.rich(
+                                        TextSpan(
+                                          text: ledBalance > 0
+                                              ? '+ ${ledCurrencyBalance.toStringAsFixed(2)}'
+                                              : ledCurrencyBalance
+                                                  .toStringAsFixed(2),
+                                          style: TextStyle(
+                                            decoration:
+                                                TextDecoration.lineThrough,
+                                            color: balanceColor,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                          children: [
+                                            TextSpan(
+                                                text:
+                                                    settingsProvider.currency),
+                                          ],
+                                        ),
+                                      )
+                                : Text(''),
+                          ],
+                        ),
+                        const Divider(
+                          height: 20,
+                          thickness: 1,
+                          color: Colors.grey,
+                        ),
                         Text(
                           'We are currently at Block Height: $_currentHeight\n'
                           'Timestamp: $_timeStamp',
                           style: const TextStyle(
-                            fontSize: 16,
+                            fontSize: 14,
                             color: Colors.black,
                           ),
                         ),
                       ],
                     ),
-                    () {
-                      // Handle tap action here
+                    Align(
+                      alignment: Alignment.center,
+                      child: isInitialized
+                          ? TextField(
+                              controller: _pubKeyController,
+                              obscureText: !isPubKeyVisible,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.black,
+                              ),
+                              decoration: InputDecoration(
+                                border:
+                                    InputBorder.none, // ✅ No default underline
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                            )
+                          : const Center(
+                              child: SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            ), // ✅ Shows CircularProgressIndicator if not initialized
+                    ),
+                    onTap: () {
+                      _convertCurrency();
                     },
                     showCopyButton: true,
                     subtitle: (DateTime.now()
@@ -1883,69 +2026,50 @@ class SharedWalletState extends State<SharedWallet> {
                         ? '$_elapsedTime have passed! \nIt\'s time to refresh!'
                         : null,
                   ),
+                  // Spending Paths Layout
+                  Align(
+                    alignment: Alignment.center,
+                    child: isInitialized
+                        ? mySpendingPaths.isEmpty
+                            ? const Text(
+                                "No spending paths available",
+                                style: TextStyle(color: Colors.grey),
+                              )
+                            : Align(
+                                alignment: Alignment
+                                    .centerLeft, // Try center or centerLeft
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: mySpendingPaths
+                                        .asMap()
+                                        .entries
+                                        .map((entry) {
+                                      int index = entry.key; // Get index
+                                      var path = entry.value; // Get path item
 
-                  _buildWidgetInfoBox(
-                    'Balance',
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Show the primary available balance
-                        showInSatoshis
-                            ? Text('$avBalance sats') // Wrap in Text widget
-                            : Text.rich(
-                                TextSpan(
-                                  text:
-                                      '${avCurrencyBalance.toStringAsFixed(2)} ',
-                                  style: const TextStyle(
-                                    decoration: TextDecoration.lineThrough,
+                                      return _buildSpendingPathBox(
+                                        path,
+                                        index,
+                                        mySpendingPaths.length,
+                                      );
+                                    }).toList(),
                                   ),
-                                  children: [
-                                    TextSpan(
-                                      text: settingsProvider.currency,
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                        const SizedBox(height: 8), // Add spacing
-
-                        // Calculate and show the difference
-                        showInSatoshis
-                            ? Text(
-                                '$sign$balanceDifference sats',
-                                style: TextStyle(
-                                  color: balanceColor,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               )
-                            : Text.rich(
-                                TextSpan(
-                                  text:
-                                      '$sign${currencyDifference.toStringAsFixed(2)} ',
-                                  style: TextStyle(
-                                    decoration: TextDecoration.lineThrough,
-                                    color: balanceColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  children: [
-                                    TextSpan(text: settingsProvider.currency),
-                                  ],
-                                ),
-                              ),
-                      ],
-                    ),
-                    () {
-                      _convertCurrency();
-                    },
+                        : const CircularProgressIndicator(color: Colors.blue),
                   ),
-                  _buildTransactionsBox(), // Transactions box should scroll along with the rest
-                  const SizedBox(height: 8), // Add some spacing
+
+                  _buildTransactionsBox(),
+
+                  const SizedBox(height: 8),
+
                   _buildInfoBoxMultisig(
                     'MultiSig Transactions',
                     _txToSend != null
                         ? _txToSend.toString()
                         : 'No transactions to sign',
-                    () {
+                    onTap: () {
                       _sendTx(false);
                     },
                     showCopyButton: true,
@@ -1969,20 +2093,12 @@ class SharedWalletState extends State<SharedWallet> {
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.black,
                           icon: Icons.remove_red_eye, // Icon for the new button
-                          iconColor: Colors.green,
+                          iconColor: Colors.blue,
                           label: 'Private Data',
                         ),
                         const SizedBox(height: 16),
                         CustomButton(
                           onPressed: () {
-                            final externalWalletPolicy =
-                                wallet.policies(KeychainKind.externalChain)!;
-
-                            // walletService.printPrettyJson(externalWalletPolicy.toString());
-
-                            final Map<String, dynamic> policy =
-                                jsonDecode(externalWalletPolicy.asString());
-
                             _showPathsDialog(
                               context,
                               policy,
@@ -1991,7 +2107,7 @@ class SharedWalletState extends State<SharedWallet> {
                           backgroundColor: Colors.white,
                           foregroundColor: Colors.black,
                           icon: Icons.pattern, // Icon for the new button
-                          iconColor: Colors.green,
+                          iconColor: Colors.blue,
                           label: 'Spending Summary',
                         ),
                         const SizedBox(height: 16),
@@ -2008,9 +2124,9 @@ class SharedWalletState extends State<SharedWallet> {
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:
-                              Colors.green, // Bitcoin green color for text
+                              Colors.blue, // Bitcoin green color for text
                           icon: Icons.arrow_upward, // Icon you want to use
-                          iconColor: Colors.green, // Color for the icon
+                          iconColor: Colors.blue, // Color for the icon
                         ),
                         const SizedBox(width: 8),
                         // Scan To Send Button
@@ -2033,7 +2149,7 @@ class SharedWalletState extends State<SharedWallet> {
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:
-                              Colors.green, // Bitcoin green color for text
+                              Colors.blue, // Bitcoin green color for text
                           icon: Icons.qr_code, // Icon you want to use
                           iconColor: Colors.black, // Color for the icon
                         ),
@@ -2046,9 +2162,9 @@ class SharedWalletState extends State<SharedWallet> {
                           },
                           backgroundColor: Colors.white, // White background
                           foregroundColor:
-                              Colors.green, // Bitcoin green color for text
+                              Colors.blue, // Bitcoin green color for text
                           icon: Icons.arrow_downward, // Icon you want to use
-                          iconColor: Colors.green, // Color for the icon
+                          iconColor: Colors.blue, // Color for the icon
                         ),
                       ],
                     ),
@@ -2080,166 +2196,404 @@ class SharedWalletState extends State<SharedWallet> {
 
   // Box for displaying general wallet info with onTap functionality
   Widget _buildInfoBox(
-      String title, Widget section1, Widget section2, VoidCallback onTap,
-      {bool showCopyButton = false, String? subtitle}) {
-    return GestureDetector(
-      onTap: onTap, // Detects tap and calls the passed function
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0), // Rounded corners
-        ),
-        elevation: 4, // Subtle shadow for depth
-        color: Colors.white, // Match button background
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // First Section with Copy Button
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    String title,
+    Widget section1,
+    Widget section2,
+    Widget pubKeyWidget, {
+    VoidCallback? onTap,
+    bool showCopyButton = false,
+    String? subtitle,
+  }) {
+    return StatefulBuilder(
+      builder: (context, setDialogState) {
+        return GestureDetector(
+          onTap: onTap, // Detects tap and calls the passed function
+          child: Card(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8.0), // Rounded corners
+            ),
+            elevation: 4, // Subtle shadow for depth
+            color: Colors.white, // Match button background
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: section1,
-                  ),
-                  if (showCopyButton) // Display copy button if true
-                    IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.green),
-                      tooltip: 'Copy to clipboard',
-                      onPressed: () {
-                        // Assuming section1 is Text, extract the text for copying
-                        if (section1 is Text) {
-                          Clipboard.setData(
-                              ClipboardData(text: (section1).data ?? ''));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Copied to clipboard"),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        }
-                      },
+                  // Title
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
                     ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // First Section: Address (with Copy Button)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: section1,
+                      ),
+                      if (showCopyButton) // Display copy button if true
+                        IconButton(
+                          icon: const Icon(Icons.copy, color: Colors.blue),
+                          tooltip: 'Copy to clipboard',
+                          onPressed: () {
+                            // Assuming section1 is Text, extract the text for copying
+                            if (section1 is Text) {
+                              Clipboard.setData(
+                                  ClipboardData(text: (section1).data ?? ''));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Copied to clipboard"),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                    ],
+                  ),
+
+                  // Divider Between Sections
+                  const Divider(
+                    height: 20,
+                    thickness: 1,
+                    color: Colors.grey,
+                  ),
+
+                  Text(
+                    "Public Key",
+                    style: TextStyle(color: Colors.blue),
+                  ),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: pubKeyWidget,
+                      ),
+                      if (isInitialized)
+                        IconButton(
+                          icon: Icon(
+                            isPubKeyVisible
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            color: Colors.green,
+                          ),
+                          tooltip:
+                              isPubKeyVisible ? "Hide PubKey" : "Show PubKey",
+                          onPressed: () {
+                            setDialogState(() {
+                              isPubKeyVisible = !isPubKeyVisible;
+                            });
+                          },
+                        ),
+                      if (isInitialized && isPubKeyVisible)
+                        IconButton(
+                          icon: const Icon(Icons.copy, color: Colors.blue),
+                          tooltip: 'Copy PubKey',
+                          onPressed: () {
+                            String pubKeyText = _pubKeyController.text;
+
+                            if (pubKeyText.isNotEmpty) {
+                              Clipboard.setData(
+                                  ClipboardData(text: pubKeyText));
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text("Public Key copied to clipboard"),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                    ],
+                  ),
+
+                  // Divider Between Sections
+                  const Divider(
+                    height: 20,
+                    thickness: 1,
+                    color: Colors.grey,
+                  ),
+
+                  // Second Section Without Copy Button
+                  section2,
+
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
                 ],
               ),
-
-              // Divider Between Sections
-              const Divider(
-                height: 20,
-                thickness: 1,
-                color: Colors.grey,
-              ),
-
-              // Second Section Without Copy Button
-              section2,
-
-              if (subtitle != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
-                  ),
-                ),
-              ],
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildWidgetInfoBox(String title, Widget data, VoidCallback onTap,
-      {bool showCopyButton = false,
-      String? subtitle,
-      TextStyle? dataTextStyle}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0),
-        ),
-        elevation: 4,
-        color: Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: DefaultTextStyle(
-                      style: dataTextStyle ??
-                          const TextStyle(
-                            fontSize: 16,
-                            color: Colors.black, // Default to black
-                          ),
-                      child: data, // Display the passed widget here
-                    ),
-                  ),
-                  if (showCopyButton)
-                    IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.green),
-                      tooltip: 'Copy to clipboard',
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: data.toString()));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Copied to clipboard"),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      },
-                    ),
-                ],
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
-                  ),
-                ),
-              ],
-            ],
+  Widget _buildSpendingPathBox(
+    Map<String, dynamic> path,
+    int index,
+    int length,
+  ) {
+    // print('Spending paths: $path');
+
+    // Extract aliases for the current pathInfo's fingerprints
+    final List<String> pathAliases =
+        (path['fingerprints'] as List<dynamic>).map<String>((fingerprint) {
+      final matchedAlias = widget.pubKeysAlias.firstWhere(
+        (pubKeyAlias) => pubKeyAlias['publicKey']!.contains(fingerprint),
+        orElse: () => {'alias': fingerprint}, // Fallback to fingerprint
+      );
+      return matchedAlias['alias'] ?? fingerprint;
+    }).toList();
+
+    // Extract timelock for the path
+    final timelock = path['timelock'] ?? 0;
+
+    // print('Timelock for the path: $timelock');
+    // print('Current blockchain height: $currentHeight');
+
+    String timeRemaining = 'Spendable';
+
+    int totalSpendable = 0;
+    int totalUnconfirmed = 0;
+    Map<int, int> blockHeightTotals = {};
+    List<Widget> transactionDetails = [];
+
+    for (var utxo in utxos) {
+      final blockHeight = utxo['status']['block_height'];
+      final value = utxo['value'];
+
+      if (blockHeight == null) {
+        totalUnconfirmed += value as int;
+
+        continue;
+      }
+
+      // print('totalUncofnirmed: $totalUnconfirmed');
+
+      // Determine if the transaction is spendable
+      final isSpendable =
+          blockHeight + timelock - 1 <= _currentHeight || timelock == 0;
+
+      // Calculate time remaining if not spendable
+      if (isSpendable) {
+        totalSpendable += value as int;
+      } else {
+        // print(utxo['txid']);
+
+        // print(blockHeight);
+
+        if (blockHeightTotals.containsKey(blockHeight)) {
+          blockHeightTotals[blockHeight] =
+              blockHeightTotals[blockHeight]! + value as int;
+        } else {
+          blockHeightTotals[blockHeight] = value;
+        }
+      }
+    }
+
+    List<Widget> waitingTransactions = blockHeightTotals.entries.map((entry) {
+      int utxoBlockHeight = entry.key;
+      int totalValue = entry.value;
+
+      final remainingBlocks = utxoBlockHeight + timelock - 1 - _currentHeight;
+      final totalSeconds = remainingBlocks * avgBlockTime;
+      timeRemaining = walletService.formatTime(totalSeconds as int);
+
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.lock_clock, color: Colors.blueAccent, size: 16),
+          const SizedBox(width: 6),
+          Flexible(
+            fit: FlexFit.loose,
+            child: Text(
+              "$totalValue sats available in $timeRemaining",
+              style: const TextStyle(fontSize: 12, color: Colors.black),
+            ),
+          ),
+        ],
+      );
+    }).toList();
+
+    transactionDetails.insertAll(0, waitingTransactions);
+
+    // ✅ Add the total unconfirmed amount to the transaction details list
+    if (totalUnconfirmed > 0) {
+      transactionDetails.insert(
+        0, // Add at the top
+        Text(
+          "Total Unconfirmed: $totalUnconfirmed sats",
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
           ),
         ),
-      ),
+      );
+    }
+
+    // Construct alias string for transaction details
+    List<String> otherAliases = List.from(pathAliases)..remove(myAlias);
+
+    String aliasText = totalSpendable > 0
+        ? "You ($myAlias) can spend $totalSpendable sats now"
+        : "You ($myAlias) cannot spend sats now";
+
+    if (otherAliases.isNotEmpty) {
+      aliasText += "\nTogether with: ${otherAliases.join(', ')}";
+    }
+
+    return Stack(
+      children: [
+        // 🌟 Main Card
+        Card(
+          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+          ),
+          elevation: 5,
+          color: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 🔹 **Spending Path Label**
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      path['type'].contains('RELATIVETIMELOCK')
+                          ? 'Timelock: $timelock blocks'
+                          : 'MULTISIG',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.vpn_key,
+                      color: Colors.blue,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () {
+                        _showPathsDialog(context, policy);
+                      },
+                      child: const Icon(
+                        Icons.more_vert,
+                        color: Colors.black54,
+                        size: 22,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // 🔹 **Spendable Balance (Big Bold Text)**
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withAlpha((0.1 * 255).toInt()),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.check_circle,
+                        color: Colors.blue,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: Text(
+                          aliasText,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                // 🔹 **Transaction Details**
+                if (transactionDetails.isNotEmpty)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Upcoming Funds:",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      ...transactionDetails,
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        // 🔹 **Index Badge (Top-Right Corner)**
+        Positioned(
+          top: 13,
+          right: 13,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '${index + 1} of $length',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   // Box for displaying general wallet info with onTap functionality
-  Widget _buildInfoBoxMultisig(String title, String data, VoidCallback onTap,
-      {bool showCopyButton = false, String? subtitle}) {
+  Widget _buildInfoBoxMultisig(String title, String data,
+      {VoidCallback? onTap, bool showCopyButton = false, String? subtitle}) {
     return GestureDetector(
       onTap: onTap, // Detects tap and calls the passed function
       child: Card(
@@ -2259,7 +2613,7 @@ class SharedWalletState extends State<SharedWallet> {
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.green, // Match button text color
+                  color: Colors.blue, // Match button text color
                 ),
               ),
               const SizedBox(height: 8),
@@ -2278,7 +2632,7 @@ class SharedWalletState extends State<SharedWallet> {
                   ),
                   if (showCopyButton) // Display copy button if true
                     IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.green),
+                      icon: const Icon(Icons.copy, color: Colors.blue),
                       tooltip: 'Copy to clipboard',
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: data));
@@ -2323,12 +2677,12 @@ class SharedWalletState extends State<SharedWallet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Transactions',
+            Text(
+              '${_transactions.length} Transactions',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.green, // Match button text color
+                color: Colors.blue, // Match button text color
               ),
             ),
             const SizedBox(height: 8),
@@ -2341,15 +2695,20 @@ class SharedWalletState extends State<SharedWallet> {
                         child: ListView.builder(
                           itemCount: _transactions.length,
                           itemBuilder: (context, index) {
-                            return GestureDetector(
-                              onTap: () {
-                                _showTransactionsDialog(
-                                  context,
-                                  _transactions[index],
-                                );
-                              },
-                              child:
-                                  _buildTransactionItem(_transactions[index]),
+                            final tx = _transactions[index];
+
+                            return KeyedSubtree(
+                              key: ValueKey(tx['txid']),
+                              child: GestureDetector(
+                                onTap: () {
+                                  _showTransactionsDialog(
+                                    context,
+                                    _transactions[index],
+                                  );
+                                },
+                                child:
+                                    _buildTransactionItem(_transactions[index]),
+                              ),
                             );
                           },
                         ),
@@ -2361,56 +2720,122 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   Widget _buildTransactionItem(Map<String, dynamic> tx) {
-    // Unwrap the transaction if it is wrapped inside an extra 'txid' key
-    if (tx.containsKey('txid') && tx['txid'] is Map) {
-      tx = tx['txid'];
-    }
-
     // Extract confirmation status
     final blockHeight = tx['status']?['block_height'];
     final confirmations =
         blockHeight != null ? _currentHeight - blockHeight : -1;
     final isConfirmed = confirmations >= 0;
 
-    // Safely access vout[0] for the amount received and receiver address
-    final firstVout = tx['vout'] != null && tx['vout'].isNotEmpty
-        ? tx['vout'].firstWhere(
-            (vout) => (vout['scriptpubkey_address'] ==
-                address), // Check if the address matches
-            orElse: () => null,
-          )
-        : null;
-
-    final receiver =
-        firstVout != null && firstVout['scriptpubkey_address'] != null
-            ? firstVout['scriptpubkey_address'] ?? 'Unknown Receiver'
-            : 'Unknown Receiver';
-
+    // Transaction fee
     final fee = tx['fee'] ?? 0;
 
-    final isReceived = tx['vout'] != null &&
-        tx['vout'].any((vout) => vout['scriptpubkey_address'] == address);
+    // Extract all input addresses (senders) and their total input value
+    final inputAddresses = tx['vin']
+            ?.map((vin) => vin['prevout']?['scriptpubkey_address'] as String?)
+            ?.where((addr) => addr != null)
+            ?.toSet() ??
+        {};
 
-    final amount = isReceived
-        ? tx['vout']
-            .where((vout) => vout['scriptpubkey_address'] == address)
-            .fold<int>(
-              0,
-              (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
-            )
-        : tx['vin'].fold<int>(
-              0,
-              (int sum, dynamic vin) =>
-                  sum + ((vin['prevout']?['value'] as int?) ?? 0),
-            ) -
-            fee;
+    final totalInput = tx['vin']?.fold<int>(
+          0,
+          (int sum, dynamic vin) =>
+              sum + ((vin['prevout']?['value'] as int?) ?? 0),
+        ) ??
+        0;
+
+    // Extract all output addresses (receivers) and their total output value
+    final outputAddresses = tx['vout']
+            ?.map((vout) => vout['scriptpubkey_address'] as String?)
+            ?.where((addr) => addr != null)
+            ?.toSet() ??
+        {};
+
+    final totalOutput = tx['vout']?.fold<int>(
+          0,
+          (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+        ) ??
+        0;
+
+    // Check if transaction is sent, received, or internal
+    final isSent = inputAddresses.contains(address); // Sent transaction
+    final isReceived =
+        outputAddresses.contains(address); // Received transaction
+    final isInternal = inputAddresses.length == 1 &&
+        inputAddresses.contains(address) &&
+        outputAddresses.length == 1 &&
+        outputAddresses.contains(address); // Internal transaction
+
+    // Determine the amount sent/received
+    int amount = 0;
+
+    if (isInternal) {
+      amount = totalOutput; // Full amount in an internal transaction
+    } else if (isSent) {
+      amount = tx['vout']
+              ?.where((vout) =>
+                  vout['scriptpubkey_address'] !=
+                  address) // Exclude own address
+              ?.fold<int>(
+                0,
+                (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+              ) ??
+          0;
+    } else if (isReceived) {
+      amount = tx['vout']
+              ?.where((vout) =>
+                  vout['scriptpubkey_address'] ==
+                  address) // Include only own address
+              ?.fold<int>(
+                0,
+                (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+              ) ??
+          0;
+    }
+
+    // Extract specific sender/recipient address
+    String? counterpartyAddress;
+
+    if (isSent) {
+      counterpartyAddress = outputAddresses
+          .where((addr) => addr != address) // Exclude own address
+          .join(', ');
+    } else if (isReceived) {
+      // If multiple input addresses exist, the sender is likely the one contributing the most BTC.
+      if (inputAddresses.isNotEmpty) {
+        counterpartyAddress =
+            inputAddresses.first; // Default to the first sender
+
+        // Find the input with the highest value (likely the fee payer)
+        int highestInputValue = 0;
+        String? feePayerAddress;
+
+        for (var vin in tx['vin']) {
+          String? inputAddr = vin['prevout']?['scriptpubkey_address'];
+          int inputValue = vin['prevout']?['value'] ?? 0;
+
+          if (inputAddr != null && inputValue > highestInputValue) {
+            highestInputValue = inputValue;
+            feePayerAddress = inputAddr;
+          }
+        }
+
+        // Use the highest input as the sender if found
+        if (feePayerAddress != null) {
+          counterpartyAddress = feePayerAddress;
+        }
+      }
+    }
 
     return Card(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8.0), // Rounded corners
+        borderRadius: BorderRadius.circular(8.0),
       ),
-      elevation: 2, // Light shadow for transaction items
-      color: Colors.white, // Match button background
+      elevation: 2,
+      color: isInternal
+          ? Colors.amber
+          : isSent
+              ? Colors.redAccent[100]
+              : Colors.tealAccent,
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
@@ -2421,26 +2846,41 @@ class SharedWalletState extends State<SharedWallet> {
               children: [
                 Icon(
                   isConfirmed ? Icons.check_circle : Icons.timelapse,
-                  color: isConfirmed ? Colors.green : Colors.orange,
+                  color: isConfirmed ? Colors.blue : Colors.amber,
                 ),
                 Text(
-                  'Amount: $amount',
+                  // Show only the fee payed for internal transactions
+                  isInternal
+                      ? "Internal: - $fee satoshis"
+                      : '${isSent ? "Sent: - " : "Received: + "}$amount satoshis',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black, // Match text color
+                    color: Colors.black,
                   ),
                 ),
-                const Icon(Icons.chevron_right,
-                    color: Colors.green), // Arrow icon color
+                const Icon(Icons.chevron_right, color: Colors.blue),
               ],
             ),
             const SizedBox(height: 4),
-            Text(
-              'Receiver: $receiver',
-              style: const TextStyle(
-                  fontSize: 14, color: Colors.grey), // Grey for secondary text
-            ),
+            if (!isInternal)
+              Text(
+                isSent
+                    ? "To: $counterpartyAddress"
+                    : "From: $counterpartyAddress",
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black,
+                ),
+              ),
+            const SizedBox(height: 4),
+            if (isSent && !isInternal)
+              Text(
+                isInternal
+                    ? '$fee satoshis spent in fees'
+                    : 'Fee: $fee satoshis',
+                style: const TextStyle(fontSize: 14, color: Colors.black),
+              ),
           ],
         ),
       ),
@@ -2448,56 +2888,85 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   void _showTransactionsDialog(
-    BuildContext context,
+    BuildContext rootContext,
     Map<String, dynamic> transaction,
   ) {
-    // Extract transaction details
-    final fee = transaction['fee'] ?? 0;
+    final txid = transaction['txid'];
 
-    final sender = (transaction['vin'] != null && transaction['vin'].isNotEmpty)
-        ? (transaction['vin'][0]['prevout']?['scriptpubkey_address'] ??
-            'Unknown Sender')
-        : 'Unknown Sender';
-
-    final receiver =
-        transaction['vout'] != null && transaction['vout'].isNotEmpty
-            ? (transaction['vout'].firstWhere(
-                  (vout) => vout['scriptpubkey_address'] == address,
-                  orElse: () => null,
-                )?['scriptpubkey_address'] ??
-                'Unknown Receiver')
-            : 'Unknown Receiver';
-
-    final isReceived = transaction['vout'] != null &&
-        transaction['vout']
-            .any((vout) => vout['scriptpubkey_address'] == address);
-
-    final amount = isReceived
-        ? transaction['vout']
-            .where((vout) => vout['scriptpubkey_address'] == address)
-            .fold<int>(
-              0,
-              (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
-            )
-        : transaction['vin'].fold<int>(
-              0,
-              (int sum, dynamic vin) =>
-                  sum + ((vin['prevout']?['value'] as int?) ?? 0),
-            ) -
-            fee;
-
-    final isConfirmed = transaction['status']?['confirmed'] ?? false;
-    final blockHeight =
-        isConfirmed ? transaction['status']['block_height'] : 'Unconfirmed';
+    // Extract confirmation details
+    final blockHeight = transaction['status']?['block_height'];
+    final isConfirmed = blockHeight != null;
+    final confirmations = isConfirmed ? _currentHeight - blockHeight : -1;
     final blockTime = isConfirmed
         ? DateTime.fromMillisecondsSinceEpoch(
             (transaction['status']['block_time'] ?? 0) * 1000,
           ).toLocal()
         : 'Unconfirmed';
 
+    // Extract transaction fee
+    final fee = transaction['fee'] ?? 0;
+
+    // Extract all input addresses (senders)
+    final Set<String> inputAddresses = (transaction['vin'] as List<dynamic>)
+        .map((vin) => vin['prevout']['scriptpubkey_address'] as String)
+        .toSet();
+
+    final int totalInput = transaction['vin']?.fold<int>(
+          0,
+          (int sum, dynamic vin) =>
+              sum + ((vin['prevout']?['value'] as int?) ?? 0),
+        ) ??
+        0;
+
+    // Extract all ouput addresses (receivers
+    final Set<String> outputAddresses = (transaction['vout'] as List<dynamic>)
+        .map((vout) => vout['scriptpubkey_address'] as String)
+        .toSet();
+
+    final int totalOutput = transaction['vout']?.fold<int>(
+          0,
+          (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+        ) ??
+        0;
+
+    // Determine if transaction is sent, received, or internal
+    final bool isSent = inputAddresses.contains(address);
+    final bool isReceived = outputAddresses.contains(address);
+    final bool isInternal = inputAddresses.length == 1 &&
+        inputAddresses.contains(address) &&
+        outputAddresses.length == 1 &&
+        outputAddresses.contains(address);
+
+    // Determine the actual amount sent/received
+    int amount = 0;
+
+    if (isInternal) {
+      amount = totalOutput;
+    } else if (isSent) {
+      amount = transaction['vout']
+              ?.where((vout) =>
+                  vout['scriptpubkey_address'] !=
+                  address) // Exclude own address
+              ?.fold<int>(
+                0,
+                (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+              ) ??
+          0;
+    } else if (isReceived) {
+      amount = transaction['vout']
+              ?.where((vout) =>
+                  vout['scriptpubkey_address'] ==
+                  address) // Include own address
+              ?.fold<int>(
+                0,
+                (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
+              ) ??
+          0;
+    }
+
     // Build the dialog
     showDialog(
-      context: context,
+      context: rootContext,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: Colors.grey[900],
@@ -2510,7 +2979,7 @@ class SharedWalletState extends State<SharedWallet> {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green,
+              color: Colors.blue,
             ),
           ),
           content: SingleChildScrollView(
@@ -2523,113 +2992,191 @@ class SharedWalletState extends State<SharedWallet> {
                   decoration: BoxDecoration(
                     color: Colors.grey[850],
                     borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: Colors.green),
+                    border: Border.all(color: Colors.blue),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Transaction Type
                       Text(
-                        isReceived
-                            ? 'Received Transaction'
-                            : 'Sent Transaction',
+                        isInternal
+                            ? "Internal Transaction"
+                            : isSent
+                                ? 'Sent Transaction'
+                                : 'Received Transaction',
                         style: const TextStyle(
                           fontSize: 18,
-                          color: Colors.green,
+                          color: Colors.blue,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 8),
+
+                      // Sender Addresses
                       const Text(
-                        "Sender Information",
+                        "Senders",
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: Colors.blue,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      GestureDetector(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(
-                              text: sender)); // Copy text to clipboard
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Copied to clipboard: $sender'),
-                              duration: const Duration(seconds: 2),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: inputAddresses.map((sender) {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[850],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue),
                             ),
-                          ); // Optional feedback
-                        },
-                        child: Text(
-                          sender,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        "Receiver Information",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      GestureDetector(
-                        onTap: () {
-                          Clipboard.setData(ClipboardData(
-                              text: receiver)); // Copy text to clipboard
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Copied to clipboard: $receiver'),
-                              duration: const Duration(seconds: 2),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    sender,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white70,
+                                      overflow: TextOverflow
+                                          .ellipsis, // Handle long addresses
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.copy,
+                                      color: Colors.blue, size: 20),
+                                  onPressed: () {
+                                    Clipboard.setData(
+                                        ClipboardData(text: sender));
+                                    ScaffoldMessenger.of(rootContext)
+                                        .showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            'Copied to clipboard: $sender'),
+                                        duration: const Duration(seconds: 1),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
-                          ); // Optional feedback
-                        },
-                        child: Text(
-                          receiver,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white70,
-                          ),
-                        ),
+                          );
+                        }).toList(),
                       ),
+
                       const SizedBox(height: 8),
+
+                      // Receiver Addresses
                       const Text(
-                        "Transaction Details",
+                        "Receivers",
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: Colors.blue,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: outputAddresses.map((receiver) {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[850],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    receiver,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white70,
+                                      overflow: TextOverflow
+                                          .ellipsis, // Handle long addresses
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.copy,
+                                      color: Colors.blue, size: 20),
+                                  onPressed: () {
+                                    Clipboard.setData(
+                                        ClipboardData(text: receiver));
+                                    ScaffoldMessenger.of(rootContext)
+                                        .showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            'Copied to clipboard: $receiver'),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Amount Sent/Received
+                      const Text(
+                        "Amount",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
                       Text(
-                        "Amount: ${amount.abs()} sats",
+                        "$amount satoshis",
                         style: const TextStyle(
                           fontSize: 14,
                           color: Colors.white70,
                         ),
                       ),
-                      Text(
-                        "Fee: $fee sats",
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        ),
-                      ),
                       const SizedBox(height: 8),
+
+                      // Transaction Fee
+                      if (isSent || isInternal) ...[
+                        const Text(
+                          "Transaction Fee",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        Text(
+                          "$fee satoshis",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // Confirmation Details
                       const Text(
                         "Confirmation Details",
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: Colors.blue,
                         ),
                       ),
-                      const SizedBox(height: 4),
                       Text(
                         isConfirmed
                             ? "Confirmed at block: $blockHeight"
@@ -2647,6 +3194,27 @@ class SharedWalletState extends State<SharedWallet> {
                             color: Colors.white70,
                           ),
                         ),
+                      GestureDetector(
+                        onTap: () async {
+                          final Uri url = Uri.parse(
+                              "https://mempool.space/testnet4/tx/$txid/");
+
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url,
+                                mode: LaunchMode.externalApplication);
+                          } else {
+                            throw "Could not launch $url";
+                          }
+                        },
+                        child: Text(
+                          "Visit the Mempool",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2654,15 +3222,14 @@ class SharedWalletState extends State<SharedWallet> {
             ),
           ),
           actions: [
-            InkwellButton(
-              onTap: () {
+            TextButton(
+              onPressed: () {
                 Navigator.of(context).pop();
               },
-              label: 'Close',
-              backgroundColor: Colors.white,
-              textColor: Colors.black,
-              icon: Icons.cancel_rounded,
-              iconColor: Colors.black,
+              child: const Text(
+                'Close',
+                style: TextStyle(color: Colors.blue),
+              ),
             ),
           ],
         );

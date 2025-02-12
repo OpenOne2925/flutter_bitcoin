@@ -51,7 +51,7 @@ class SettingsPage extends StatelessWidget {
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.green, Colors.white],
+                colors: [Colors.blue, Colors.white],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -114,7 +114,7 @@ class SettingsPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(color: Colors.green),
+                      borderSide: const BorderSide(color: Colors.blue),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     border: OutlineInputBorder(
@@ -140,7 +140,7 @@ class SettingsPage extends StatelessWidget {
                       ),
                     );
                   },
-                  backgroundColor: Colors.green,
+                  backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
                   icon: Icons.save,
                   iconColor: Colors.white,

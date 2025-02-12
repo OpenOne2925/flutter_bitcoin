@@ -8,7 +8,7 @@ class CustomTextFieldStyles {
     Color? borderColor, // Optional custom border color
   }) {
     final defaultBorderColor = Colors.grey.withAlpha((0.6 * 255).toInt());
-    final focusedBorderColor = borderColor ?? Colors.green;
+    final focusedBorderColor = borderColor ?? Colors.blue;
 
     return InputDecoration(
       labelText: labelText,
@@ -16,12 +16,12 @@ class CustomTextFieldStyles {
       labelStyle: TextStyle(
         fontSize: 16.0,
         fontWeight: FontWeight.bold,
-        color: Colors.green,
+        color: Colors.blue,
       ),
       floatingLabelStyle: TextStyle(
         fontSize: 14.0,
         fontWeight: FontWeight.bold,
-        color: Colors.green,
+        color: Colors.blue,
       ),
       hintText: hintText,
       hintStyle: TextStyle(

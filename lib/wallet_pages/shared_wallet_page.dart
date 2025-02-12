@@ -21,7 +21,7 @@ class SharedWalletPageState extends State<SharedWalletPage> {
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.green, Colors.white],
+                colors: [Colors.blue, Colors.white],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -60,7 +60,7 @@ class SharedWalletPageState extends State<SharedWalletPage> {
                   onPressed: () {
                     Navigator.pushNamed(context, '/create_shared');
                   },
-                  backgroundColor: Colors.green, // Vibrant button background
+                  backgroundColor: Colors.blue, // Vibrant button background
                   foregroundColor: Colors.white, // White text
                   icon: Icons.add_circle, // Add wallet icon
                   iconColor: Colors.white, // Icon matches text
@@ -73,10 +73,10 @@ class SharedWalletPageState extends State<SharedWalletPage> {
                   onPressed: () {
                     Navigator.pushNamed(context, '/import_shared');
                   },
-                  backgroundColor: Colors.green.shade100, // Subtle background
-                  foregroundColor: Colors.green.shade700, // Vibrant text
+                  backgroundColor: Colors.blue.shade100, // Subtle background
+                  foregroundColor: Colors.blue.shade700, // Vibrant text
                   icon: Icons.download, // Import wallet icon
-                  iconColor: Colors.green.shade700, // Icon matches text
+                  iconColor: Colors.blue.shade700, // Icon matches text
                   label: 'Import Wallet',
                   padding: 16.0,
                   iconSize: 28.0,

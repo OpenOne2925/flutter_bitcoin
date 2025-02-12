@@ -314,7 +314,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
       body: Container(
         decoration: const BoxDecoration(
             gradient: LinearGradient(
-          colors: [Colors.greenAccent, Colors.white],
+          colors: [Colors.blueAccent, Colors.white],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         )),
@@ -385,7 +385,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.copy, color: Colors.green),
+                            icon: const Icon(Icons.copy, color: Colors.blue),
                             tooltip: 'Copy to Clipboard',
                             onPressed: () {
                               Clipboard.setData(
@@ -407,7 +407,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                   CustomButton(
                     onPressed: _generatePublicKey,
                     backgroundColor: Colors.white,
-                    foregroundColor: Colors.green,
+                    foregroundColor: Colors.blue,
                     icon: Icons.generating_tokens,
                     iconColor: Colors.black,
                     label: 'Generate Public Key',
@@ -419,7 +419,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                   CustomButton(
                     onPressed: _uploadFile,
                     backgroundColor: Colors.white,
-                    foregroundColor: Colors.green,
+                    foregroundColor: Colors.blue,
                     icon: Icons.file_upload,
                     iconColor: Colors.black,
                     label: 'Select File',
@@ -445,7 +445,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.black,
                     icon: Icons.account_balance_wallet,
-                    iconColor: Colors.green,
+                    iconColor: Colors.blue,
                     label: 'Import Shared Wallet',
                   ),
 

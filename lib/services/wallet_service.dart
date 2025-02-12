@@ -3,14 +3,12 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:english_words/english_words.dart';
-import 'package:convert/convert.dart';
 
 /// WalletService Class
 ///
@@ -213,6 +211,41 @@ class WalletService {
     return addressInfo.address.asString();
   }
 
+  /// Fetches and calculates confirmed & pending balance
+  Future<Map<String, int>> getBitcoinBalance(String address) async {
+    try {
+      final response = await http.get(Uri.parse("$baseUrl/address/$address"));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // Extract on-chain (confirmed) stats
+        final int confirmedReceived =
+            data["chain_stats"]["funded_txo_sum"] ?? 0;
+        final int confirmedSpent = data["chain_stats"]["spent_txo_sum"] ?? 0;
+        final int confirmedBalance = confirmedReceived - confirmedSpent;
+
+        print(confirmedBalance);
+
+        // Extract mempool (pending) stats
+        final int pendingReceived =
+            data["mempool_stats"]["funded_txo_sum"] ?? 0;
+        final int pendingSpent = data["mempool_stats"]["spent_txo_sum"] ?? 0;
+        final int pendingBalance = pendingReceived - pendingSpent;
+
+        return {
+          "confirmedBalance": confirmedBalance,
+          "pendingBalance": pendingBalance
+        };
+      } else {
+        throw Exception("Failed to fetch data: ${response.reasonPhrase}");
+      }
+    } catch (e) {
+      print("Error fetching balance: $e");
+      return {"confirmedBalance": 0, "pendingBalance": 0};
+    }
+  }
+
   Future<int> calculateSendAllBalance({
     required String recipientAddress,
     required Wallet wallet,
@@ -360,6 +393,8 @@ class WalletService {
 
         // API endpoint to fetch block details
         final String blockApiUrl = '$baseUrl/block/$currentHash';
+
+        // print(currentHash);
 
         // Make GET request to fetch block details
         final response = await http.get(Uri.parse(blockApiUrl));
@@ -528,9 +563,89 @@ class WalletService {
     return true;
   }
 
-  Future<Address> getAddressFromScript(TxOut output) {
+  Future<Address> getAddressFromScriptOutput(TxOut output) {
+    // print('Output: ${output.scriptPubkey.asString()}');
+
     return Address.fromScript(
         script: ScriptBuf(bytes: output.scriptPubkey.bytes), network: network);
+  }
+
+  Future<Address> getAddressFromScriptInput(TxIn input) {
+    // print(input.previousOutput);
+
+    // print("         script: ${input.scriptSig}");
+    // print("         previousOutout Txid: ${input.previousOutput.txid}");
+    // print("         previousOutout vout: ${input.previousOutput.vout}");
+    // print("         witness: ${input.witness}");
+    return Address.fromScript(
+        script: ScriptBuf(bytes: input.scriptSig!.bytes), network: network);
+  }
+
+  void printTransactionDetails() async {
+    try {
+      List<TransactionDetails> transactions =
+          wallet.listTransactions(includeRaw: true);
+
+      if (transactions.isEmpty) {
+        print("No transactions found.");
+        return;
+      }
+
+      // ✅ Sort transactions: Unconfirmed first, then by block height (ascending)
+      transactions.sort((a, b) {
+        int aHeight =
+            a.confirmationTime?.height ?? 0; // Treat unconfirmed as height = 0
+        int bHeight = b.confirmationTime?.height ?? 0;
+        return bHeight.compareTo(aHeight);
+      });
+
+      print("\n===== Transaction History (Sorted) =====");
+      for (var tx in transactions) {
+        // Extract sender & receiver
+        List<String> senders = [];
+        List<String> receivers = [];
+
+        final inputs = tx.transaction!.input();
+
+        // Process inputs (senders)
+        for (final input in inputs) {
+          try {
+            final senderAddress = await getAddressFromScriptInput(input);
+            senders.add(senderAddress.toString());
+          } catch (e) {
+            print("Error fetching sender address: $e");
+          }
+        }
+
+        final outputs = tx.transaction!.output();
+
+        // Process outputs (receivers)
+        for (final output in outputs) {
+          try {
+            final receiverAddress = await getAddressFromScriptOutput(output);
+            receivers.add(receiverAddress.toString());
+          } catch (e) {
+            print("Error fetching receiver address: $e");
+          }
+        }
+
+        print("""
+              ----------------------------
+              TxID: ${tx.txid}
+              Received: ${tx.received} Sats
+              Sent: ${tx.sent} Sats
+              Fee: ${tx.fee ?? 'Unknown'} Sats
+              Confirmed: ${tx.confirmationTime != null ? 'Yes' : 'No'}
+              Block Height: ${tx.confirmationTime?.height ?? 'Pending'}
+              Block Time: ${tx.confirmationTime?.timestamp ?? 'Pending'}
+              Senders: ${senders.isNotEmpty ? senders.join(", ") : "Unknown"}
+              Receivers: ${receivers.isNotEmpty ? receivers.join(", ") : "Unknown"}
+              ----------------------------
+              """);
+      }
+    } catch (e) {
+      print("Error fetching transactions: $e");
+    }
   }
 
   void validateAddress(String address) async {
@@ -793,11 +908,15 @@ class WalletService {
   Future<void> saveLocalData(Wallet wallet) async {
     String currentAddress = getAddress(wallet);
 
+    final totalBalance = await getBitcoinBalance(currentAddress);
+    final availableBalance = totalBalance['confirmedBalance'];
+    final ledgerBalance = totalBalance['pendingBalance'];
+
     final walletData = WalletData(
       address: currentAddress,
       balance: int.parse(getBalance(wallet).toString()),
-      ledgerBalance: wallet.getBalance().total.toInt(),
-      availableBalance: wallet.getBalance().spendable.toInt(),
+      ledgerBalance: ledgerBalance!,
+      availableBalance: availableBalance!,
       transactions: await getTransactions(currentAddress),
       currentHeight: await fetchCurrentBlockHeight(),
       timeStamp: await fetchBlockTimestamp(),
@@ -880,18 +999,16 @@ class WalletService {
     );
 
     // Derive the key at the hardened path
-    final derivedSecretKey = await secretKey.derive(hardenedPath);
+    final derivedSecretKey = secretKey.derive(hardenedPath);
 
     // Extend the derived secret key further using the unhardened path
-    final derivedExtendedSecretKey =
-        await derivedSecretKey.extend(unHardenedPath);
+    final derivedExtendedSecretKey = derivedSecretKey.extend(unHardenedPath);
 
     // Convert the derived secret key to its public counterpart
     final publicKey = derivedSecretKey.toPublic();
 
     // Extend the public key using the same unhardened path
-    final derivedExtendedPublicKey =
-        await publicKey.extend(path: unHardenedPath);
+    final derivedExtendedPublicKey = publicKey.extend(path: unHardenedPath);
 
     return (derivedExtendedSecretKey, derivedExtendedPublicKey);
   }
@@ -977,7 +1094,9 @@ class WalletService {
   }
 
   List<Map<String, dynamic>> extractDataByFingerprint(
-      Map<String, dynamic> json, String fingerprint) {
+    Map<String, dynamic> json,
+    String fingerprint,
+  ) {
     List<Map<String, dynamic>> result = [];
 
     void traverse(Map<String, dynamic> node, List<String> path,
@@ -1346,9 +1465,9 @@ class WalletService {
 
       totalSpending = amount;
       print("Total Spending: $totalSpending");
-      print("Confirmed Utxos: ${utxos.confirmed}");
+      print("Confirmed Utxos: ${utxos.spendable}");
       // Check If there are enough funds available
-      if (utxos.confirmed < totalSpending) {
+      if (utxos.spendable < totalSpending) {
         // Exit early if no confirmed UTXOs are available
         throw Exception(
             "Not enough confirmed funds available. Please wait until your transactions confirm.");
@@ -1458,7 +1577,7 @@ class WalletService {
             int currentHeight = await fetchCurrentBlockHeight();
             print('Current block height: $currentHeight');
 
-            final spendableUtxos = utxos.where((utxo) {
+            spendableUtxos = utxos.where((utxo) {
               final blockHeight = utxo['status']['block_height'];
               print(
                   'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight');
@@ -1588,7 +1707,7 @@ class WalletService {
       }
 
       try {
-        final signed = await wallet.sign(
+        final signed = wallet.sign(
           psbt: txBuilderResult.$1,
           signOptions: const SignOptions(
             trustWitnessUtxo: false,
@@ -1608,14 +1727,14 @@ class WalletService {
           print('Sending');
           final tx = txBuilderResult.$1.extractTx();
 
-          for (var input in await tx.input()) {
+          for (var input in tx.input()) {
             print("Input sequence number: ${input.previousOutput.txid}");
           }
 
-          final isLockTime = await tx.isLockTimeEnabled();
+          final isLockTime = tx.isLockTimeEnabled();
           print('LockTime enabled: $isLockTime');
 
-          final lockTime = await tx.lockTime();
+          final lockTime = tx.lockTime();
           print('LockTime: $lockTime');
 
           await blockchain.broadcast(transaction: tx);
@@ -1692,7 +1811,7 @@ class WalletService {
     printInChunks('Transaction Not Signed: $psbt');
 
     try {
-      final signed = await wallet.sign(
+      final signed = wallet.sign(
         psbt: psbt,
         signOptions: const SignOptions(
           trustWitnessUtxo: false,
@@ -1710,10 +1829,10 @@ class WalletService {
         final tx = psbt.extractTx();
         print('Extracting');
 
-        final lockTime = await tx.lockTime();
+        final lockTime = tx.lockTime();
         print('LockTime: $lockTime');
 
-        for (var input in await tx.input()) {
+        for (var input in tx.input()) {
           print("Input sequence number: ${input.sequence}");
         }
 

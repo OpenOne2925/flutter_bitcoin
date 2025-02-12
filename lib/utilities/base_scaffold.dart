@@ -115,7 +115,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
           IconButton(
             icon: Icon(
               isDarkMode ? Icons.dark_mode : Icons.light_mode,
-              color: isDarkMode ? Colors.deepPurple : Colors.green,
+              color: isDarkMode ? Colors.deepPurple : Colors.blue,
             ),
             onPressed: () {
               Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
@@ -150,7 +150,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.greenAccent, Colors.white],
+            colors: [Colors.blueAccent, Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -167,7 +167,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
     return DrawerHeader(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.green, Colors.greenAccent],
+          colors: [Colors.blue, Colors.blueAccent],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -227,12 +227,12 @@ class BaseScaffoldState extends State<BaseScaffold> {
   Widget _buildPersonalWalletTile(BuildContext context) {
     return Card(
       elevation: 6,
-      shadowColor: Colors.greenAccent,
+      shadowColor: Colors.blueAccent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: const Icon(Icons.wallet, color: Colors.green),
+        leading: const Icon(Icons.wallet, color: Colors.blue),
         title: const Text(
           'Personal Wallet',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -312,7 +312,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
                 return Card(
                   elevation: 6,
-                  shadowColor: Colors.greenAccent,
+                  shadowColor: Colors.blueAccent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -324,7 +324,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Colors.green,
+                        color: Colors.blue,
                       ),
                     ),
                     subtitle: Text(
@@ -360,14 +360,14 @@ class BaseScaffoldState extends State<BaseScaffold> {
   Widget _buildCreateSharedWalletTile(BuildContext context) {
     return Card(
       elevation: 6,
-      shadowColor: Colors.greenAccent,
+      shadowColor: Colors.blueAccent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
         leading: const Icon(
           Icons.add_circle,
-          color: Colors.green,
+          color: Colors.blue,
         ),
         title: const Text(
           'Create Shared Wallet',
@@ -387,14 +387,14 @@ class BaseScaffoldState extends State<BaseScaffold> {
   Widget _buildSettingsTile(BuildContext context) {
     return Card(
       elevation: 6,
-      shadowColor: Colors.greenAccent,
+      shadowColor: Colors.blueAccent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
         leading: const Icon(
           Icons.settings,
-          color: Colors.green,
+          color: Colors.blue,
         ),
         title: const Text(
           'Settings',

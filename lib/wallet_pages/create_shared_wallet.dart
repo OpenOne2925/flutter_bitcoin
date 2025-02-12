@@ -280,7 +280,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 labelText: 'Enter Descriptor Name',
                 hintText: 'E.g., MySharedWallet',
                 borderColor:
-                    _isDescriptorNameMissing ? Colors.red : Colors.green,
+                    _isDescriptorNameMissing ? Colors.red : Colors.blue,
               ),
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurface,
@@ -301,7 +301,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               backgroundColor: Colors.white,
               foregroundColor: Colors.black,
               icon: Icons.vpn_key,
-              iconColor: Colors.green,
+              iconColor: Colors.blue,
               label: 'Generate Public Key',
               padding: 16.0,
               iconSize: 24.0,
@@ -323,7 +323,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.copy, color: Colors.green),
+                    icon: const Icon(Icons.copy, color: Colors.blue),
                     tooltip: 'Copy to Clipboard',
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: _publicKey!));
@@ -394,7 +394,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.person_add_alt_sharp,
-                      size: 40, color: Colors.green),
+                      size: 40, color: Colors.blue),
                   onPressed: _showAddPublicKeyDialog,
                 ),
                 const SizedBox(width: 10),
@@ -426,7 +426,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         labelText: 'Threshold',
                         hintText: 'Thresh',
                         borderColor:
-                            _isThresholdMissing ? Colors.red : Colors.green,
+                            _isThresholdMissing ? Colors.red : Colors.blue,
                       ),
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
@@ -490,9 +490,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       child: Container(
                         padding: const EdgeInsets.all(8.0),
                         decoration: BoxDecoration(
-                          color: Colors.green.withAlpha((0.2 * 255).toInt()),
+                          color: Colors.blue.withAlpha((0.2 * 255).toInt()),
                           borderRadius: BorderRadius.circular(8.0),
-                          border: Border.all(color: Colors.green),
+                          border: Border.all(color: Colors.blue),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -526,7 +526,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   const SizedBox(height: 10),
                   IconButton(
                     icon: const Icon(Icons.lock_clock,
-                        size: 40, color: Colors.green),
+                        size: 40, color: Colors.blue),
                     onPressed: _showAddTimelockDialog,
                   ),
                   const SizedBox(height: 10),
@@ -618,9 +618,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                               padding: const EdgeInsets.all(8.0),
                               decoration: BoxDecoration(
                                 color:
-                                    Colors.green.withAlpha((0.2 * 255).toInt()),
+                                    Colors.blue.withAlpha((0.2 * 255).toInt()),
                                 borderRadius: BorderRadius.circular(8.0),
-                                border: Border.all(color: Colors.green),
+                                border: Border.all(color: Colors.blue),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -667,7 +667,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     foregroundColor:
                         Colors.black, // Bitcoin green color for text
                     icon: Icons.create, // Icon you want to use
-                    iconColor: Colors.green, // Color for the icon
+                    iconColor: Colors.blue, // Color for the icon
                     label: 'Create Descriptor',
                   ),
                 ],
@@ -745,7 +745,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.green,
+                    foregroundColor: Colors.blue,
                   ),
                   child: const Text('Cancel'),
                 ),
@@ -807,7 +807,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     }
                   },
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.green,
+                    foregroundColor: Colors.blue,
                   ),
                   child: Text(isUpdating ? 'Save' : 'Add'),
                 ),
@@ -903,12 +903,11 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                               padding: const EdgeInsets.all(8.0),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? Colors.green
-                                        .withAlpha((0.8 * 255).toInt())
-                                    : Colors.green
+                                    ? Colors.blue.withAlpha((0.8 * 255).toInt())
+                                    : Colors.blue
                                         .withAlpha((0.2 * 255).toInt()),
                                 borderRadius: BorderRadius.circular(8.0),
-                                border: Border.all(color: Colors.green),
+                                border: Border.all(color: Colors.blue),
                               ),
                               child: Text(
                                 key['alias']!,
@@ -978,7 +977,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.green,
+                    foregroundColor: Colors.blue,
                   ),
                   child: const Text('Cancel'),
                 ),
@@ -1052,7 +1051,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     }
                   },
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.green,
+                    foregroundColor: Colors.blue,
                   ),
                   child: const Text('Add'),
                 ),
@@ -1240,7 +1239,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.copy, color: Colors.green),
+                        icon: const Icon(Icons.copy, color: Colors.blue),
                         tooltip: 'Copy to Clipboard',
                         onPressed: () {
                           Clipboard.setData(
@@ -1280,7 +1279,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: Colors.green),
+                        border: Border.all(color: Colors.blue),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1333,7 +1332,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: Colors.green),
+                        border: Border.all(color: Colors.blue),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1419,7 +1418,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                                 backgroundColor: Colors.white,
                                 textColor: Colors.black,
                                 icon: Icons.check_circle,
-                                iconColor: Colors.greenAccent,
+                                iconColor: Colors.blueAccent,
                               ),
                             ],
                           );
@@ -1460,7 +1459,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 }
               },
               style: TextButton.styleFrom(
-                foregroundColor: Colors.green,
+                foregroundColor: Colors.blue,
               ),
               child: const Text('Download Descriptor'),
             ),
@@ -1471,14 +1470,14 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 _navigateToSharedWallet();
               },
               style: TextButton.styleFrom(
-                foregroundColor: Colors.green,
+                foregroundColor: Colors.blue,
               ),
               child: const Text('Navigate to Wallet'),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
               style: TextButton.styleFrom(
-                foregroundColor: Colors.green,
+                foregroundColor: Colors.blue,
               ),
               child: const Text('Close'),
             ),
