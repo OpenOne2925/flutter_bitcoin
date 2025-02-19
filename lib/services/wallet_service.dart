@@ -38,7 +38,7 @@ import 'package:english_words/english_words.dart';
 /// **Single Wallet**
 /// - **`createOrRestoreWallet`**: Creates or restores a single-user wallet from a mnemonic.
 /// - **`calculateSendAllBalance`**: Computes the maximum amount that can be sent after deducting fees.
-/// - **`sendTx`**: Creates, signs, and broadcasts a single-user transaction.
+/// - **`sendSingleTx`**: Creates, signs, and broadcasts a single-user transaction.
 ///
 /// **Shared Wallet**
 /// - **`createSharedWallet`**: Creates a wallet for multi-signature use.
@@ -86,12 +86,39 @@ class WalletService {
   late Blockchain blockchain;
 
   List<String> electrumServers = [
-    // "ssl://electrum.blockstream.info:50002", // TODO: MAINNET SERVER
-    "ssl://mempool.space:40002", // TODO: TESTNET4 SERVER
-    "ssl://blockstream.info:993",
-    // "ssl://tn.not.fyi:55002", // Only for Testnet
-    "ssl://electrum.blockonomics.co:51002",
-    // "ssl://testnet.aranguren.org:51002" // Only for Testnet
+    // // 🔹 Your Local Bitcoin Node (Testnet4)
+    // "tcp://t4rpc:t4rpcp@192.168.99.25:40001",
+    // "tcp://192.168.99.25:40002", // Alternative TCP (No SSL)
+
+    // // 🔹 Your Original Servers
+    "ssl://mempool.space:40002",
+    // "ssl://blockstream.info:993",
+    // "ssl://electrum.blockonomics.co:51002",
+
+    // 🔹 Default Electrum Servers (Updated)
+    // "ssl://erbium1.sytes.net:50002",
+    // "tcp://ecdsa.net:50001",
+    // "ssl://ecdsa.net:110",
+    // "ssl://gh05.geekhosters.com:50002",
+    // "ssl://VPS.hsmiths.com:50002",
+    // "ssl://electrum.anduck.net:50002",
+    // "ssl://electrum.no-ip.org:50002",
+    // "ssl://electrum.be:50002",
+    // "ssl://helicarrier.bauerj.eu:50002",
+    // "ssl://elex01.blackpole.online:50002",
+    // "ssl://electrumx.not.fyi:50002",
+    // "ssl://node.xbt.eu:50002",
+    // "ssl://kirsche.emzy.de:50002",
+    // "ssl://electrum.villocq.com:50002",
+    // "ssl://us11.einfachmalnettsein.de:50002",
+    // "ssl://electrum.trouth.net:50002",
+    // "tcp://Electrum.hsmiths.com:8080",
+    // "ssl://Electrum.hsmiths.com:995",
+    // "ssl://electrum3.hachre.de:50002",
+    "ssl://b.1209k.com:50002",
+    "ssl://elec.luggs.co:443",
+    "tcp://btc.smsys.me:110",
+    "ssl://btc.smsys.me:995",
   ];
 
   ///
@@ -174,7 +201,7 @@ class WalletService {
     }
   }
 
-  Future<Wallet> loadSavedWallet(String? mnemonic) async {
+  Future<Wallet> loadSavedWallet({String? mnemonic}) async {
     var walletBox = Hive.box('walletBox');
     String? savedMnemonic = walletBox.get('walletMnemonic');
 
@@ -196,11 +223,15 @@ class WalletService {
   }
 
   Future<void> syncWallet(Wallet wallet) async {
-    await blockchainInit(); // Ensure blockchain is initialized before usage
+    try {
+      await blockchainInit(); // Ensure blockchain is initialized before usage
 
-    // print(wallet.getBalance().total.toInt());
+      print('Blockchain initialized');
 
-    await wallet.sync(blockchain: blockchain);
+      await wallet.sync(blockchain: blockchain);
+    } catch (e) {
+      throw Exception("Blockchain initialization failed: ${e.toString()}");
+    }
   }
 
   String getAddress(Wallet wallet) {
@@ -214,32 +245,20 @@ class WalletService {
   /// Fetches and calculates confirmed & pending balance
   Future<Map<String, int>> getBitcoinBalance(String address) async {
     try {
-      final response = await http.get(Uri.parse("$baseUrl/address/$address"));
+      final int confirmedBalance =
+          int.parse(wallet.getBalance().spendable.toString());
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      // print('confirmedBalance: $confirmedBalance');
 
-        // Extract on-chain (confirmed) stats
-        final int confirmedReceived =
-            data["chain_stats"]["funded_txo_sum"] ?? 0;
-        final int confirmedSpent = data["chain_stats"]["spent_txo_sum"] ?? 0;
-        final int confirmedBalance = confirmedReceived - confirmedSpent;
+      final int pendingBalance =
+          int.parse(wallet.getBalance().untrustedPending.toString());
 
-        print(confirmedBalance);
+      // print('pendingBalance: $pendingBalance');
 
-        // Extract mempool (pending) stats
-        final int pendingReceived =
-            data["mempool_stats"]["funded_txo_sum"] ?? 0;
-        final int pendingSpent = data["mempool_stats"]["spent_txo_sum"] ?? 0;
-        final int pendingBalance = pendingReceived - pendingSpent;
-
-        return {
-          "confirmedBalance": confirmedBalance,
-          "pendingBalance": pendingBalance
-        };
-      } else {
-        throw Exception("Failed to fetch data: ${response.reasonPhrase}");
-      }
+      return {
+        "confirmedBalance": confirmedBalance,
+        "pendingBalance": pendingBalance
+      };
     } catch (e) {
       print("Error fetching balance: $e");
       return {"confirmedBalance": 0, "pendingBalance": 0};
@@ -253,7 +272,7 @@ class WalletService {
     required WalletService walletService,
   }) async {
     try {
-      final int feeRate = await walletService.getFeeRate();
+      final feeRate = await blockchain.estimateFee(target: BigInt.from(6));
 
       final recipient = await Address.fromString(
         s: recipientAddress,
@@ -261,22 +280,16 @@ class WalletService {
       );
       final recipientScript = recipient.scriptPubkey();
 
-      final externalWalletPolicy = wallet.policies(KeychainKind.externalChain);
-      final path = {
-        externalWalletPolicy!.id(): Uint32List.fromList([0]), // MULTISIG path
-      };
-
       final txBuilder = TxBuilder();
 
       await txBuilder
           .addRecipient(recipientScript, BigInt.from(availableBalance))
-          .policyPath(KeychainKind.internalChain, path)
-          .policyPath(KeychainKind.externalChain, path)
-          .feeRate(feeRate.toDouble())
+          .feeRate(feeRate.satPerVb)
           .finish(wallet);
 
       return availableBalance; // If no exception occurs, return available balance
     } catch (e) {
+      print(e);
       // Handle insufficient funds
       if (e.toString().contains("InsufficientFundsException")) {
         final RegExp regex = RegExp(r'Needed: (\d+),');
@@ -318,30 +331,27 @@ class WalletService {
         print("Connected to Electrum server: $url");
         return;
       } catch (e) {
-        print("Failed to connect to Electrum server: $url, trying next...");
+        print(
+            "Error: $e Failed to connect to Electrum server: $url, trying next...");
       }
     }
     throw Exception("Failed to connect to any Electrum server.");
   }
 
-  Future<int> getFeeRate() async {
-    final memPoolUrl = '$baseUrl/v1/fees/recommended';
+  Future<double> getFeeRate() async {
+    try {
+      final response =
+          await http.get(Uri.parse("$baseUrl/v1/fees/recommended"));
 
-    final response = await http.get(Uri.parse(memPoolUrl));
-
-    if (response.statusCode == 200) {
-      final jsonResponse = jsonDecode(response.body);
-
-      // print(response.body);
-
-      int feeRate = jsonResponse['halfHourFee'];
-
-      // print('FeeRate: $feeRate');
-
-      return feeRate;
-    } else {
-      throw Exception('Failed to fetch available balance');
+      if (response.statusCode == 200) {
+        final fees = jsonDecode(response.body);
+        return fees['halfHourFe'].toDouble(); // Use mempool.space's fastest fee
+      }
+    } catch (e) {
+      print("Mempool API failed, falling back to default");
     }
+
+    return 2.toDouble();
   }
 
   Future<List<Map<String, dynamic>>> getTransactions(String address) async {
@@ -369,100 +379,63 @@ class WalletService {
   }
 
   Future<int> fetchCurrentBlockHeight() async {
-    final url = '$baseUrl/blocks/tip/height';
-    final response = await http.get(Uri.parse(url));
-
-    if (response.statusCode == 200) {
-      return int.parse(response.body); // The current block height
-    } else {
-      throw Exception('Failed to fetch current block height');
-    }
+    return blockchain.getHeight();
   }
 
-  Future<DateTime?> fetchBlockTimestamp() async {
+  Future<String> fetchBlockTimestamp(int height) async {
     try {
-      // API endpoint to fetch the latest block hash
-      final String hashApiUrl = '$baseUrl/blocks/tip/hash';
+      String currentHash = await blockchain.getBlockHash(height: height);
 
-      // Make GET request to fetch the current block hash
-      final responseHash = await http.get(Uri.parse(hashApiUrl));
+      // API endpoint to fetch block details
+      final String blockApiUrl = '$baseUrl/block/$currentHash';
 
-      if (responseHash.statusCode == 200) {
-        // Extract the block hash from the response body
-        String currentHash = responseHash.body.trim();
+      // print(currentHash);
 
-        // API endpoint to fetch block details
-        final String blockApiUrl = '$baseUrl/block/$currentHash';
+      // Make GET request to fetch block details
+      final response = await http.get(Uri.parse(blockApiUrl));
 
-        // print(currentHash);
+      if (response.statusCode == 200) {
+        // Decode JSON response
+        final Map<String, dynamic> jsonData = json.decode(response.body);
 
-        // Make GET request to fetch block details
-        final response = await http.get(Uri.parse(blockApiUrl));
+        // Check if data contains the `time` field
+        if (jsonData.containsKey('timestamp')) {
+          int timestamp = jsonData['timestamp']; // Extract timestamp
 
-        if (response.statusCode == 200) {
-          // Decode JSON response
-          final Map<String, dynamic> jsonData = json.decode(response.body);
+          // print(timestamp);
 
-          // Check if data contains the `time` field
-          if (jsonData.containsKey('timestamp')) {
-            int timestamp = jsonData['timestamp']; // Extract timestamp
-            // TODO: localization
-            return DateTime.fromMillisecondsSinceEpoch(timestamp * 1000)
-                .toLocal(); // Convert to local DateTime
-          } else {
-            print('Error: "time" field not found in response.');
-            return null;
-          }
+          return DateTime.fromMillisecondsSinceEpoch(timestamp * 1000)
+              .add(Duration(hours: -2))
+              .toString()
+              .substring(
+                  0,
+                  DateTime.fromMillisecondsSinceEpoch(timestamp * 1000)
+                          .add(Duration(hours: -2))
+                          .toString()
+                          .length -
+                      7);
         } else {
-          // Handle HTTP errors for block details API
-          print('HTTP Error (Block API): ${response.statusCode}');
-          return null;
+          print('Error: "time" field not found in response.');
+          return "";
         }
       } else {
-        // Handle HTTP errors for hash API
-        print('HTTP Error (Hash API): ${responseHash.statusCode}');
-        return null;
+        // Handle HTTP errors for block details API
+        print('HTTP Error (Block API): ${response.statusCode}');
+        return "";
       }
     } catch (e) {
       // Handle any unexpected exceptions
       print('Exception occurred: $e');
-      return null;
+      return "";
     }
   }
 
-  Future<int> fetchAverageBlockTime() async {
-    final url = '$baseUrl/v1/difficulty-adjustment';
-
-    try {
-      final response = await http.get(Uri.parse(url));
-      // print('API Response: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
-        // Extract and validate `timeAvg`
-        final timeAvg = data['timeAvg'] ?? 0;
-        final avgBlockTime =
-            timeAvg > 10000 ? (timeAvg ~/ 1000) : timeAvg; // Adjust if in ms
-
-        // Sanity check
-        if (avgBlockTime < 300 || avgBlockTime > 1200) {
-          print('Warning: avgBlockTime seems incorrect: $avgBlockTime');
-        }
-
-        return avgBlockTime;
-      } else {
-        print('Failed to fetch data. HTTP Status: ${response.statusCode}');
-        return 0; // Return 0 if the request fails
-      }
-    } catch (e) {
-      print('Error fetching data: $e');
-      return 0; // Return 0 in case of an error
-    }
+  int fetchAverageBlockTime() {
+    return 600;
   }
 
   Future<int> calculateRemainingTimeInSeconds(int remainingBlocks) async {
-    final avgTime = await fetchAverageBlockTime();
+    final avgTime = fetchAverageBlockTime();
 
     if (avgTime > 0) {
       // Calculate remaining time in seconds
@@ -484,21 +457,24 @@ class WalletService {
 
   Future<List<dynamic>> getUtxos(String address) async {
     final url = '$baseUrl/address/$address/utxo';
-    List<dynamic> transactions = [];
+    List<dynamic> utxos = [];
 
     try {
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
-        transactions = json.decode(response.body);
+        utxos = json.decode(response.body);
       } else {
         print(
             'Failed to fetch transactions. HTTP status: ${response.statusCode}');
       }
-      return transactions;
+
+      // printInChunks('Mempool UTXOS: $utxos');
+
+      return utxos;
     } catch (e) {
       print('Error fetching transactions: $e');
-      return transactions;
+      return utxos;
     }
   }
 
@@ -581,72 +557,72 @@ class WalletService {
         script: ScriptBuf(bytes: input.scriptSig!.bytes), network: network);
   }
 
-  void printTransactionDetails() async {
-    try {
-      List<TransactionDetails> transactions =
-          wallet.listTransactions(includeRaw: true);
+  // void printTransactionDetails() async {
+  //   try {
+  //     List<TransactionDetails> transactions =
+  //         wallet.listTransactions(includeRaw: true);
 
-      if (transactions.isEmpty) {
-        print("No transactions found.");
-        return;
-      }
+  //     if (transactions.isEmpty) {
+  //       print("No transactions found.");
+  //       return;
+  //     }
 
-      // ✅ Sort transactions: Unconfirmed first, then by block height (ascending)
-      transactions.sort((a, b) {
-        int aHeight =
-            a.confirmationTime?.height ?? 0; // Treat unconfirmed as height = 0
-        int bHeight = b.confirmationTime?.height ?? 0;
-        return bHeight.compareTo(aHeight);
-      });
+  //     // ✅ Sort transactions: Unconfirmed first, then by block height (ascending)
+  //     transactions.sort((a, b) {
+  //       int aHeight =
+  //           a.confirmationTime?.height ?? 0; // Treat unconfirmed as height = 0
+  //       int bHeight = b.confirmationTime?.height ?? 0;
+  //       return bHeight.compareTo(aHeight);
+  //     });
 
-      print("\n===== Transaction History (Sorted) =====");
-      for (var tx in transactions) {
-        // Extract sender & receiver
-        List<String> senders = [];
-        List<String> receivers = [];
+  //     print("\n===== Transaction History (Sorted) =====");
+  //     for (var tx in transactions) {
+  //       // Extract sender & receiver
+  //       List<String> senders = [];
+  //       List<String> receivers = [];
 
-        final inputs = tx.transaction!.input();
+  //       final inputs = tx.transaction!.input();
 
-        // Process inputs (senders)
-        for (final input in inputs) {
-          try {
-            final senderAddress = await getAddressFromScriptInput(input);
-            senders.add(senderAddress.toString());
-          } catch (e) {
-            print("Error fetching sender address: $e");
-          }
-        }
+  //       // Process inputs (senders)
+  //       for (final input in inputs) {
+  //         try {
+  //           final senderAddress = await getAddressFromScriptInput(input);
+  //           senders.add(senderAddress.toString());
+  //         } catch (e) {
+  //           print("Error fetching sender address: $e");
+  //         }
+  //       }
 
-        final outputs = tx.transaction!.output();
+  //       final outputs = tx.transaction!.output();
 
-        // Process outputs (receivers)
-        for (final output in outputs) {
-          try {
-            final receiverAddress = await getAddressFromScriptOutput(output);
-            receivers.add(receiverAddress.toString());
-          } catch (e) {
-            print("Error fetching receiver address: $e");
-          }
-        }
+  //       // Process outputs (receivers)
+  //       for (final output in outputs) {
+  //         try {
+  //           final receiverAddress = await getAddressFromScriptOutput(output);
+  //           receivers.add(receiverAddress.toString());
+  //         } catch (e) {
+  //           print("Error fetching receiver address: $e");
+  //         }
+  //       }
 
-        print("""
-              ----------------------------
-              TxID: ${tx.txid}
-              Received: ${tx.received} Sats
-              Sent: ${tx.sent} Sats
-              Fee: ${tx.fee ?? 'Unknown'} Sats
-              Confirmed: ${tx.confirmationTime != null ? 'Yes' : 'No'}
-              Block Height: ${tx.confirmationTime?.height ?? 'Pending'}
-              Block Time: ${tx.confirmationTime?.timestamp ?? 'Pending'}
-              Senders: ${senders.isNotEmpty ? senders.join(", ") : "Unknown"}
-              Receivers: ${receivers.isNotEmpty ? receivers.join(", ") : "Unknown"}
-              ----------------------------
-              """);
-      }
-    } catch (e) {
-      print("Error fetching transactions: $e");
-    }
-  }
+  //       print("""
+  //             ----------------------------
+  //             TxID: ${tx.txid}
+  //             Received: ${tx.received} Sats
+  //             Sent: ${tx.sent} Sats
+  //             Fee: ${tx.fee ?? 'Unknown'} Sats
+  //             Confirmed: ${tx.confirmationTime != null ? 'Yes' : 'No'}
+  //             Block Height: ${tx.confirmationTime?.height ?? 'Pending'}
+  //             Block Time: ${tx.confirmationTime?.timestamp ?? 'Pending'}
+  //             Senders: ${senders.isNotEmpty ? senders.join(", ") : "Unknown"}
+  //             Receivers: ${receivers.isNotEmpty ? receivers.join(", ") : "Unknown"}
+  //             ----------------------------
+  //             """);
+  //     }
+  //   } catch (e) {
+  //     print("Error fetching transactions: $e");
+  //   }
+  // }
 
   void validateAddress(String address) async {
     try {
@@ -725,6 +701,36 @@ class WalletService {
     return transactions;
   }
 
+  List<String> findNewTransactions(List<Map<String, dynamic>> apiTransactions,
+      List<TransactionDetails> walletTransactions) {
+    // Extract transaction IDs from both sources
+    List<String> apiTxIds = apiTransactions
+        .map((tx) => tx['txid'].toString().toLowerCase())
+        .toList();
+    List<String> walletTxIds = walletTransactions
+        .map((tx) => tx.txid.toString().toLowerCase())
+        .toList();
+    print("🔎 Checking for new transactions...");
+
+    // Find new transactions
+    List<String> newTransactions =
+        apiTxIds.where((txid) => !walletTxIds.contains(txid)).toList();
+
+    // Debugging Output
+    print("✅ Total API Transactions: ${apiTransactions.length}");
+    print("✅ Total Wallet Transactions: ${walletTxIds.length}");
+
+    if (newTransactions.isNotEmpty) {
+      print("🆕 New Transactions Found: ${newTransactions.length}");
+
+      print("🆕 New Transactions Detected: ${newTransactions.join(", ")}");
+    } else {
+      print("✅ No new transactions.");
+    }
+
+    return newTransactions;
+  }
+
   ///
   ///
   ///
@@ -796,7 +802,7 @@ class WalletService {
   }
 
   // Method to create, sign and broadcast a single user transaction
-  Future<void> sendTx(
+  Future<void> sendSingleTx(
     String recipientAddressStr,
     BigInt amount,
     Wallet wallet,
@@ -829,14 +835,13 @@ class WalletService {
           .enableRbf()
           .addRecipient(recipientScript, amount) // Send to recipient
           .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-          .feeRate(
-              feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
+          .feeRate(feeRate) // Set the fee rate (in satoshis per byte)
           .drainTo(
               changeScript) // Specify the custom address to send the change
           .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
       // Sign the transaction
-      final isFinalized = await wallet.sign(psbt: txBuilderResult.$1);
+      final isFinalized = wallet.sign(psbt: txBuilderResult.$1);
 
       // Broadcast the transaction only if it is finalized
       if (isFinalized) {
@@ -911,15 +916,21 @@ class WalletService {
     final totalBalance = await getBitcoinBalance(currentAddress);
     final availableBalance = totalBalance['confirmedBalance'];
     final ledgerBalance = totalBalance['pendingBalance'];
+    final currentHeight = await fetchCurrentBlockHeight();
+
+    List<Map<String, dynamic>> transactions =
+        await getTransactions(currentAddress);
+    transactions = sortTransactionsByConfirmations(transactions, currentHeight);
 
     final walletData = WalletData(
       address: currentAddress,
       balance: int.parse(getBalance(wallet).toString()),
       ledgerBalance: ledgerBalance!,
       availableBalance: availableBalance!,
-      transactions: await getTransactions(currentAddress),
-      currentHeight: await fetchCurrentBlockHeight(),
-      timeStamp: await fetchBlockTimestamp(),
+      transactions: transactions,
+      currentHeight: currentHeight,
+      timeStamp: await fetchBlockTimestamp(currentHeight),
+      utxos: await getUtxos(currentAddress),
     );
 
     // Save the data to Hive
@@ -1140,7 +1151,7 @@ class WalletService {
           });
           // print("Added to result: ${result.last}");
         } else {
-          print("No fingerprint match in node: ${node['id'] ?? 'Unknown ID'}");
+          // print("No fingerprint match in node: ${node['id'] ?? 'Unknown ID'}");
         }
       }
 
@@ -1340,7 +1351,7 @@ class WalletService {
     }
 
     // Print fingerprints of signing public keys
-    print("Fingerprints of signing public keys: $signingFingerprints");
+    // print("Fingerprints of signing public keys: $signingFingerprints");
 
     return signingFingerprints.toSet().toList();
   }
@@ -1351,11 +1362,11 @@ class WalletService {
     Map<String, String> pubKeysAliasMap = {};
 
     // Print the original pubKeysAlias list
-    print("widget.pubKeysAlias (List of Maps): $pubKeysAlias");
+    // print("widget.pubKeysAlias (List of Maps): $pubKeysAlias");
 
     // Flatten the list of maps into a single map
     for (var map in pubKeysAlias) {
-      print("Processing map: $map");
+      // print("Processing map: $map");
 
       if (map.containsKey("publicKey") && map.containsKey("alias")) {
         String publicKeyRaw =
@@ -1369,7 +1380,7 @@ class WalletService {
         if (match != null) {
           String fingerprint =
               match.group(1)!.split("/")[0]; // Extract first part (fingerprint)
-          print("Extracted Fingerprint: $fingerprint -> Alias: $alias");
+          // print("Extracted Fingerprint: $fingerprint -> Alias: $alias");
 
           pubKeysAliasMap[fingerprint] = alias; // Store the mapping
         }
@@ -1377,36 +1388,41 @@ class WalletService {
     }
 
     // Print the final fingerprint-to-alias mapping
-    print("Final pubKeysAliasMap (Flattened): $pubKeysAliasMap");
+    // print("Final pubKeysAliasMap (Flattened): $pubKeysAliasMap");
 
     // Initialize list for signer aliases
     List<String> signersAliases = [];
 
     // Match fingerprints to aliases
     for (String fingerprint in signers) {
-      print("Checking fingerprint: $fingerprint");
+      // print("Checking fingerprint: $fingerprint");
 
       if (pubKeysAliasMap.containsKey(fingerprint)) {
         String alias = pubKeysAliasMap[fingerprint]!;
-        print("Match found! Fingerprint: $fingerprint -> Alias: $alias");
+        // print("Match found! Fingerprint: $fingerprint -> Alias: $alias");
         signersAliases.add(alias);
       } else {
-        print("No match found for fingerprint: $fingerprint");
+        // print("No match found for fingerprint: $fingerprint");
         signersAliases.add("Unknown ($fingerprint)");
       }
     }
 
     // Print final mapping of signers to aliases
-    print("Final Signers with Aliases: $signersAliases");
+    // print("Final Signers with Aliases: $signersAliases");
 
     return signersAliases;
   }
 
   // Method to create a PSBT for a multisig transaction, this psbt is signed by the first user
-  Future<String?> createPartialTx(String descriptor, String mnemonic,
-      String recipientAddressStr, BigInt amount, int? chosenPath,
-      {bool isSendAllBalance = false,
-      List<Map<String, dynamic>>? spendingPaths}) async {
+  Future<String?> createPartialTx(
+    String descriptor,
+    String mnemonic,
+    String recipientAddressStr,
+    BigInt amount,
+    int? chosenPath, {
+    bool isSendAllBalance = false,
+    List<Map<String, dynamic>>? spendingPaths,
+  }) async {
     Map<String, Uint32List>? multiSigPath;
     Map<String, Uint32List>? timeLockPath;
 
@@ -1457,6 +1473,7 @@ class WalletService {
 
     final unspent = wallet.listUnspent();
     final feeRate = await getFeeRate();
+    // await blockchain.estimateFee(target: BigInt.from(1));
 
     BigInt totalSpending;
 
@@ -1535,28 +1552,31 @@ class WalletService {
       // Build the transaction:
       (PartiallySignedTransaction, TransactionDetails) txBuilderResult;
 
+      await syncWallet(wallet);
+
       if (isSendAllBalance) {
-        print(amount.toInt());
+        // print(internalChangeAddress.address.asString());
+        print('AmountSendAll: ${amount.toInt()}');
         try {
           if (chosenPath == 0) {
             await txBuilder
                 .addRecipient(recipientScript, amount)
                 .policyPath(KeychainKind.internalChain, multiSigPath!)
                 .policyPath(KeychainKind.externalChain, multiSigPath)
-                .feeRate(feeRate.toDouble())
+                .feeRate(feeRate)
                 .finish(wallet);
           } else {
             await txBuilder
                 .addRecipient(recipientScript, amount)
                 .policyPath(KeychainKind.internalChain, timeLockPath!)
                 .policyPath(KeychainKind.externalChain, timeLockPath)
-                .feeRate(feeRate.toDouble())
+                .feeRate(feeRate)
                 .finish(wallet);
           }
 
           return amount.toString();
         } catch (e) {
-          // print('Error: $e');
+          print('Error: $e');
 
           final utxos = await getUtxos(wallet
               .getAddress(addressIndex: AddressIndex.peek(index: 0))
@@ -1571,6 +1591,9 @@ class WalletService {
           if (chosenPath == 0) {
             spendableUtxos = utxos;
           } else {
+            print(chosenPath);
+            print(spendingPaths);
+
             final timelock = spendingPaths![chosenPath!]['timelock'];
             print('Timelock value: $timelock');
 
@@ -1610,11 +1633,12 @@ class WalletService {
           // Handle insufficient funds
           if (e.toString().contains("InsufficientFundsException")) {
             print(e);
-            final RegExp regex = RegExp(r'Needed: (\d+),');
+            final RegExp regex = RegExp(r'Needed: (\d+), Available: (\d+)');
             final match = regex.firstMatch(e.toString());
             if (match != null) {
               final int neededAmount = int.parse(match.group(1)!);
-              final int fee = neededAmount - amount.toInt();
+              final int availableAmount = int.parse(match.group(2)!);
+              final int fee = neededAmount - availableAmount;
               final int sendAllBalance = totalSpendableBalance - fee;
 
               if (sendAllBalance > 0) {
@@ -1638,14 +1662,16 @@ class WalletService {
           .address
           .toString());
 
-      spendingPaths = extractAllPaths(policy);
+      // spendingPaths = extractAllPaths(policy);
 
       if (chosenPath == 0) {
         spendableOutpoints = utxos
             .map((utxo) => OutPoint(txid: utxo['txid'], vout: utxo['vout']))
             .toList();
       } else {
-        final timelock = spendingPaths[chosenPath!]['timelock'];
+        print(spendingPaths);
+
+        final timelock = spendingPaths![chosenPath!]['timelock'];
         print('Timelock value: $timelock');
 
         int currentHeight = await fetchCurrentBlockHeight();
@@ -1666,10 +1692,12 @@ class WalletService {
             .toList();
       }
 
-      print(spendableOutpoints);
-
       if (chosenPath == 0) {
         print('MultiSig Builder');
+
+        for (var spendableOutpoint in spendableOutpoints) {
+          print('Spendable Outputs: ${spendableOutpoint.txid}');
+        }
         txBuilderResult = await txBuilder
             // .enableRbf()
             .addUtxos(spendableOutpoints)
@@ -1678,8 +1706,7 @@ class WalletService {
             .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
             .policyPath(KeychainKind.internalChain, multiSigPath!)
             .policyPath(KeychainKind.externalChain, multiSigPath)
-            .feeRate(
-                feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
+            .feeRate(feeRate) // Set the fee rate (in satoshis per byte)
             .drainTo(changeScript) // Specify the address to send the change
             .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
@@ -1689,6 +1716,8 @@ class WalletService {
         for (var spendableOutpoint in spendableOutpoints) {
           print('Spendable Outputs: ${spendableOutpoint.txid}');
         }
+
+        print('Sending: $amount');
         txBuilderResult = await txBuilder
             // .enableRbf()
             // .enableRbfWithSequence(olderValue)
@@ -1698,8 +1727,7 @@ class WalletService {
             .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
             .policyPath(KeychainKind.internalChain, timeLockPath!)
             .policyPath(KeychainKind.externalChain, timeLockPath)
-            .feeRate(
-                feeRate.toDouble()) // Set the fee rate (in satoshis per byte)
+            .feeRate(feeRate) // Set the fee rate (in satoshis per byte)
             .drainTo(changeScript) // Specify the address to send the change
             .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
@@ -1903,6 +1931,16 @@ class WalletService {
     final noun = WordPair.random().second;
 
     return '${adjective.capitalize()}${noun.capitalize()}${random.nextInt(1000)}';
+  }
+
+  String formatDuration(Duration duration) {
+    if (duration.inSeconds < 60) {
+      return '${duration.inSeconds} seconds';
+    } else if (duration.inMinutes < 60) {
+      return '${duration.inMinutes} minutes';
+    } else {
+      return '${duration.inHours} hours';
+    }
   }
 }
 

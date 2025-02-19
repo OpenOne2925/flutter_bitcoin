@@ -159,7 +159,8 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
         );
       } else {
         // User canceled the file picker
-        print('File picking canceled');
+        // print('File picking canceled');
+        throw ('File picking canceled');
       }
     } catch (e) {
       print('Error uploading file: $e');
@@ -314,7 +315,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
       body: Container(
         decoration: const BoxDecoration(
             gradient: LinearGradient(
-          colors: [Colors.blueAccent, Colors.white],
+          colors: [Colors.greenAccent, Colors.white],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         )),
@@ -375,17 +376,18 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Expanded(
-                            child: SelectableText(
+                            child: Text(
                               'Public Key: $publicKey',
                               style: TextStyle(
                                 fontSize: 16,
                                 color: Theme.of(context).colorScheme.onSurface,
                                 fontWeight: FontWeight.w500,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.copy, color: Colors.blue),
+                            icon: const Icon(Icons.copy, color: Colors.green),
                             tooltip: 'Copy to Clipboard',
                             onPressed: () {
                               Clipboard.setData(
@@ -407,7 +409,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                   CustomButton(
                     onPressed: _generatePublicKey,
                     backgroundColor: Colors.white,
-                    foregroundColor: Colors.blue,
+                    foregroundColor: Colors.green,
                     icon: Icons.generating_tokens,
                     iconColor: Colors.black,
                     label: 'Generate Public Key',
@@ -419,7 +421,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                   CustomButton(
                     onPressed: _uploadFile,
                     backgroundColor: Colors.white,
-                    foregroundColor: Colors.blue,
+                    foregroundColor: Colors.green,
                     icon: Icons.file_upload,
                     iconColor: Colors.black,
                     label: 'Select File',
@@ -445,7 +447,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.black,
                     icon: Icons.account_balance_wallet,
-                    iconColor: Colors.blue,
+                    iconColor: Colors.green,
                     label: 'Import Shared Wallet',
                   ),
 

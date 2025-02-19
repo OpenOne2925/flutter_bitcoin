@@ -77,7 +77,7 @@ class PinSetupPageState extends State<PinSetupPage> {
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _status.contains('successfully') ? Colors.blue : Colors.red,
+        color: _status.contains('successfully') ? Colors.green : Colors.red,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -96,7 +96,7 @@ class PinSetupPageState extends State<PinSetupPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Set PIN"),
-        backgroundColor: Colors.blue,
+        backgroundColor: Colors.green,
         actions: [
           Showcase(
             key: _restartTutorialKey,
@@ -118,7 +118,7 @@ class PinSetupPageState extends State<PinSetupPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.blueAccent, Colors.white],
+            colors: [Colors.greenAccent, Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -136,7 +136,7 @@ class PinSetupPageState extends State<PinSetupPage> {
                   child: Icon(
                     Icons.lock,
                     size: 100,
-                    color: Colors.blue.shade700,
+                    color: Colors.green.shade700,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -200,7 +200,7 @@ class PinSetupPageState extends State<PinSetupPage> {
                       'Press this button to save your PIN and continue.',
                   child: CustomButton(
                     onPressed: _validateAndSave,
-                    backgroundColor: Colors.blue,
+                    backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
                     icon: Icons.pin,
                     iconColor: Colors.white,

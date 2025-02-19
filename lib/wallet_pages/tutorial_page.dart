@@ -74,7 +74,7 @@ class TutorialPageState extends State<TutorialPage> {
           ElevatedButton(
             onPressed: () => _setTutorialPreference(true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: Colors.green,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
               textStyle:
@@ -88,8 +88,8 @@ class TutorialPageState extends State<TutorialPage> {
           OutlinedButton(
             onPressed: () => _setTutorialPreference(false),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.blue,
-              side: const BorderSide(color: Colors.blue),
+              foregroundColor: Colors.green,
+              side: const BorderSide(color: Colors.green),
               padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
               textStyle:
                   const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

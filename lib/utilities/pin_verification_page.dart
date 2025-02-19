@@ -62,7 +62,7 @@ class PinVerificationPageState extends State<PinVerificationPage>
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _status.contains('successfully') ? Colors.blue : Colors.red,
+        color: _status.contains('successfully') ? Colors.green : Colors.red,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -92,12 +92,12 @@ class PinVerificationPageState extends State<PinVerificationPage>
     return Scaffold(
       appBar: AppBar(
         title: const Text("Verify PIN"),
-        backgroundColor: Colors.blue,
+        backgroundColor: Colors.green,
       ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.blueAccent, Colors.white],
+            colors: [Colors.greenAccent, Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -148,7 +148,7 @@ class PinVerificationPageState extends State<PinVerificationPage>
                       _verifyPin();
                     }
                   },
-                  backgroundColor: Colors.blue,
+                  backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
                   icon: Icons.check_circle,
                   iconColor: Colors.white,

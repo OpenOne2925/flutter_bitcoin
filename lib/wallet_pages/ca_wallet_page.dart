@@ -78,7 +78,7 @@ class CAWalletPageState extends State<CAWalletPage> {
     Wallet wallet;
 
     if (!connectivityResult.contains(ConnectivityResult.none)) {
-      wallet = await _walletService.loadSavedWallet(_mnemonic!);
+      wallet = await _walletService.loadSavedWallet(mnemonic: _mnemonic!);
 
       setState(() {
         _wallet = wallet;
@@ -165,9 +165,9 @@ class CAWalletPageState extends State<CAWalletPage> {
             fontSize: 16,
             fontWeight: FontWeight.bold,
             color: _status.contains('successfully')
-                ? Colors.blue
+                ? Colors.green
                 : _status.contains('Creating')
-                    ? Colors.blueAccent
+                    ? Colors.greenAccent
                     : Colors.grey,
           ),
         ),
@@ -180,7 +180,7 @@ class CAWalletPageState extends State<CAWalletPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create or Restore Wallet'),
-        backgroundColor: Colors.blue,
+        backgroundColor: Colors.green,
         actions: [
           Showcase(
             key: _restartTutorialKey,
@@ -202,7 +202,7 @@ class CAWalletPageState extends State<CAWalletPage> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.blueAccent, Colors.white],
+            colors: [Colors.greenAccent, Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -244,7 +244,7 @@ class CAWalletPageState extends State<CAWalletPage> {
                 description: 'Create or Import your new Bitcoin Wallet.',
                 child: CustomButton(
                   onPressed: _isMnemonicEntered ? _createWallet : null,
-                  backgroundColor: Colors.blue,
+                  backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
                   icon: Icons.wallet,
                   iconColor: Colors.white,
@@ -261,9 +261,9 @@ class CAWalletPageState extends State<CAWalletPage> {
                 child: CustomButton(
                   onPressed: _generateMnemonic,
                   backgroundColor: Colors.white,
-                  foregroundColor: Colors.blue,
+                  foregroundColor: Colors.green,
                   icon: Icons.create,
-                  iconColor: Colors.blue,
+                  iconColor: Colors.green,
                   label: 'Generate Mnemonic',
                   padding: 16.0,
                   iconSize: 28.0,

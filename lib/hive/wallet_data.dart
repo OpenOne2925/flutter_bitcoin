@@ -23,7 +23,10 @@ class WalletData extends HiveObject {
   int currentHeight;
 
   @HiveField(6)
-  DateTime? timeStamp;
+  String timeStamp;
+
+  @HiveField(7)
+  List<dynamic>? utxos;
 
   WalletData({
     required this.address,
@@ -33,5 +36,6 @@ class WalletData extends HiveObject {
     required this.transactions,
     required this.currentHeight,
     required this.timeStamp,
+    required this.utxos,
   });
 }

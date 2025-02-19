@@ -70,6 +70,11 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     _generatePublicKey(isGenerating: false);
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   void _validateInputs() {
     setState(() {
       // print(_publicKey);
@@ -267,7 +272,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
             const SizedBox(height: 10),
             TextFormField(
               controller: _descriptorNameController,
-              onFieldSubmitted: (value) {
+              onChanged: (value) {
                 setState(() {
                   _descriptorName = _descriptorNameController.text.trim();
 
@@ -280,7 +285,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 labelText: 'Enter Descriptor Name',
                 hintText: 'E.g., MySharedWallet',
                 borderColor:
-                    _isDescriptorNameMissing ? Colors.red : Colors.blue,
+                    _isDescriptorNameMissing ? Colors.red : Colors.green,
               ),
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurface,
@@ -301,7 +306,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               backgroundColor: Colors.white,
               foregroundColor: Colors.black,
               icon: Icons.vpn_key,
-              iconColor: Colors.blue,
+              iconColor: Colors.green,
               label: 'Generate Public Key',
               padding: 16.0,
               iconSize: 24.0,
@@ -323,7 +328,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.copy, color: Colors.blue),
+                    icon: const Icon(Icons.copy, color: Colors.green),
                     tooltip: 'Copy to Clipboard',
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: _publicKey!));
@@ -394,7 +399,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.person_add_alt_sharp,
-                      size: 40, color: Colors.blue),
+                      size: 40, color: Colors.green),
                   onPressed: _showAddPublicKeyDialog,
                 ),
                 const SizedBox(width: 10),
@@ -414,6 +419,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                               TextPosition(
                                   offset: _thresholdController.text.length),
                             );
+                            threshold = _thresholdController.text;
                           } else {
                             threshold = _thresholdController.text;
                           }
@@ -426,7 +432,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         labelText: 'Threshold',
                         hintText: 'Thresh',
                         borderColor:
-                            _isThresholdMissing ? Colors.red : Colors.blue,
+                            _isThresholdMissing ? Colors.red : Colors.green,
                       ),
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface,
@@ -447,7 +453,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         DismissDirection.horizontal, // Allow swipe to the left
                     onDismissed: (direction) {
                       setState(() {
-                        print(key['publicKey']);
+                        // print(key['publicKey']);
 
                         publicKeysWithAlias.remove(key); // Remove the key
 
@@ -490,9 +496,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       child: Container(
                         padding: const EdgeInsets.all(8.0),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withAlpha((0.2 * 255).toInt()),
+                          color: Colors.green.withAlpha((0.2 * 255).toInt()),
                           borderRadius: BorderRadius.circular(8.0),
-                          border: Border.all(color: Colors.blue),
+                          border: Border.all(color: Colors.green),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -526,7 +532,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   const SizedBox(height: 10),
                   IconButton(
                     icon: const Icon(Icons.lock_clock,
-                        size: 40, color: Colors.blue),
+                        size: 40, color: Colors.green),
                     onPressed: _showAddTimelockDialog,
                   ),
                   const SizedBox(height: 10),
@@ -571,7 +577,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                           direction: DismissDirection.horizontal,
                           onDismissed: (direction) {
                             setState(() {
-                              print(condition);
+                              // print(condition);
                               timelockConditions.remove(condition);
                             });
 
@@ -618,9 +624,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                               padding: const EdgeInsets.all(8.0),
                               decoration: BoxDecoration(
                                 color:
-                                    Colors.blue.withAlpha((0.2 * 255).toInt()),
+                                    Colors.green.withAlpha((0.2 * 255).toInt()),
                                 borderRadius: BorderRadius.circular(8.0),
-                                border: Border.all(color: Colors.blue),
+                                border: Border.all(color: Colors.green),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -667,7 +673,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     foregroundColor:
                         Colors.black, // Bitcoin green color for text
                     icon: Icons.create, // Icon you want to use
-                    iconColor: Colors.blue, // Color for the icon
+                    iconColor: Colors.green, // Color for the icon
                     label: 'Create Descriptor',
                   ),
                 ],
@@ -692,6 +698,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       publicKeyController.text = currentPublicKey ?? '';
       aliasController.text = currentAlias ?? '';
     }
+
+    final rootContext = context;
 
     showDialog(
       context: context,
@@ -745,7 +753,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.blue,
+                    foregroundColor: Colors.green,
                   ),
                   child: const Text('Cancel'),
                 ),
@@ -789,7 +797,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                           key['alias'] = newAlias;
                         });
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        ScaffoldMessenger.of(rootContext).showSnackBar(
                           const SnackBar(
                             content: Text('Multisig updated successfully'),
                             duration: Duration(seconds: 1),
@@ -807,7 +815,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     }
                   },
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.blue,
+                    foregroundColor: Colors.green,
                   ),
                   child: Text(isUpdating ? 'Save' : 'Add'),
                 ),
@@ -853,6 +861,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
         };
       }).toList();
     }
+
+    final rootContext = context;
 
     showDialog(
       context: context,
@@ -903,11 +913,12 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                               padding: const EdgeInsets.all(8.0),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? Colors.blue.withAlpha((0.8 * 255).toInt())
-                                    : Colors.blue
+                                    ? Colors.green
+                                        .withAlpha((0.8 * 255).toInt())
+                                    : Colors.green
                                         .withAlpha((0.2 * 255).toInt()),
                                 borderRadius: BorderRadius.circular(8.0),
-                                border: Border.all(color: Colors.blue),
+                                border: Border.all(color: Colors.green),
                               ),
                               child: Text(
                                 key['alias']!,
@@ -977,7 +988,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.blue,
+                    foregroundColor: Colors.green,
                   ),
                   child: const Text('Cancel'),
                 ),
@@ -1004,7 +1015,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
                       if (isDuplicateOlder) {
                         // Show an error message instead of adding a duplicate
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        ScaffoldMessenger.of(rootContext).showSnackBar(
                           const SnackBar(
                             content:
                                 Text('Error: This Older value already exists!'),
@@ -1023,7 +1034,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
                           Navigator.pop(context);
 
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(rootContext).showSnackBar(
                             SnackBar(
                               content: Text(
                                 'Timelock condition updated successfully',
@@ -1039,7 +1050,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                               'older': olderController.text,
                               'pubkeys': jsonEncode(newPubkeys),
                             });
-                            print(timelockConditions);
+                            // print(timelockConditions);
                           });
 
                           // Close the dialog after adding the condition
@@ -1047,11 +1058,12 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         }
                       }
                     } else {
-                      print('Validation Failed: One or more fields are empty');
+                      // print('Validation Failed: One or more fields are empty');
+                      throw ('Validation Failed: One or more fields are empty');
                     }
                   },
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.blue,
+                    foregroundColor: Colors.green,
                   ),
                   child: const Text('Add'),
                 ),
@@ -1189,6 +1201,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
   }
 
   void _createDescriptorDialog(BuildContext context) {
+    final rootContext = context;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -1199,7 +1213,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 BorderRadius.circular(16.0), // Optional rounded corners
           ),
           title: Text(
-            'Descriptor Created',
+            'Descriptor ($_descriptorName) Created',
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w600,
               fontSize: 18,
@@ -1229,7 +1243,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     children: [
                       Expanded(
                         child: Text(
-                          'Descriptor: $_finalDescriptor',
+                          _finalDescriptor,
                           style: TextStyle(
                             fontSize: 16,
                             color: Theme.of(context).colorScheme.onSurface,
@@ -1239,12 +1253,12 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.copy, color: Colors.blue),
+                        icon: const Icon(Icons.copy, color: Colors.green),
                         tooltip: 'Copy to Clipboard',
                         onPressed: () {
                           Clipboard.setData(
                               ClipboardData(text: _finalDescriptor));
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          ScaffoldMessenger.of(rootContext).showSnackBar(
                             const SnackBar(
                               content: Text('Descriptor copied to clipboard'),
                             ),
@@ -1279,7 +1293,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: Colors.blue),
+                        border: Border.all(color: Colors.green),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1332,7 +1346,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: Colors.blue),
+                        border: Border.all(color: Colors.green),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1418,7 +1432,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                                 backgroundColor: Colors.white,
                                 textColor: Colors.black,
                                 icon: Icons.check_circle,
-                                iconColor: Colors.blueAccent,
+                                iconColor: Colors.greenAccent,
                               ),
                             ],
                           );
@@ -1442,7 +1456,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   // Write JSON data to the file
                   await file.writeAsString(data);
 
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(rootContext).showSnackBar(
                     SnackBar(
                       content:
                           Text('File saved to ${directory.path}/$fileName'),
@@ -1450,7 +1464,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   );
                 } else {
                   // Permission denied
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  ScaffoldMessenger.of(rootContext).showSnackBar(
                     const SnackBar(
                       content: Text(
                           'Storage permission is required to save the file'),
@@ -1459,25 +1473,25 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 }
               },
               style: TextButton.styleFrom(
-                foregroundColor: Colors.blue,
+                foregroundColor: Colors.green,
               ),
               child: const Text('Download Descriptor'),
             ),
             TextButton(
               onPressed: () {
                 // print('_mnemonic: $_mnemonic');
-
+                Navigator.pop(context);
                 _navigateToSharedWallet();
               },
               style: TextButton.styleFrom(
-                foregroundColor: Colors.blue,
+                foregroundColor: Colors.green,
               ),
               child: const Text('Navigate to Wallet'),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context),
               style: TextButton.styleFrom(
-                foregroundColor: Colors.blue,
+                foregroundColor: Colors.green,
               ),
               child: const Text('Close'),
             ),

@@ -23,4 +23,9 @@ class SettingsProvider with ChangeNotifier {
 
     await _prefs.setString('selected_currency', newCurrency);
   }
+
+  void resetSettings() {
+    _currency = 'USD'; // Reset to default
+    notifyListeners();
+  }
 }
