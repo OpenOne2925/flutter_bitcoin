@@ -35,12 +35,13 @@ class CustomButton extends StatelessWidget {
         ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min, // Resize button to fit content
+        mainAxisSize:
+            MainAxisSize.min, // Makes button take only necessary space
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, size: iconSize, color: iconColor),
           if (label.isNotEmpty) ...[
-            const SizedBox(width: 8), // Adds space between icon and text
+            const SizedBox(width: 6), // Space between icon and text
             Text(label),
           ],
         ],

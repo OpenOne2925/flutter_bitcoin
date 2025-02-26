@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class SharedWalletPage extends StatefulWidget {
   const SharedWalletPage({super.key});
@@ -14,19 +16,11 @@ class SharedWalletPageState extends State<SharedWalletPage> {
   @override
   Widget build(BuildContext context) {
     return BaseScaffold(
-      title: const Text('Shared Wallet'),
+      title: Text(
+        AppLocalizations.of(context)!.translate('shared_wallet'),
+      ),
       body: Stack(
         children: [
-          // Background Gradient
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.green, Colors.white],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -46,11 +40,12 @@ class SharedWalletPageState extends State<SharedWalletPage> {
                 const SizedBox(height: 20),
                 // Add a description
                 Text(
-                  'Manage your shared Bitcoin wallets with ease! Whether creating a new wallet or importing an existing one, we’ve got you covered.',
+                  AppLocalizations.of(context)!
+                      .translate('create_import_message'),
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.black,
+                    color: AppColors.text(context),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -60,11 +55,12 @@ class SharedWalletPageState extends State<SharedWalletPage> {
                   onPressed: () {
                     Navigator.pushNamed(context, '/create_shared');
                   },
-                  backgroundColor: Colors.green, // Vibrant button background
-                  foregroundColor: Colors.white, // White text
-                  icon: Icons.add_circle, // Add wallet icon
-                  iconColor: Colors.white, // Icon matches text
-                  label: 'Create New Wallet',
+                  backgroundColor: AppColors.background(context),
+                  foregroundColor: AppColors.gradient(context),
+                  icon: Icons.add_circle,
+                  iconColor: AppColors.text(context),
+                  label: AppLocalizations.of(context)!
+                      .translate('create_shared_wallet'),
                   padding: 16.0,
                   iconSize: 28.0,
                 ),
@@ -73,11 +69,12 @@ class SharedWalletPageState extends State<SharedWalletPage> {
                   onPressed: () {
                     Navigator.pushNamed(context, '/import_shared');
                   },
-                  backgroundColor: Colors.green.shade100, // Subtle background
-                  foregroundColor: Colors.green.shade700, // Vibrant text
-                  icon: Icons.download, // Import wallet icon
-                  iconColor: Colors.green.shade700, // Icon matches text
-                  label: 'Import Wallet',
+                  backgroundColor: AppColors.background(context),
+                  foregroundColor: AppColors.text(context),
+                  icon: Icons.download,
+                  iconColor: AppColors.gradient(context),
+                  label:
+                      AppLocalizations.of(context)!.translate('import_wallet'),
                   padding: 16.0,
                   iconSize: 28.0,
                 ),

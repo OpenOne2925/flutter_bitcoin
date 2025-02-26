@@ -5,12 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
-import 'package:flutter_wallet/services/settings_provider.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_buttons_helpers.dart';
-import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_spending_path_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_ui_helpers.dart';
 import 'package:hive/hive.dart';
@@ -130,7 +130,6 @@ class SharedWalletState extends State<SharedWallet> {
 
   // Wallet and Transaction Data
   String address = '';
-  String? _txToSend;
   String? _descriptor = 'Descriptor here';
   String _descriptorName = '';
   String myFingerPrint = '';
@@ -319,8 +318,8 @@ class SharedWalletState extends State<SharedWallet> {
           _isLoading = false;
         });
       }
-    } catch (e) {
-      // print("Error creating or fetching balance for wallet: $e");
+    } catch (e, stackTrace) {
+      print("Error creating or fetching balance for wallet: $stackTrace");
       throw ("Error creating or fetching balance for wallet: $e");
     } finally {
       setState(() {
@@ -534,12 +533,6 @@ class SharedWalletState extends State<SharedWallet> {
     });
   }
 
-  void updateTransaction(String newTx) {
-    setState(() {
-      _txToSend = newTx; // ✅ Updates UI
-    });
-  }
-
   ///
   ///
   ///
@@ -565,9 +558,14 @@ class SharedWalletState extends State<SharedWallet> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SpinKitFadingCircle(
-                  color: Colors.blue, size: 50.0), // Cool effect
+                color: Colors.blue,
+                size: 50.0,
+              ),
               SizedBox(height: 20),
-              Text("Setting up your wallet...", style: TextStyle(fontSize: 18)),
+              Text(
+                AppLocalizations.of(context)!.translate('setting_wallet'),
+                style: TextStyle(fontSize: 18),
+              ),
             ],
           ),
         ),
@@ -630,32 +628,9 @@ class SharedWalletState extends State<SharedWallet> {
       mounted: mounted,
       signersList: signersList,
       wallet: wallet,
-      onTransactionCreated: updateTransaction,
       avgBlockTime: avgBlockTime,
       myAlias: myAlias,
     );
-
-    final sendTxHelper = WalletSendtxHelpers(
-        isSingleWallet: false,
-        context: context,
-        recipientController: _recipientController,
-        psbtController: _psbtController,
-        signingAmountController: _signingAmountController,
-        amountController: _amountController,
-        walletService: walletService,
-        policy: policy,
-        myFingerPrint: myFingerPrint,
-        currentHeight: _currentHeight,
-        utxos: utxos,
-        spendingPaths: mySpendingPaths,
-        descriptor: _descriptor.toString(),
-        mnemonic: widget.mnemonic,
-        mounted: mounted,
-        signersList: signersList,
-        address: address,
-        pubKeysAlias: widget.pubKeysAlias,
-        wallet: wallet,
-        onTransactionCreated: updateTransaction);
 
     return BaseScaffold(
       title: Text(_descriptorName),
@@ -679,7 +654,7 @@ class SharedWalletState extends State<SharedWallet> {
                 children: [
                   // WalletInfo Box
                   walletUiHelpers.buildWalletInfoBox(
-                    'Address',
+                    AppLocalizations.of(context)!.translate('address'),
                     onTap: () {
                       _convertCurrency();
                     },
@@ -696,17 +671,18 @@ class SharedWalletState extends State<SharedWallet> {
 
                   const SizedBox(height: 8),
 
-                  // Multisig Box
-                  walletUiHelpers.buildInfoBoxMultisig(
-                    'MultiSig Transactions',
-                    _txToSend != null
-                        ? _txToSend.toString()
-                        : 'No transactions to sign',
-                    onTap: () {
-                      sendTxHelper.sendTx(false);
-                    },
-                    showCopyButton: true,
-                  ),
+                  // // Multisig Box
+                  // walletUiHelpers.buildInfoBoxMultisig(
+                  //   AppLocalizations.of(context)!.translate('multisig_tx'),
+                  //   _txToSend != null
+                  //       ? _txToSend.toString()
+                  //       : AppLocalizations.of(context)!
+                  //           .translate('no_transactions_to_sign'),
+                  //   onTap: () {
+                  //     sendTxHelper.sendTx(false);
+                  //   },
+                  //   showCopyButton: true,
+                  // ),
                 ],
               ),
             ),

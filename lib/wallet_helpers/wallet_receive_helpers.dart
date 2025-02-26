@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
+import 'package:flutter_wallet/utilities/snackbar_helper.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class WalletReceiveHelpers {
   final BuildContext context;
@@ -10,30 +13,29 @@ class WalletReceiveHelpers {
 
   // Method to display the QR code in a dialog
   void showQRCodeDialog(String address) {
+    final rootContext = context;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: Colors.grey[900], // Dark background for the dialog
+          backgroundColor: AppColors.gradient(context),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.0), // Rounded corners
+            borderRadius: BorderRadius.circular(20.0),
           ),
           title: Text(
-            'Receive Bitcoin',
+            AppLocalizations.of(rootContext)!.translate('receive_bitcoin'),
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green, // Highlighted title color
+              color: AppColors.cardTitle(context),
             ),
           ),
           content: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 300.0, // Ensure content does not exceed this width
-            ),
+            constraints: const BoxConstraints(maxWidth: 300.0),
             child: Column(
-              mainAxisSize:
-                  MainAxisSize.min, // Minimize the height of the Column
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // QR Code Container
@@ -42,14 +44,13 @@ class WalletReceiveHelpers {
                   height: 200, // Explicit height
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(
-                        16.0), // Rounded QR code container
+                    borderRadius: BorderRadius.circular(16.0),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(),
+                        color: AppColors.background(context),
                         blurRadius: 8.0,
                         spreadRadius: 2.0,
-                        offset: const Offset(0, 4), // Subtle shadow for QR code
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
@@ -69,26 +70,24 @@ class WalletReceiveHelpers {
                       child: SelectableText(
                         address,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
-                          color: Colors.white70, // Softer text color
+                          color: AppColors.text(context),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8), // Space between text and icon
+                    const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.copy,
-                        color: Colors.green, // Highlighted icon color
+                        color: AppColors.cardTitle(context),
                       ),
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: address));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Address copied to clipboard!'),
-                            backgroundColor: Colors.white,
-                            duration: const Duration(seconds: 2),
-                          ),
+                        SnackBarHelper.show(
+                          rootContext,
+                          message: AppLocalizations.of(rootContext)!
+                              .translate('address_clipboard'),
                         );
                       },
                     ),
@@ -100,9 +99,9 @@ class WalletReceiveHelpers {
           actions: [
             InkwellButton(
               onTap: () {
-                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop();
               },
-              label: 'Cancel',
+              label: AppLocalizations.of(rootContext)!.translate('cancel'),
               backgroundColor: Colors.white,
               textColor: Colors.black,
             ),

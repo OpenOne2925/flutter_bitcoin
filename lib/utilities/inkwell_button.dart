@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class InkwellButton extends StatelessWidget {
   final VoidCallback onTap;
-  final String label;
+  final String? label;
   final IconData? icon;
   final Color backgroundColor;
   final Color textColor;
@@ -12,7 +12,7 @@ class InkwellButton extends StatelessWidget {
   const InkwellButton({
     super.key,
     required this.onTap,
-    required this.label,
+    this.label,
     this.icon,
     required this.backgroundColor,
     required this.textColor,
@@ -32,7 +32,7 @@ class InkwellButton extends StatelessWidget {
         ),
         elevation: 4.0,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12.0),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -42,15 +42,16 @@ class InkwellButton extends StatelessWidget {
                   color: iconColor ?? textColor,
                   size: 24,
                 ),
-              if (icon != null) const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+              if (icon != null && label != null) const SizedBox(width: 8),
+              if (label != null)
+                Text(
+                  label.toString(),
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
             ],
           ),
         ),

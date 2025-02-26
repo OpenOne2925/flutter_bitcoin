@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:hive/hive.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class PinVerificationPage extends StatefulWidget {
   const PinVerificationPage({super.key});
@@ -37,7 +39,7 @@ class PinVerificationPageState extends State<PinVerificationPage>
 
     if (savedPin == _pinController.text) {
       setState(() {
-        _status = 'PIN verified successfully!';
+        _status = AppLocalizations.of(context)!.translate('pin_verified');
       });
 
       // Play the unlock animation
@@ -50,7 +52,7 @@ class PinVerificationPageState extends State<PinVerificationPage>
       });
     } else {
       setState(() {
-        _status = 'Incorrect PIN. Please try again.';
+        _status = AppLocalizations.of(context)!.translate('pin_incorrect');
       });
     }
   }
@@ -62,7 +64,10 @@ class PinVerificationPageState extends State<PinVerificationPage>
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _status.contains('successfully') ? Colors.green : Colors.red,
+        color:
+            _status.contains(AppLocalizations.of(context)!.translate('success'))
+                ? AppColors.background(context)
+                : AppColors.error(context),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -91,13 +96,13 @@ class PinVerificationPageState extends State<PinVerificationPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Verify PIN"),
-        backgroundColor: Colors.green,
+        title: Text(AppLocalizations.of(context)!.translate('verify_pin')),
+        backgroundColor: AppColors.primary(context),
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.greenAccent, Colors.white],
+            colors: [AppColors.accent(context), Colors.white],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -125,19 +130,15 @@ class PinVerificationPageState extends State<PinVerificationPage>
                   controller: _pinController,
                   decoration: CustomTextFieldStyles.textFieldDecoration(
                     context: context,
-                    labelText: 'Enter PIN',
-                    hintText: 'Enter your 6-digit PIN',
+                    labelText:
+                        AppLocalizations.of(context)!.translate('enter_pin'),
+                    hintText: AppLocalizations.of(context)!
+                        .translate('enter_6_digits_pin'),
                   ),
                   keyboardType: TextInputType.number,
                   obscureText: true,
-                  validator: (value) {
-                    if (value == null || value.length != 6) {
-                      return 'PIN must be 6 digits';
-                    }
-                    return null;
-                  },
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: AppColors.text(context),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -148,11 +149,11 @@ class PinVerificationPageState extends State<PinVerificationPage>
                       _verifyPin();
                     }
                   },
-                  backgroundColor: Colors.green,
+                  backgroundColor: AppColors.primary(context),
                   foregroundColor: Colors.white,
                   icon: Icons.check_circle,
                   iconColor: Colors.white,
-                  label: 'Verify PIN',
+                  label: AppLocalizations.of(context)!.translate('verify_pin'),
                   padding: 16.0,
                   iconSize: 28.0,
                 ),

@@ -4,14 +4,18 @@ import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
+import 'package:flutter_wallet/utilities/snackbar_helper.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:hive/hive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class ImportSharedWallet extends StatefulWidget {
   const ImportSharedWallet({super.key});
@@ -153,9 +157,9 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
         // print('Descriptor: $descriptor');
         // print('Public Keys With Alias: $publicKeysWithAlias');
 
-        // Optionally, show a success message or update the UI
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('File uploaded successfully')),
+        SnackBarHelper.show(
+          context,
+          message: AppLocalizations.of(context)!.translate('file_uploaded'),
         );
       } else {
         // User canceled the file picker
@@ -163,10 +167,10 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
         throw ('File picking canceled');
       }
     } catch (e) {
-      print('Error uploading file: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to upload file: $e')),
-      );
+      // print('Error uploading file: $e');
+      SnackBarHelper.show(context,
+          message: AppLocalizations.of(context)!.translate('failed_upload'),
+          color: AppColors.error(context));
     }
   }
 
@@ -225,7 +229,10 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
   Future<bool> _validateDescriptor(String descriptor) async {
     try {
       ValidationResult result = await _walletService.isValidDescriptor(
-          descriptor, initialPubKey.toString());
+        descriptor,
+        initialPubKey.toString(),
+        context,
+      );
 
       // print(result.toString());
 
@@ -253,21 +260,23 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
 
     if (_status.startsWith('Idle')) {
       lottieAnimation = 'assets/animations/idle.json';
-      statusText = 'Idle - Ready to Import';
+      statusText = AppLocalizations.of(context)!.translate('idle_ready_import');
     } else if (_status.startsWith('Descriptor is valid')) {
       lottieAnimation = 'assets/animations/creating_wallet.json';
-      statusText = 'Descriptor is valid - You can proceed';
+      statusText =
+          AppLocalizations.of(context)!.translate('descriptor_valid_proceed');
     } else if (_status.contains('Invalid Descriptor') ||
         _status.contains('Error') ||
         _status.contains('Please enter a valid descriptor!')) {
       lottieAnimation = 'assets/animations/error_cross.json';
-      statusText = 'Invalid Descriptor - $_status';
+      statusText =
+          "${AppLocalizations.of(context)!.translate('invalid_descriptor_status')} $_status";
     } else if (_status.contains('Success')) {
       lottieAnimation = 'assets/animations/success.json';
-      statusText = 'Navigating to your wallet';
+      statusText = AppLocalizations.of(context)!.translate('navigating_wallet');
     } else {
       lottieAnimation = 'assets/animations/loading.json';
-      statusText = 'Loading...';
+      statusText = AppLocalizations.of(context)!.translate('loading');
     }
 
     // print(_status);
@@ -295,8 +304,8 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
               child: Text(
                 statusText,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.text(context),
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -311,200 +320,229 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
   @override
   Widget build(BuildContext context) {
     return BaseScaffold(
-      title: const Text('Import Shared Wallet'),
-      body: Container(
-        decoration: const BoxDecoration(
-            gradient: LinearGradient(
-          colors: [Colors.greenAccent, Colors.white],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        )),
-        child: SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildStatusBar(),
-                  const SizedBox(height: 16),
-                  // Form and descriptor field
-                  Form(
-                    key: _formKey,
-                    child: TextFormField(
-                      controller: _descriptorController,
-                      decoration: CustomTextFieldStyles.textFieldDecoration(
-                        context: context,
-                        labelText: 'Descriptor',
-                        hintText: 'Wallet descriptor',
-                      ),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a descriptor';
-                        }
-                        if (!_isDescriptorValid) {
-                          return 'Please enter a valid descriptor';
-                        }
-                        return null;
-                      },
+      title: Text(AppLocalizations.of(context)!.translate('import_wallet')),
+      body: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: MediaQuery.of(context).size.height,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildStatusBar(),
+                const SizedBox(height: 16),
+                // Form and descriptor field
+                Form(
+                  key: _formKey,
+                  child: TextFormField(
+                    controller: _descriptorController,
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText:
+                          AppLocalizations.of(context)!.translate('descriptor'),
+                      hintText:
+                          AppLocalizations.of(context)!.translate('descriptor'),
                     ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Public Key display with copy functionality
-                  if (publicKey != null)
-                    Container(
-                      padding: const EdgeInsets.all(12.0),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        border: Border.all(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withAlpha(150),
-                        ),
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Public Key: $publicKey',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Theme.of(context).colorScheme.onSurface,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.copy, color: Colors.green),
-                            tooltip: 'Copy to Clipboard',
-                            onPressed: () {
-                              Clipboard.setData(
-                                  ClipboardData(text: publicKey ?? ''));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content:
-                                        Text('Public Key copied to clipboard')),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
-
-                  const SizedBox(height: 16),
-
-                  // Generate Public Key Button
-                  CustomButton(
-                    onPressed: _generatePublicKey,
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.green,
-                    icon: Icons.generating_tokens,
-                    iconColor: Colors.black,
-                    label: 'Generate Public Key',
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Select File Button
-                  CustomButton(
-                    onPressed: _uploadFile,
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.green,
-                    icon: Icons.file_upload,
-                    iconColor: Colors.black,
-                    label: 'Select File',
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Import Shared Wallet Button
-                  CustomButton(
-                    onPressed: () async {
-                      if (_formKey.currentState!.validate() ||
-                          (_status.contains('Success') ||
-                              _status.startsWith('Descriptor is valid'))) {
-                        await Future.delayed(const Duration(milliseconds: 500));
-
-                        _navigateToSharedWallet();
-                      } else {
-                        setState(() {
-                          _status = 'Please enter a valid descriptor!';
-                        });
+                    validator: (value) {
+                      if (value == null ||
+                          value.isEmpty ||
+                          !_isDescriptorValid) {
+                        return AppLocalizations.of(context)!
+                            .translate('invalid_descriptor');
                       }
+                      return null;
                     },
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                    icon: Icons.account_balance_wallet,
-                    iconColor: Colors.green,
-                    label: 'Import Shared Wallet',
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Public Key display with copy functionality
+                if (publicKey != null)
+                  Container(
+                    padding: const EdgeInsets.all(12.0),
+                    decoration: BoxDecoration(
+                      color: AppColors.container(context),
+                      border: Border.all(
+                        color: AppColors.background(context),
+                      ),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            "${AppLocalizations.of(context)!.translate('pub_key')}: $publicKey",
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppColors.text(context),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          icon:
+                              Icon(Icons.copy, color: AppColors.icon(context)),
+                          onPressed: () {
+                            Clipboard.setData(
+                                ClipboardData(text: publicKey ?? ''));
+                            SnackBarHelper.show(
+                              context,
+                              message: AppLocalizations.of(context)!
+                                  .translate('pub_key_clipboard'),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
 
-                  const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-                  // Display Aliases and Public Keys
-                  if (_pubKeysAlias.isNotEmpty) ...[
-                    Text(
-                      'Aliases and Public Keys:',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
+                // Generate Public Key Button
+                CustomButton(
+                  onPressed: _generatePublicKey,
+                  backgroundColor: AppColors.background(context),
+                  foregroundColor: AppColors.text(context),
+                  icon: Icons.generating_tokens,
+                  iconColor: AppColors.gradient(context),
+                  label: AppLocalizations.of(context)!
+                      .translate('generate_public_key'),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Select File Button
+                CustomButton(
+                  onPressed: _uploadFile,
+                  backgroundColor: AppColors.background(context),
+                  foregroundColor: AppColors.gradient(context),
+                  icon: Icons.file_upload,
+                  iconColor: AppColors.text(context),
+                  label: AppLocalizations.of(context)!.translate('select_file'),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Import Shared Wallet Button
+                CustomButton(
+                  onPressed: () async {
+                    if (_formKey.currentState!.validate() ||
+                        (_status.contains('Success') ||
+                            _status.startsWith('Descriptor is valid'))) {
+                      await Future.delayed(const Duration(milliseconds: 500));
+
+                      _navigateToSharedWallet();
+                    } else {
+                      setState(() {
+                        _status = 'Please enter a valid descriptor';
+                      });
+                    }
+                  },
+                  backgroundColor: AppColors.background(context),
+                  foregroundColor: AppColors.text(context),
+                  icon: Icons.account_balance_wallet,
+                  iconColor: AppColors.gradient(context),
+                  label:
+                      AppLocalizations.of(context)!.translate('import_wallet'),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Display Aliases and Public Keys
+                if (_pubKeysAlias.isNotEmpty) ...[
+                  Text(
+                    AppLocalizations.of(context)!
+                        .translate('aliases_and_pubkeys'),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.cardTitle(context),
                     ),
-                    const SizedBox(height: 10),
-                    ..._pubKeysAlias.map(
-                      (keyAlias) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
+                  ),
+                  const SizedBox(height: 10),
+                  ..._pubKeysAlias.map(
+                    (keyAlias) {
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.container(context),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Alias: ${keyAlias['alias']}',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              Text(
-                                'Public Key: ${keyAlias['publicKey']}',
-                                style: TextStyle(
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            RichText(
+                              text: TextSpan(
+                                style: GoogleFonts.poppins(
                                   fontSize: 14,
-                                  color:
-                                      Theme.of(context).colorScheme.onSurface,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.text(context),
                                 ),
+                                children: [
+                                  TextSpan(
+                                    text:
+                                        "${AppLocalizations.of(context)!.translate('alias')}: ",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.cardTitle(context),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '${keyAlias['alias']}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.normal,
+                                      color: AppColors.text(context),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                            ),
+                            const SizedBox(height: 5),
+                            RichText(
+                              text: TextSpan(
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.text(context),
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text:
+                                        "${AppLocalizations.of(context)!.translate('pub_key')}: ",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.cardTitle(context),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '${keyAlias['publicKey']}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.normal,
+                                      color: AppColors.text(context),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ],
-              ),
+              ],
             ),
           ),
         ),

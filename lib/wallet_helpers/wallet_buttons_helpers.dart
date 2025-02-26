@@ -1,5 +1,6 @@
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/qr_scanner_page.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_wallet/wallet_helpers/wallet_receive_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_security_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_spending_path_helpers.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class WalletButtonsHelper {
   final BuildContext context;
@@ -72,7 +74,6 @@ class WalletButtonsHelper {
           address: address,
           pubKeysAlias: pubKeysAlias ?? [],
           wallet: wallet,
-          onTransactionCreated: onTransactionCreated,
         ),
         receiveHelper = WalletReceiveHelpers(context: context),
         spendingPathHelpers = isSingleWallet
@@ -103,33 +104,32 @@ class WalletButtonsHelper {
   }
 
   Widget _buildTopButtons() {
-    return Row(
-      mainAxisAlignment: isSingleWallet
-          ? MainAxisAlignment.center
-          : MainAxisAlignment.spaceBetween, // Center if single wallet
+    return Wrap(
+      alignment:
+          isSingleWallet ? WrapAlignment.center : WrapAlignment.spaceBetween,
+      spacing: 8, // Adjusts horizontal space between buttons
+      runSpacing: 8, // Adjusts vertical space if buttons wrap to the next line
       children: [
         CustomButton(
           onPressed: () {
             securityHelper.showPinDialog('Your Private Data',
                 isSingleWallet: isSingleWallet);
           },
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
+          backgroundColor: AppColors.background(context),
+          foregroundColor: AppColors.gradient(context),
           icon: Icons.remove_red_eye, // Icon for the new button
-          iconColor: Colors.green,
-          label: 'Private Data',
+          iconColor: AppColors.gradient(context),
+          label: AppLocalizations.of(context)!.translate('private_data'),
         ),
-        const SizedBox(height: 16),
-        if (!isSingleWallet)
-          CustomButton(
-            onPressed: spendingPathHelpers!.showPathsDialog,
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            icon: Icons.pattern, // Icon for the new button
-            iconColor: Colors.green,
-            label: 'Spending Summary',
-          ),
-        const SizedBox(height: 16),
+        // if (!isSingleWallet)
+        //   CustomButton(
+        //     onPressed: spendingPathHelpers!.showPathsDialog,
+        //     backgroundColor: AppColors.background(context),
+        //     foregroundColor: AppColors.gradient(context),
+        //     icon: Icons.pattern,
+        //     iconColor: AppColors.gradient(context),
+        //     label: AppLocalizations.of(context)!.translate('spending_summary'),
+        //   ),
       ],
     );
   }
@@ -141,10 +141,18 @@ class WalletButtonsHelper {
         // Send Button
         CustomButton(
           onPressed: () => sendTxHelper.sendTx(true),
-          backgroundColor: Colors.white, // White background
-          foregroundColor: Colors.green, // Bitcoin green color for text
-          icon: Icons.arrow_upward, // Icon you want to use
-          iconColor: Colors.green, // Color for the icon
+          backgroundColor: AppColors.background(context),
+          foregroundColor: AppColors.primary(context),
+          icon: Icons.arrow_upward,
+          iconColor: AppColors.gradient(context),
+        ),
+        const SizedBox(width: 8),
+        CustomButton(
+          onPressed: () => sendTxHelper.sendTx(false),
+          backgroundColor: AppColors.background(context),
+          foregroundColor: AppColors.primary(context),
+          icon: Icons.draw,
+          iconColor: AppColors.text(context),
         ),
         const SizedBox(width: 8),
         // Scan To Send Button
@@ -164,19 +172,19 @@ class WalletButtonsHelper {
               );
             }
           },
-          backgroundColor: Colors.white, // White background
-          foregroundColor: Colors.green, // Bitcoin green color for text
-          icon: Icons.qr_code, // Icon you want to use
-          iconColor: Colors.black, // Color for the icon
+          backgroundColor: AppColors.background(context),
+          foregroundColor: AppColors.primary(context),
+          icon: Icons.qr_code,
+          iconColor: AppColors.gradient(context),
         ),
         const SizedBox(width: 8),
         // Receive Button
         CustomButton(
           onPressed: () => receiveHelper.showQRCodeDialog(address),
-          backgroundColor: Colors.white, // White background
-          foregroundColor: Colors.green, // Bitcoin green color for text
-          icon: Icons.arrow_downward, // Icon you want to use
-          iconColor: Colors.green, // Color for the icon
+          backgroundColor: AppColors.background(context),
+          foregroundColor: AppColors.primary(context),
+          icon: Icons.arrow_downward,
+          iconColor: AppColors.text(context),
         ),
       ],
     );

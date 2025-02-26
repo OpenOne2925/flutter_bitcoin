@@ -1,52 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_wallet/services/settings_provider.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
-import 'package:flutter_wallet/wallet_helpers/wallet_security_helpers.dart';
-import 'package:hive/hive.dart';
+import 'package:flutter_wallet/utilities/snackbar_helper.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:restart_app/restart_app.dart';
+
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
-  Future<void> _resetApp(BuildContext context) async {
-    final settingsProvider =
-        Provider.of<SettingsProvider>(context, listen: false);
-
-    final WalletSecurityHelpers walletSecurityHelpers =
-        WalletSecurityHelpers(context: context);
-
-    // Show confirmation dialog before resetting
-    final bool confirm = await walletSecurityHelpers.showPinDialog('Reset App');
-
-    if (confirm == true) {
-      // Reset settings
-      settingsProvider.resetSettings();
-
-      // Clear local storage (SharedPreferences)
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-
-      // Clear Hive Database (All Hive Boxes)
-      await Hive.deleteFromDisk();
-
-      // Show confirmation message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("App has been reset."),
-        ),
-      );
-
-      Restart.restartApp();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final settingsProvider = Provider.of<SettingsProvider>(context);
+
+    final languages = [
+      'en',
+      'es',
+      'it',
+      'fr',
+    ];
+
     final currencies = [
       'ARS',
       'AUD',
@@ -80,19 +56,9 @@ class SettingsPage extends StatelessWidget {
     ];
 
     return BaseScaffold(
-      title: const Text('Settings'),
+      title: Text(AppLocalizations.of(context)!.translate('settings')),
       body: Stack(
         children: [
-          // Background Gradient
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.green, Colors.white],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: SingleChildScrollView(
@@ -114,21 +80,24 @@ class SettingsPage extends StatelessWidget {
                   const SizedBox(height: 20),
                   // Description
                   Text(
-                    'Customize your global settings to personalize your wallet experience.',
+                    AppLocalizations.of(context)!.translate('settings_message'),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
-                      color: Colors.black,
+                      color: AppColors.text(context),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+
                   const SizedBox(height: 40),
-                  // Currency Selector
-                  const Text(
-                    'Select Currency',
+
+                  // Currency Selection
+                  Text(
+                    AppLocalizations.of(context)!.translate('currency'),
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: AppColors.cardTitle(context),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -147,11 +116,13 @@ class SettingsPage extends StatelessWidget {
                     },
                     decoration: InputDecoration(
                       enabledBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.white),
+                        borderSide:
+                            BorderSide(color: AppColors.background(context)),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.green),
+                        borderSide:
+                            BorderSide(color: AppColors.primary(context)),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       border: OutlineInputBorder(
@@ -162,39 +133,83 @@ class SettingsPage extends StatelessWidget {
                         horizontal: 12,
                       ),
                     ),
-                    dropdownColor: Colors.black,
+                    dropdownColor: AppColors.gradient(context),
                     isExpanded: true, // Ensure dropdown spans the full width
                     menuMaxHeight:
                         250, // Limit the dropdown's height to fit 5 items
                   ),
+
+                  const SizedBox(height: 20),
+
+                  // Language Selection
+                  Text(
+                    AppLocalizations.of(context)!.translate('language'),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.cardTitle(context),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+                  DropdownButtonFormField<String>(
+                    value: settingsProvider.languageCode,
+                    items: languages.map((language) {
+                      return DropdownMenuItem(
+                        value: language,
+                        child: Text(language),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        settingsProvider.setLanguage(value);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      enabledBorder: OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: AppColors.background(context)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: AppColors.primary(context)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 10,
+                        horizontal: 12,
+                      ),
+                    ),
+                    dropdownColor: AppColors.gradient(context),
+                    isExpanded: true, // Ensure dropdown spans the full width
+                    menuMaxHeight:
+                        250, // Limit the dropdown's height to fit 5 items
+                  ),
+
                   const SizedBox(height: 40),
+
                   // Save Button
                   CustomButton(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Settings saved!'),
-                        ),
+                      settingsProvider.resetSettings();
+
+                      SnackBarHelper.show(
+                        context,
+                        message: AppLocalizations.of(context)!
+                            .translate('reset_settings_scaffold'),
                       );
                     },
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    icon: Icons.save,
-                    iconColor: Colors.white,
-                    label: 'Save Settings',
-                    padding: 16.0,
-                    iconSize: 28.0,
-                  ),
-                  const SizedBox(height: 20),
-                  // Reset Button
-                  CustomButton(
-                    onPressed: () => _resetApp(context),
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    icon: Icons.delete_forever,
-                    iconColor: Colors.white,
-                    label: 'Reset App',
-                    padding: 16.0,
+                    backgroundColor: AppColors.background(context),
+                    foregroundColor: AppColors.text(context),
+                    icon: Icons.restart_alt,
+                    iconColor: AppColors.gradient(context),
+                    label: AppLocalizations.of(context)!
+                        .translate('reset_settings'),
+                    padding: 10.0,
                     iconSize: 28.0,
                   ),
                 ],

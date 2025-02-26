@@ -3,7 +3,8 @@ import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
-import 'package:flutter_wallet/services/settings_provider.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
@@ -282,9 +283,14 @@ class WalletPageState extends State<WalletPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SpinKitFadingCircle(
-                  color: Colors.blue, size: 50.0), // Cool effect
+                color: Colors.blue,
+                size: 50.0,
+              ),
               SizedBox(height: 20),
-              Text("Setting up your wallet...", style: TextStyle(fontSize: 18)),
+              Text(
+                AppLocalizations.of(context)!.translate('setting_wallet'),
+                style: TextStyle(fontSize: 18),
+              ),
             ],
           ),
         ),
@@ -324,7 +330,10 @@ class WalletPageState extends State<WalletPage> {
     );
 
     return BaseScaffold(
-      title: const Text('Wallet Page'),
+      title: Text(
+        AppLocalizations.of(context)!.translate('personal_wallet'),
+        style: TextStyle(fontSize: 18),
+      ),
       body: RefreshIndicator(
         key: _refreshIndicatorKey, // Assign the GlobalKey to RefreshIndicator
         onRefresh: () async {
@@ -344,7 +353,7 @@ class WalletPageState extends State<WalletPage> {
                 padding: const EdgeInsets.all(8.0),
                 children: [
                   walletUiHelpers.buildWalletInfoBox(
-                    'Address',
+                    AppLocalizations.of(context)!.translate('address'),
                     onTap: () {
                       _convertCurrency();
                     },

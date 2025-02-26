@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:showcaseview/showcaseview.dart';
 
 class PinSetupPage extends StatefulWidget {
   const PinSetupPage({super.key});
@@ -18,34 +19,9 @@ class PinSetupPageState extends State<PinSetupPage> {
 
   String _status = '';
 
-  final GlobalKey _pinFieldKey = GlobalKey();
-  final GlobalKey _confirmPinFieldKey = GlobalKey();
-  final GlobalKey _setPinButtonKey = GlobalKey();
-  final GlobalKey _restartTutorialKey = GlobalKey();
-
   @override
   void initState() {
     super.initState();
-    _checkAndStartTutorial();
-  }
-
-  Future<void> _checkAndStartTutorial() async {
-    var settingsBox = Hive.box('settingsBox');
-
-    bool enableTutorial = settingsBox.get('enableTutorial') ?? false;
-
-    if (enableTutorial) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          ShowCaseWidget.of(context).startShowCase([
-            _pinFieldKey,
-            _confirmPinFieldKey,
-            _setPinButtonKey,
-            _restartTutorialKey
-          ]);
-        }
-      });
-    }
   }
 
   void _savePin(String pin) async {
@@ -65,25 +41,35 @@ class PinSetupPageState extends State<PinSetupPage> {
       _savePin(_pinController.text);
     } else {
       setState(() {
-        _status = 'Please correct the errors and try again.';
+        _status = 'Please correct the errors and try again';
       });
     }
   }
 
   Widget _buildStatusBanner() {
+    String statusText;
+
     if (_status.isEmpty) return const SizedBox.shrink();
+
+    if (_status == 'Please correct the errors and try again') {
+      statusText = AppLocalizations.of(context)!.translate('correct_errors');
+    } else {
+      statusText = AppLocalizations.of(context)!.translate('pin_set_success');
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _status.contains('successfully') ? Colors.green : Colors.red,
+        color: _status.contains('successfully')
+            ? AppColors.primary(context)
+            : AppColors.error(context),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        _status,
-        style: const TextStyle(
-          color: Colors.white,
+        statusText,
+        style: TextStyle(
+          color: AppColors.text(context),
           fontWeight: FontWeight.bold,
         ),
         textAlign: TextAlign.center,
@@ -95,30 +81,21 @@ class PinSetupPageState extends State<PinSetupPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Set PIN"),
-        backgroundColor: Colors.green,
+        title: Text(AppLocalizations.of(context)!.translate('set_pin')),
+        backgroundColor: AppColors.primary(context),
         actions: [
-          Showcase(
-            key: _restartTutorialKey,
-            description: 'Tap here to restart the tutorial.',
-            child: IconButton(
-              icon: Icon(Icons.help_outline),
-              onPressed: () {
-                ShowCaseWidget.of(context).startShowCase([
-                  _pinFieldKey,
-                  _confirmPinFieldKey,
-                  _setPinButtonKey,
-                  _restartTutorialKey
-                ]);
-              },
-            ),
+          IconButton(
+            icon: Icon(Icons.help_outline),
+            onPressed: () {
+              // Tutorial
+            },
           ),
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.greenAccent, Colors.white],
+            colors: [AppColors.accent(context), AppColors.gradient(context)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -136,78 +113,72 @@ class PinSetupPageState extends State<PinSetupPage> {
                   child: Icon(
                     Icons.lock,
                     size: 100,
-                    color: Colors.green.shade700,
+                    color: AppColors.icon(context),
                   ),
                 ),
                 const SizedBox(height: 20),
                 // Status Banner
                 _buildStatusBanner(),
                 // PIN Entry Field
-                Showcase(
-                  key: _pinFieldKey,
-                  description:
-                      'Enter a secure 6-digit PIN to protect your wallet',
-                  child: TextFormField(
-                    controller: _pinController,
-                    decoration: CustomTextFieldStyles.textFieldDecoration(
-                      context: context,
-                      labelText: 'Enter PIN',
-                      hintText: 'Enter a 6-digit PIN',
-                    ),
-                    keyboardType: TextInputType.number,
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.length != 6) {
-                        return 'PIN must be 6 digits';
-                      }
-                      return null;
-                    },
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
+                TextFormField(
+                  controller: _pinController,
+                  decoration: CustomTextFieldStyles.textFieldDecoration(
+                    context: context,
+                    labelText:
+                        AppLocalizations.of(context)!.translate('enter_pin'),
+                    hintText: AppLocalizations.of(context)!
+                        .translate('enter_6_digits_pin'),
+                  ),
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  validator: (value) {
+                    if (value == null || value.length != 6) {
+                      return AppLocalizations.of(context)!
+                          .translate('pin_must_be_six');
+                    }
+                    return null;
+                  },
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
+
                 const SizedBox(height: 16),
                 // Confirm PIN Entry Field
-                Showcase(
-                  key: _confirmPinFieldKey,
-                  description: 'Re-enter your PIN to confirm it matches',
-                  child: TextFormField(
-                    controller: _confirmPinController,
-                    decoration: CustomTextFieldStyles.textFieldDecoration(
-                      context: context,
-                      labelText: 'Confirm PIN',
-                      hintText: 'Re-enter your PIN',
-                    ),
-                    keyboardType: TextInputType.number,
-                    obscureText: true,
-                    validator: (value) {
-                      if (value != _pinController.text) {
-                        return 'PIN does not match';
-                      }
-                      return null;
-                    },
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
+                TextFormField(
+                  controller: _confirmPinController,
+                  decoration: CustomTextFieldStyles.textFieldDecoration(
+                    context: context,
+                    labelText:
+                        AppLocalizations.of(context)!.translate('confirm_pin'),
+                    hintText:
+                        AppLocalizations.of(context)!.translate('re_enter_pin'),
+                  ),
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  validator: (value) {
+                    if (value != _pinController.text) {
+                      return AppLocalizations.of(context)!
+                          .translate('pin_mismatch');
+                    }
+                    return null;
+                  },
+                  style: TextStyle(
+                    color: AppColors.text(context),
                   ),
                 ),
+
                 const SizedBox(height: 20),
                 // Set PIN Button
-                Showcase(
-                  key: _setPinButtonKey,
-                  description:
-                      'Press this button to save your PIN and continue.',
-                  child: CustomButton(
-                    onPressed: _validateAndSave,
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    icon: Icons.pin,
-                    iconColor: Colors.white,
-                    label: 'Set PIN',
-                    padding: 16.0,
-                    iconSize: 28.0,
-                  ),
+                CustomButton(
+                  onPressed: _validateAndSave,
+                  backgroundColor: AppColors.background(context),
+                  foregroundColor: AppColors.gradient(context),
+                  icon: Icons.pin,
+                  iconColor: AppColors.text(context),
+                  label: AppLocalizations.of(context)!.translate('set_pin'),
+                  padding: 16.0,
+                  iconSize: 28.0,
                 ),
               ],
             ),

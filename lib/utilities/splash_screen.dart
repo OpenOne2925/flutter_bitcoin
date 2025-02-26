@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_wallet/main.dart';
 import 'package:lottie/lottie.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -15,10 +14,10 @@ class SplashScreenState extends State<SplashScreen> {
     super.initState();
 
     Future.delayed(const Duration(seconds: 3), () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const MyApp()),
-      );
+      if (mounted) {
+        // ✅ Prevent navigation after unmounting
+        Navigator.pushReplacementNamed(context, '/main');
+      }
     });
   }
 

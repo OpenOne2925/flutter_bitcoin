@@ -3,8 +3,11 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
@@ -71,55 +74,33 @@ import 'package:english_words/english_words.dart';
 /// **Data Storage**
 /// - **`saveLocalData`**: Saves wallet-related data, such as balances and transactions, to local storage.
 
-class WalletService {
+Network network = Network.testnet; // Default to mainnet
+
+bool get isTestnet =>
+    network == Network.testnet; // ✅ Now it always reflects the latest network
+
+class WalletService extends ChangeNotifier {
   final WalletStorageService _walletStorageService = WalletStorageService();
 
-  // Base URL for Mempool Space Testnet API
-  final String baseUrl = 'https://mempool.space/testnet4/api';
-
-  // Base URL for Mempool Space Mainnet API
-  // final String baseUrl = 'https://mempool.space/api';
-
-  final Network network = Network.testnet;
+  final String baseUrl = isTestnet
+      ? 'https://mempool.space/testnet4/api' // Mempool Space Testnet API
+      : 'https://mempool.space/api'; // Mempool Space Mainnet API
 
   late Wallet wallet;
   late Blockchain blockchain;
 
-  List<String> electrumServers = [
-    // // 🔹 Your Local Bitcoin Node (Testnet4)
-    // "tcp://t4rpc:t4rpcp@192.168.99.25:40001",
-    // "tcp://192.168.99.25:40002", // Alternative TCP (No SSL)
+  List<String> electrumServers = isTestnet
+      ? [
+          // // 🔹 Your Local Bitcoin Node (Testnet4)
+          "tcp://192.168.99.25:40001", // Local PC IP
 
-    // // 🔹 Your Original Servers
-    "ssl://mempool.space:40002",
-    // "ssl://blockstream.info:993",
-    // "ssl://electrum.blockonomics.co:51002",
-
-    // 🔹 Default Electrum Servers (Updated)
-    // "ssl://erbium1.sytes.net:50002",
-    // "tcp://ecdsa.net:50001",
-    // "ssl://ecdsa.net:110",
-    // "ssl://gh05.geekhosters.com:50002",
-    // "ssl://VPS.hsmiths.com:50002",
-    // "ssl://electrum.anduck.net:50002",
-    // "ssl://electrum.no-ip.org:50002",
-    // "ssl://electrum.be:50002",
-    // "ssl://helicarrier.bauerj.eu:50002",
-    // "ssl://elex01.blackpole.online:50002",
-    // "ssl://electrumx.not.fyi:50002",
-    // "ssl://node.xbt.eu:50002",
-    // "ssl://kirsche.emzy.de:50002",
-    // "ssl://electrum.villocq.com:50002",
-    // "ssl://us11.einfachmalnettsein.de:50002",
-    // "ssl://electrum.trouth.net:50002",
-    // "tcp://Electrum.hsmiths.com:8080",
-    // "ssl://Electrum.hsmiths.com:995",
-    // "ssl://electrum3.hachre.de:50002",
-    "ssl://b.1209k.com:50002",
-    "ssl://elec.luggs.co:443",
-    "tcp://btc.smsys.me:110",
-    "ssl://btc.smsys.me:995",
-  ];
+          // // 🔹 Testnet4 Servers
+          "ssl://mempool.space:40002",
+        ]
+      : [
+          // // 🔹 Mainnet Servers
+          "ssl://electrum.blockstream.info:50002",
+        ];
 
   ///
   ///
@@ -137,7 +118,10 @@ class WalletService {
   ///
 
   Future<ValidationResult> isValidDescriptor(
-      String descriptorStr, String publicKey) async {
+    String descriptorStr,
+    String publicKey,
+    BuildContext context,
+  ) async {
     try {
       // print(publicKey);
       // printInChunks(descriptorStr);
@@ -160,8 +144,8 @@ class WalletService {
       } else {
         return ValidationResult(
           isValid: false,
-          errorMessage:
-              'Error: Your public key is not contained in this descriptor',
+          errorMessage: AppLocalizations.of(context)!
+              .translate('error_public_key_not_contained'),
         );
       }
     } catch (e) {
@@ -169,7 +153,8 @@ class WalletService {
       // If any error occurs during creation, set isValid to false
       return ValidationResult(
         isValid: false,
-        errorMessage: 'Error creating wallet with the descriptor provided',
+        errorMessage:
+            AppLocalizations.of(context)!.translate('error_wallet_descriptor'),
       );
     }
   }
@@ -445,14 +430,18 @@ class WalletService {
     }
   }
 
-  String formatTime(int totalSeconds) {
+  String formatTime(int totalSeconds, BuildContext context) {
     if (totalSeconds <= 0) return "0 seconds";
 
     final hours = totalSeconds ~/ 3600;
     final minutes = (totalSeconds % 3600) ~/ 60;
     final seconds = totalSeconds % 60;
 
-    return '$hours hours, $minutes minutes, $seconds seconds';
+    return AppLocalizations.of(context)!
+        .translate('time_remaining')
+        .replaceAll('{x}', hours.toString())
+        .replaceAll('{y}', minutes.toString())
+        .replaceAll('{z}', seconds.toString());
   }
 
   Future<List<dynamic>> getUtxos(String address) async {
@@ -714,11 +703,14 @@ class WalletService {
 
     // Find new transactions
     List<String> newTransactions =
-        apiTxIds.where((txid) => !walletTxIds.contains(txid)).toList();
+        walletTxIds.where((txid) => !apiTxIds.contains(txid)).toList();
 
     // Debugging Output
     print("✅ Total API Transactions: ${apiTransactions.length}");
+    // printInChunks(apiTxIds.toString());
+
     print("✅ Total Wallet Transactions: ${walletTxIds.length}");
+    // printInChunks(walletTxIds.toString());
 
     if (newTransactions.isNotEmpty) {
       print("🆕 New Transactions Found: ${newTransactions.length}");
@@ -872,6 +864,7 @@ class WalletService {
   ///
 
   Future<Wallet> createSharedWallet(String descriptor) async {
+    print(network);
     return wallet = await Wallet.create(
       descriptor: await Descriptor.create(
         descriptor: descriptor,
@@ -1299,7 +1292,7 @@ class WalletService {
     return result;
   }
 
-  List<String> getSignersFromPsbt(PartiallySignedTransaction psbt) {
+  List<String> extractSignersFromPsbt(PartiallySignedTransaction psbt) {
     final serializedPsbt = psbt.jsonSerialize();
 
     // printPrettyJson(serializedPsbt);
@@ -1354,6 +1347,47 @@ class WalletService {
     // print("Fingerprints of signing public keys: $signingFingerprints");
 
     return signingFingerprints.toSet().toList();
+  }
+
+  Map<String, dynamic> extractSpendingPathFromPsbt(
+    PartiallySignedTransaction psbt,
+    List<Map<String, dynamic>> spendingPaths,
+  ) {
+    final serializedPsbt = psbt.jsonSerialize();
+
+    // Parse JSON
+    Map<String, dynamic> psbtDecoded = jsonDecode(serializedPsbt);
+
+    if (!psbtDecoded.containsKey("unsigned_tx") ||
+        !psbtDecoded["unsigned_tx"].containsKey("input")) {
+      throw Exception("Invalid PSBT format or missing inputs.");
+    }
+
+    List<dynamic> inputs = psbtDecoded["unsigned_tx"]["input"];
+    Set<int> sequenceValues =
+        inputs.map((input) => input["sequence"] as int).toSet();
+
+    if (sequenceValues.length != 1) {
+      throw Exception("Mismatched sequence values in inputs.");
+    }
+
+    int sequence = sequenceValues.first;
+
+    if (sequence == 4294967294) {
+      // Multisig case
+      return spendingPaths.firstWhere(
+        (path) => path["type"].contains("MULTISIG"),
+        orElse: () =>
+            throw Exception("No matching multisig spending path found."),
+      );
+    } else {
+      // Check for a timelock match
+      return spendingPaths.firstWhere(
+        (path) => path["timelock"] != null && path["timelock"] == sequence,
+        orElse: () =>
+            throw Exception("No matching timelock spending path found."),
+      );
+    }
   }
 
   List<String> getAliasesFromFingerprint(
@@ -1790,7 +1824,7 @@ class WalletService {
   }
 
   // This method takes a PSBT, signs it with the second user and then broadcasts it
-  Future<String> signBroadcastTx(
+  Future<String?> signBroadcastTx(
     String psbtString,
     String descriptor,
     String mnemonic,
@@ -1877,7 +1911,7 @@ class WalletService {
 
       // printInChunks('Transaction after Signing: $psbt');
 
-      return psbt.toString();
+      return null;
     } on Exception catch (e) {
       print("Error: ${e.toString()}");
 
@@ -1944,6 +1978,7 @@ class WalletService {
   }
 }
 
+// Used to generate a random SharedWallet descriptorName
 extension StringExtension on String {
   String capitalize() => this[0].toUpperCase() + substring(1);
 }

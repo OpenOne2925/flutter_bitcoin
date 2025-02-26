@@ -1,12 +1,13 @@
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:hive/hive.dart';
 import 'package:lottie/lottie.dart';
-import 'package:showcaseview/showcaseview.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class CAWalletPage extends StatefulWidget {
   const CAWalletPage({super.key});
@@ -25,16 +26,7 @@ class CAWalletPageState extends State<CAWalletPage> {
 
   final WalletService _walletService = WalletService();
 
-  final Network network = Network.testnet;
-
   bool _isMnemonicEntered = false;
-
-  final GlobalKey _mnemonicFieldKey = GlobalKey();
-  final GlobalKey _genMnemonicButtonKey = GlobalKey();
-  final GlobalKey _createWalletButtonKey = GlobalKey();
-  final GlobalKey _restartTutorialKey = GlobalKey();
-
-  bool _enableTutorial = false;
 
   @override
   void initState() {
@@ -46,27 +38,6 @@ class CAWalletPageState extends State<CAWalletPage> {
         _validateMnemonic(_mnemonic.toString());
       }
     });
-    _checkAndStartTutorial();
-  }
-
-  Future<void> _checkAndStartTutorial() async {
-    var settingsBox = Hive.box('settingsBox');
-
-    _enableTutorial = settingsBox.get('enableTutorial') ?? false;
-
-    if (_enableTutorial) {
-      _startShowCaseStep();
-    }
-  }
-
-  // Function to start showcase tutorial with optional callback
-  void _startShowCaseStep() {
-    List<GlobalKey> showCaseKeys = [
-      _mnemonicFieldKey,
-      _genMnemonicButtonKey,
-    ];
-
-    ShowCaseWidget.of(context).startShowCase(showCaseKeys);
   }
 
   Future<void> _createWallet() async {
@@ -115,11 +86,6 @@ class CAWalletPageState extends State<CAWalletPage> {
       _mnemonic = res.asString();
       _status = 'New mnemonic generated!';
     });
-    if (_enableTutorial) {
-      ShowCaseWidget.of(context).startShowCase([
-        _createWalletButtonKey,
-      ]);
-    }
   }
 
   String _getAnimationPath() {
@@ -135,18 +101,32 @@ class CAWalletPageState extends State<CAWalletPage> {
   void _validateMnemonic(String value) async {
     final isValid =
         value.trim().isNotEmpty && await _walletService.checkMnemonic(value);
+    print(isValid);
 
     setState(() {
       _isMnemonicEntered = isValid;
     });
-    if (_enableTutorial) {
-      ShowCaseWidget.of(context).startShowCase([
-        _createWalletButtonKey,
-      ]);
-    }
   }
 
   Widget _buildStatusIndicator() {
+    String statusText;
+
+    if (_status.startsWith('Idle')) {
+      statusText = AppLocalizations.of(context)!.translate('idle_ready_import');
+    } else if (_status == 'New mnemonic generated!') {
+      statusText = AppLocalizations.of(context)!.translate('new_mnemonic');
+    } else if (_status == 'Creating wallet...') {
+      statusText = AppLocalizations.of(context)!.translate('creating_wallet');
+    } else if (_status == 'Wallet loaded successfully!') {
+      statusText = AppLocalizations.of(context)!.translate('wallet_loaded');
+    } else if (_status == 'Wallet created successfully') {
+      statusText = AppLocalizations.of(context)!.translate('wallet_created');
+    } else if (_status.contains('Success')) {
+      statusText = AppLocalizations.of(context)!.translate('navigating_wallet');
+    } else {
+      statusText = AppLocalizations.of(context)!.translate('loading');
+    }
+
     return Column(
       children: [
         // Lottie Animation
@@ -160,15 +140,15 @@ class CAWalletPageState extends State<CAWalletPage> {
         const SizedBox(height: 10),
         // Status Text
         Text(
-          _status,
+          statusText,
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
             color: _status.contains('successfully')
-                ? Colors.green
+                ? AppColors.primary(context)
                 : _status.contains('Creating')
-                    ? Colors.greenAccent
-                    : Colors.grey,
+                    ? AppColors.accent(context)
+                    : AppColors.text(context),
           ),
         ),
       ],
@@ -178,100 +158,95 @@ class CAWalletPageState extends State<CAWalletPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create or Restore Wallet'),
-        backgroundColor: Colors.green,
-        actions: [
-          Showcase(
-            key: _restartTutorialKey,
-            description: 'Tap here to restart the tutorial.',
-            child: IconButton(
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(56.0), // Standard AppBar height
+        child: AppBar(
+          title:
+              Text(AppLocalizations.of(context)!.translate('create_restore')),
+          backgroundColor: AppColors.primary(context),
+          actions: [
+            IconButton(
               icon: Icon(Icons.help_outline),
               onPressed: () {
-                ShowCaseWidget.of(context).startShowCase([
-                  _mnemonicFieldKey,
-                  _genMnemonicButtonKey,
-                  _createWalletButtonKey,
-                  _restartTutorialKey
-                ]);
+                // Tutorial
               },
+            ),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.accent(context),
+                  AppColors.gradient(context)
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Cool Status Indicator with Animation
+                  _buildStatusIndicator(),
+                  const SizedBox(height: 20),
+                  // Mnemonic Input Field
+                  TextFormField(
+                    controller: _mnemonicController,
+                    onChanged: (value) async {
+                      setState(() {
+                        _mnemonic = value;
+                      });
+                    },
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText: AppLocalizations.of(context)!
+                          .translate('enter_mnemonic'),
+                      hintText:
+                          AppLocalizations.of(context)!.translate('enter_12'),
+                    ),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+                  // Create Wallet Button
+                  CustomButton(
+                    onPressed: _isMnemonicEntered ? _createWallet : null,
+                    backgroundColor: AppColors.background(context),
+                    foregroundColor: AppColors.text(context),
+                    icon: Icons.wallet,
+                    iconColor: AppColors.gradient(context),
+                    label: AppLocalizations.of(context)!
+                        .translate('create_wallet'),
+                    padding: 16.0,
+                    iconSize: 28.0,
+                  ),
+
+                  const SizedBox(height: 16),
+                  // Generate Mnemonic Button
+                  CustomButton(
+                    onPressed: _generateMnemonic,
+                    backgroundColor: AppColors.background(context),
+                    foregroundColor: AppColors.gradient(context),
+                    icon: Icons.create,
+                    iconColor: AppColors.text(context),
+                    label: AppLocalizations.of(context)!
+                        .translate('generate_mnemonic'),
+                    padding: 16.0,
+                    iconSize: 28.0,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.greenAccent, Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Cool Status Indicator with Animation
-              _buildStatusIndicator(),
-              const SizedBox(height: 20),
-              // Mnemonic Input Field
-              Showcase(
-                key: _mnemonicFieldKey,
-                description:
-                    'Enter your 12 words mnemonic to create or import a Bitcoin Wallet.',
-                child: TextFormField(
-                  controller: _mnemonicController,
-                  onChanged: (value) async {
-                    setState(() {
-                      _mnemonic = value;
-                    });
-                  },
-                  decoration: CustomTextFieldStyles.textFieldDecoration(
-                    context: context,
-                    labelText: 'Enter Mnemonic',
-                    hintText: 'Enter your 12 words here',
-                  ),
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Create Wallet Button
-              Showcase(
-                key: _createWalletButtonKey,
-                description: 'Create or Import your new Bitcoin Wallet.',
-                child: CustomButton(
-                  onPressed: _isMnemonicEntered ? _createWallet : null,
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  icon: Icons.wallet,
-                  iconColor: Colors.white,
-                  label: 'Create Wallet',
-                  padding: 16.0,
-                  iconSize: 28.0,
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Generate Mnemonic Button
-              Showcase(
-                key: _genMnemonicButtonKey,
-                description: 'Generate a new 12 word Mnemonic.',
-                child: CustomButton(
-                  onPressed: _generateMnemonic,
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.green,
-                  icon: Icons.create,
-                  iconColor: Colors.green,
-                  label: 'Generate Mnemonic',
-                  padding: 16.0,
-                  iconSize: 28.0,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

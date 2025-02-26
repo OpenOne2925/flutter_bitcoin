@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class WalletSpendingPathHelpers {
   final List<Map<String, String>> pubKeysAlias;
@@ -14,6 +18,11 @@ class WalletSpendingPathHelpers {
   final BuildContext context;
   final Map<String, dynamic> policy;
 
+  final ScrollController _scrollController = ScrollController();
+  bool _isUserInteracting = false;
+  bool _isScrollingForward = true;
+  Timer? _scrollTimer;
+
   WalletSpendingPathHelpers({
     required this.pubKeysAlias,
     required this.mySpendingPaths,
@@ -25,7 +34,59 @@ class WalletSpendingPathHelpers {
     required this.myAlias,
     required this.context,
     required this.policy,
-  });
+  }) {
+    _startAutoScroll(); // Start scrolling when the class is initialized
+  }
+
+  /// Start auto-scrolling back and forth until the user interacts
+  void _startAutoScroll() {
+    _scrollTimer = Timer.periodic(
+      const Duration(milliseconds: 50),
+      (timer) {
+        if (_isUserInteracting) return;
+
+        if (_scrollController.hasClients) {
+          double maxScroll = _scrollController.position.maxScrollExtent;
+          double minScroll = _scrollController.position.minScrollExtent;
+          double currentScroll = _scrollController.offset;
+
+          if (_isScrollingForward) {
+            if (currentScroll >= maxScroll) {
+              _isScrollingForward = false;
+            } else {
+              _scrollController.animateTo(
+                currentScroll + 25,
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.bounceInOut,
+              );
+            }
+          } else {
+            if (currentScroll <= minScroll) {
+              _isScrollingForward = true;
+            } else {
+              _scrollController.animateTo(
+                currentScroll - 25,
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.linear,
+              );
+            }
+          }
+        }
+      },
+    );
+  }
+
+  /// Stops auto-scroling when user taps
+  void _stopAutoScroll() {
+    _isUserInteracting = true;
+    _scrollTimer?.cancel();
+  }
+
+  /// Dispose function to clean up resources
+  void dispose() {
+    _scrollTimer?.cancel();
+    _scrollController.dispose();
+  }
 
   // 🔹 Call this from your main widget
   Widget buildDynamicSpendingPaths(bool isInitialized) {
@@ -37,25 +98,30 @@ class WalletSpendingPathHelpers {
                   "No spending paths available",
                   style: TextStyle(color: Colors.grey),
                 )
-              : Align(
-                  alignment: Alignment.centerLeft,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: mySpendingPaths.asMap().entries.map((entry) {
-                        int index = entry.key;
-                        var path = entry.value;
+              : Listener(
+                  onPointerUp: (event) => _stopAutoScroll(),
+                  onPointerDown: (event) => _stopAutoScroll(),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      controller: _scrollController,
+                      child: Row(
+                        children: mySpendingPaths.asMap().entries.map((entry) {
+                          int index = entry.key;
+                          var path = entry.value;
 
-                        return buildSpendingPathBox(
-                          path,
-                          index,
-                          mySpendingPaths.length,
-                        );
-                      }).toList(),
+                          return buildSpendingPathBox(
+                            path,
+                            index,
+                            mySpendingPaths.length,
+                          );
+                        }).toList(),
+                      ),
                     ),
                   ),
                 )
-          : const CircularProgressIndicator(color: Colors.green),
+          : CircularProgressIndicator(color: AppColors.primary(context)),
     );
   }
 
@@ -135,26 +201,26 @@ class WalletSpendingPathHelpers {
 
       final remainingBlocks = utxoBlockHeight + timelock - 1 - currentHeight;
       final totalSeconds = remainingBlocks * avgBlockTime;
-      timeRemaining = walletService.formatTime(totalSeconds as int);
+      timeRemaining = walletService.formatTime(totalSeconds as int, context);
 
       if (i == 0) {
         waitingTransactions.add(
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.lock_clock,
-                color: Colors.greenAccent,
+                color: AppColors.icon(context),
                 size: 16,
               ),
               const SizedBox(width: 6),
               Flexible(
                 fit: FlexFit.loose,
                 child: Text(
-                  "$totalValue sats available in $timeRemaining",
-                  style: const TextStyle(
+                  "$totalValue ${AppLocalizations.of(context)!.translate('sats_available')} $timeRemaining",
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Colors.black,
+                    color: AppColors.text(context),
                   ),
                 ),
               ),
@@ -177,8 +243,11 @@ class WalletSpendingPathHelpers {
             Flexible(
               fit: FlexFit.loose,
               child: Text(
-                "$futureTotal sats will be available in the future",
-                style: const TextStyle(fontSize: 12, color: Colors.black),
+                "$futureTotal ${AppLocalizations.of(context)!.translate('future_sats')}",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.text(context),
+                ),
               ),
             ),
           ],
@@ -192,7 +261,9 @@ class WalletSpendingPathHelpers {
     if (totalUnconfirmed > 0) {
       transactionDetails.add(
         Text(
-          "Total Unconfirmed: $totalUnconfirmed sats",
+          AppLocalizations.of(context)!
+              .translate('total_unconfirmed')
+              .replaceAll('{x}', totalUnconfirmed.toString()),
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
@@ -206,8 +277,10 @@ class WalletSpendingPathHelpers {
     List<String> otherAliases = List.from(pathAliases)..remove(myAlias);
 
     String aliasText = totalSpendable > 0
-        ? "You ($myAlias) can immediately spend: \n$totalSpendable sats"
-        : "You ($myAlias) cannot spend any sats at the moment.";
+        ? "${AppLocalizations.of(context)!.translate('immediately_spend').replaceAll('{x}', myAlias.toString())} \n$totalSpendable sats"
+        : AppLocalizations.of(context)!
+            .translate('cannot_spend')
+            .replaceAll('{x}', myAlias.toString());
 
     if (otherAliases.isNotEmpty) {
       int threshold = path['threshold'];
@@ -215,13 +288,13 @@ class WalletSpendingPathHelpers {
 
       if (threshold == 1) {
         aliasText +=
-            "\nYou can spend alone. \nThese other keys can also spend independently: \n${otherAliases.join(', ')}";
+            "${AppLocalizations.of(context)!.translate('spend_alone')} \n${otherAliases.join(', ')}";
       } else if (threshold < totalKeys) {
         aliasText +=
-            "\n\nA threshold of $threshold out of $totalKeys is required. \nYou must coordinate with these keys: \n${otherAliases.join(', ')}";
+            "${AppLocalizations.of(context)!.translate('threshold_required').replaceAll('{x}', threshold.toString()).replaceAll('{y}', totalKeys.toString())} \n${otherAliases.join(', ')}";
       } else {
         aliasText +=
-            "\nYou must spend together with: \n${otherAliases.join(', ')}";
+            "${AppLocalizations.of(context)!.translate('spend_together')} \n${otherAliases.join(', ')}";
       }
     }
 
@@ -234,7 +307,7 @@ class WalletSpendingPathHelpers {
             borderRadius: BorderRadius.circular(12.0),
           ),
           elevation: 5,
-          color: Colors.white,
+          color: AppColors.gradient(context),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -246,18 +319,18 @@ class WalletSpendingPathHelpers {
                   children: [
                     Text(
                       path['type'].contains('RELATIVETIMELOCK')
-                          ? 'Timelock: $timelock blocks'
+                          ? 'Timelock: $timelock ${AppLocalizations.of(context)!.translate('blocks')}'
                           : 'MULTISIG',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.green,
+                        color: AppColors.cardTitle(context),
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(
+                    Icon(
                       Icons.vpn_key,
-                      color: Colors.green,
+                      color: AppColors.icon(context),
                       size: 20,
                     ),
                     const SizedBox(width: 6),
@@ -265,9 +338,9 @@ class WalletSpendingPathHelpers {
                       onTap: () {
                         showPathsDialog();
                       },
-                      child: const Icon(
+                      child: Icon(
                         Icons.more_vert,
-                        color: Colors.black54,
+                        color: AppColors.icon(context),
                         size: 22,
                       ),
                     ),
@@ -279,15 +352,16 @@ class WalletSpendingPathHelpers {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.green.withAlpha((0.1 * 255).toInt()),
+                    color:
+                        AppColors.text(context).withAlpha((0.1 * 255).toInt()),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.check_circle,
-                        color: Colors.green,
+                        color: AppColors.icon(context),
                         size: 20,
                       ),
                       const SizedBox(width: 6),
@@ -295,10 +369,10 @@ class WalletSpendingPathHelpers {
                         fit: FlexFit.loose,
                         child: Text(
                           aliasText,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Colors.green,
+                            color: AppColors.text(context),
                           ),
                         ),
                       ),
@@ -313,12 +387,13 @@ class WalletSpendingPathHelpers {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        "Upcoming Funds - Tap ⋮ for details",
+                      Text(
+                        AppLocalizations.of(context)!
+                            .translate('upcoming_funds'),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                          color: AppColors.text(context),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -337,13 +412,13 @@ class WalletSpendingPathHelpers {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.green,
+              color: AppColors.cardTitle(context),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               '${index + 1} of $length',
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppColors.gradient(context),
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -355,21 +430,24 @@ class WalletSpendingPathHelpers {
   }
 
   void showPathsDialog() async {
+    final rootContext = context;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: Colors.grey[900], // Dark background for the dialog
+          backgroundColor: AppColors.dialog(context),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20.0), // Rounded corners
           ),
-          title: const Text(
-            'Available Spending Paths',
+          title: Text(
+            AppLocalizations.of(rootContext)!
+                .translate('spending_paths_available'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green,
+              color: AppColors.cardTitle(context),
             ),
           ),
           content: SingleChildScrollView(
@@ -411,11 +489,31 @@ class WalletSpendingPathHelpers {
 
                   if (blockHeight == null) {
                     // Handle unconfirmed UTXOs
-                    return Text(
-                      "Value: $value sats - Unconfirmed",
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white70,
+                    return RichText(
+                      text: TextSpan(
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.normal,
+                          color: AppColors.text(context),
+                        ),
+                        children: [
+                          TextSpan(
+                            text:
+                                "${AppLocalizations.of(rootContext)!.translate('value')}: ",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.cardTitle(context),
+                            ),
+                          ),
+                          TextSpan(
+                            text:
+                                "$value sats - ${AppLocalizations.of(rootContext)!.translate('unconfirmed')}",
+                            style: TextStyle(
+                              color: AppColors.text(context),
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   }
@@ -436,17 +534,60 @@ class WalletSpendingPathHelpers {
                     // print('Calculating time remaining...');
                     print('Average block time: $avgBlockTime seconds');
                     final totalSeconds = remainingBlocks * avgBlockTime;
-                    timeRemaining = walletService.formatTime(totalSeconds);
+                    timeRemaining =
+                        walletService.formatTime(totalSeconds, rootContext);
                     // print('Formatted time remaining: $timeRemaining');
                   }
 
-                  return Text(
-                    isSpendable
-                        ? "$value sats can be spent!"
-                        : "Value: $value sats \nTime Remaining: $timeRemaining \nBlocks remaining: $remainingBlocks",
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.white70,
+                  return RichText(
+                    text: TextSpan(
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.text(context),
+                      ),
+                      children: [
+                        if (isSpendable) ...[
+                          TextSpan(
+                            text: "$value sats ",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          TextSpan(
+                            text: AppLocalizations.of(rootContext)!
+                                .translate('can_be_spent'),
+                          ),
+                        ] else ...[
+                          TextSpan(
+                            text:
+                                "${AppLocalizations.of(rootContext)!.translate('value')}: ",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.cardTitle(context)),
+                          ),
+                          TextSpan(
+                            text: "$value sats\n",
+                          ),
+                          TextSpan(
+                            text:
+                                "${AppLocalizations.of(rootContext)!.translate('time_remaining_text')}: ",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.cardTitle(context)),
+                          ),
+                          TextSpan(
+                            text: "$timeRemaining\n",
+                          ),
+                          TextSpan(
+                            text:
+                                "${AppLocalizations.of(rootContext)!.translate('blocks_remaining')}: ",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.cardTitle(context)),
+                          ),
+                          TextSpan(
+                            text: "$remainingBlocks",
+                          ),
+                        ],
+                      ],
                     ),
                   );
                 }).toList();
@@ -456,27 +597,46 @@ class WalletSpendingPathHelpers {
                   margin: const EdgeInsets.only(bottom: 12.0),
                   padding: const EdgeInsets.all(12.0),
                   decoration: BoxDecoration(
-                    color: Colors.grey[850],
+                    color: AppColors.container(context),
                     borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: Colors.green),
+                    border: Border.all(color: AppColors.background(context)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Type: ${pathInfo['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK $timelock blocks' : 'MULTISIG'}",
-                        style: const TextStyle(
+                        "${AppLocalizations.of(rootContext)!.translate('type')}: ${pathInfo['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK $timelock blocks' : 'MULTISIG'}",
+                        style: TextStyle(
                           fontSize: 16,
-                          color: Colors.green,
+                          color: AppColors.cardTitle(context),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       pathInfo['threshold'] != null
-                          ? Text(
-                              "Threshold: ${pathInfo['threshold']}",
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.white70,
+                          ? RichText(
+                              text: TextSpan(
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.normal,
+                                  color: AppColors.text(context),
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text:
+                                        "${AppLocalizations.of(rootContext)!.translate('threshold')}: ",
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.cardTitle(context),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '${pathInfo['threshold']}',
+                                    style: TextStyle(
+                                      color: AppColors.text(context),
+                                    ),
+                                  ),
+                                ],
                               ),
                             )
                           : const SizedBox.shrink(),
@@ -491,7 +651,7 @@ class WalletSpendingPathHelpers {
                                         : ", "), // Remove comma for last item
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.white70,
+                                  color: AppColors.text(context),
                                   fontWeight: pathAliases[i] == myAlias
                                       ? FontWeight.bold
                                       : FontWeight.normal,
@@ -501,17 +661,22 @@ class WalletSpendingPathHelpers {
                         ),
                       ),
                       Text(
-                        "Transaction info:",
-                        style: const TextStyle(
+                        "${AppLocalizations.of(rootContext)!.translate('transaction_info')}: ",
+                        style: TextStyle(
                           fontSize: 14,
-                          color: Colors.white70,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.cardTitle(context),
                         ),
                       ),
                       transactionDetails.isNotEmpty
                           ? Column(children: transactionDetails)
-                          : const Text(
-                              "No transactions available",
-                              style: TextStyle(fontSize: 14, color: Colors.red),
+                          : Text(
+                              AppLocalizations.of(rootContext)!
+                                  .translate('no_transactions_available'),
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.error(context),
+                              ),
                             ),
                     ],
                   ),
@@ -522,13 +687,13 @@ class WalletSpendingPathHelpers {
           actions: [
             InkwellButton(
               onTap: () {
-                Navigator.of(context).pop(); // Close the dialog
+                Navigator.of(context).pop();
               },
-              label: 'Close',
-              backgroundColor: Colors.white,
-              textColor: Colors.black,
+              label: AppLocalizations.of(rootContext)!.translate('close'),
+              backgroundColor: AppColors.background(context),
+              textColor: AppColors.text(context),
               icon: Icons.cancel_rounded,
-              iconColor: Colors.black,
+              iconColor: AppColors.gradient(context),
             ),
           ],
         );

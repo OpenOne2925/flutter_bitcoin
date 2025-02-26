@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class TutorialPage extends StatefulWidget {
   const TutorialPage({super.key});
@@ -74,7 +75,7 @@ class TutorialPageState extends State<TutorialPage> {
           ElevatedButton(
             onPressed: () => _setTutorialPreference(true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.primary(context),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
               textStyle:
@@ -88,8 +89,8 @@ class TutorialPageState extends State<TutorialPage> {
           OutlinedButton(
             onPressed: () => _setTutorialPreference(false),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.green,
-              side: const BorderSide(color: Colors.green),
+              foregroundColor: AppColors.primary(context),
+              side: BorderSide(color: AppColors.primary(context)),
               padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
               textStyle:
                   const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

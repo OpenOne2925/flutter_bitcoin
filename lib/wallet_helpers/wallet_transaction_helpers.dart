@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/utilities/inkwell_button.dart';
+import 'package:flutter_wallet/utilities/snackbar_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class WalletTransactionHelpers {
   final BuildContext context;
@@ -90,17 +94,17 @@ class WalletTransactionHelpers {
       context: rootContext,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: Colors.grey[900],
+          backgroundColor: AppColors.dialog(context),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20.0),
           ),
-          title: const Text(
-            'Transaction Details',
+          title: Text(
+            AppLocalizations.of(rootContext)!.translate('transaction_details'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green,
+              color: AppColors.cardTitle(context),
             ),
           ),
           content: SingleChildScrollView(
@@ -111,9 +115,9 @@ class WalletTransactionHelpers {
                   margin: const EdgeInsets.only(bottom: 12.0),
                   padding: const EdgeInsets.all(12.0),
                   decoration: BoxDecoration(
-                    color: Colors.grey[850],
+                    color: AppColors.container(context),
                     borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: Colors.green),
+                    border: Border.all(color: AppColors.background(context)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,25 +125,28 @@ class WalletTransactionHelpers {
                       // Transaction Type
                       Text(
                         isInternal
-                            ? "Internal Transaction"
+                            ? AppLocalizations.of(rootContext)!
+                                .translate('internal_tx')
                             : isSent
-                                ? 'Sent Transaction'
-                                : 'Received Transaction',
-                        style: const TextStyle(
+                                ? AppLocalizations.of(rootContext)!
+                                    .translate('sent_tx')
+                                : AppLocalizations.of(rootContext)!
+                                    .translate('received_tx'),
+                        style: TextStyle(
                           fontSize: 18,
-                          color: Colors.green,
+                          color: AppColors.cardTitle(context),
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       const SizedBox(height: 8),
 
                       // Sender Addresses
-                      const Text(
-                        "Senders",
+                      Text(
+                        AppLocalizations.of(rootContext)!.translate('senders'),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: AppColors.cardTitle(context),
                         ),
                       ),
                       Column(
@@ -150,9 +157,10 @@ class WalletTransactionHelpers {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 8),
                             decoration: BoxDecoration(
-                              color: Colors.grey[850],
+                              color: AppColors.container(context),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.green),
+                              border:
+                                  Border.all(color: AppColors.primary(context)),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -160,27 +168,27 @@ class WalletTransactionHelpers {
                                 Expanded(
                                   child: Text(
                                     sender,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
-                                      color: Colors.white70,
-                                      overflow: TextOverflow
-                                          .ellipsis, // Handle long addresses
+                                      color: AppColors.text(context),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.copy,
-                                      color: Colors.green, size: 20),
+                                  icon: Icon(
+                                    Icons.copy,
+                                    color: AppColors.icon(context),
+                                    size: 20,
+                                  ),
                                   onPressed: () {
                                     Clipboard.setData(
                                         ClipboardData(text: sender));
-                                    ScaffoldMessenger.of(rootContext)
-                                        .showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                            'Copied to clipboard: $sender'),
-                                        duration: const Duration(seconds: 1),
-                                      ),
+
+                                    SnackBarHelper.show(
+                                      rootContext,
+                                      message:
+                                          "${AppLocalizations.of(rootContext)!.translate('address_clipboard')}: $sender",
                                     );
                                   },
                                 ),
@@ -193,12 +201,13 @@ class WalletTransactionHelpers {
                       const SizedBox(height: 8),
 
                       // Receiver Addresses
-                      const Text(
-                        "Receivers",
+                      Text(
+                        AppLocalizations.of(rootContext)!
+                            .translate('receivers'),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: AppColors.cardTitle(context),
                         ),
                       ),
                       Column(
@@ -209,9 +218,10 @@ class WalletTransactionHelpers {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 8),
                             decoration: BoxDecoration(
-                              color: Colors.grey[850],
+                              color: AppColors.container(context),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.green),
+                              border:
+                                  Border.all(color: AppColors.primary(context)),
                             ),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -219,27 +229,27 @@ class WalletTransactionHelpers {
                                 Expanded(
                                   child: Text(
                                     receiver,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 14,
-                                      color: Colors.white70,
-                                      overflow: TextOverflow
-                                          .ellipsis, // Handle long addresses
+                                      color: AppColors.text(context),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.copy,
-                                      color: Colors.green, size: 20),
+                                  icon: Icon(
+                                    Icons.copy,
+                                    color: AppColors.icon(context),
+                                    size: 20,
+                                  ),
                                   onPressed: () {
                                     Clipboard.setData(
                                         ClipboardData(text: receiver));
-                                    ScaffoldMessenger.of(rootContext)
-                                        .showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                            'Copied to clipboard: $receiver'),
-                                        duration: const Duration(seconds: 2),
-                                      ),
+
+                                    SnackBarHelper.show(
+                                      rootContext,
+                                      message:
+                                          "${AppLocalizations.of(rootContext)!.translate('address_clipboard')}: $receiver",
                                     );
                                   },
                                 ),
@@ -252,67 +262,68 @@ class WalletTransactionHelpers {
                       const SizedBox(height: 8),
 
                       // Amount Sent/Received
-                      const Text(
-                        "Amount",
+                      Text(
+                        AppLocalizations.of(rootContext)!.translate('amount'),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: AppColors.cardTitle(context),
                         ),
                       ),
                       Text(
-                        "$amount satoshis",
-                        style: const TextStyle(
+                        "$amount sats",
+                        style: TextStyle(
                           fontSize: 14,
-                          color: Colors.white70,
+                          color: AppColors.text(context),
                         ),
                       ),
                       const SizedBox(height: 8),
 
                       // Transaction Fee
                       if (isSent || isInternal) ...[
-                        const Text(
-                          "Transaction Fee",
+                        Text(
+                          AppLocalizations.of(rootContext)!.translate('fee'),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.green,
+                            color: AppColors.cardTitle(context),
                           ),
                         ),
                         Text(
-                          "$fee satoshis",
-                          style: const TextStyle(
+                          "$fee sats",
+                          style: TextStyle(
                             fontSize: 14,
-                            color: Colors.white70,
+                            color: AppColors.text(context),
                           ),
                         ),
                         const SizedBox(height: 8),
                       ],
 
                       // Confirmation Details
-                      const Text(
-                        "Confirmation Details",
+                      Text(
+                        AppLocalizations.of(rootContext)!
+                            .translate('confirmation_details'),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green,
+                          color: AppColors.cardTitle(context),
                         ),
                       ),
                       Text(
                         isConfirmed
-                            ? "Confirmed at block: $blockHeight"
-                            : "Status: Unconfirmed",
-                        style: const TextStyle(
+                            ? "${AppLocalizations.of(rootContext)!.translate('confirmed_block')}: $blockHeight"
+                            : "${AppLocalizations.of(rootContext)!.translate('status')}: ${AppLocalizations.of(rootContext)!.translate('unconfirmed')}",
+                        style: TextStyle(
                           fontSize: 14,
-                          color: Colors.white70,
+                          color: AppColors.text(context),
                         ),
                       ),
                       if (isConfirmed)
                         Text(
-                          "Block Time: $blockTime",
-                          style: const TextStyle(
+                          "${AppLocalizations.of(rootContext)!.translate('timestamp')}: $blockTime",
+                          style: TextStyle(
                             fontSize: 14,
-                            color: Colors.white70,
+                            color: AppColors.text(context),
                           ),
                         ),
                       GestureDetector(
@@ -328,10 +339,11 @@ class WalletTransactionHelpers {
                           }
                         },
                         child: Text(
-                          "Visit the Mempool",
-                          style: const TextStyle(
+                          AppLocalizations.of(rootContext)!
+                              .translate('mempool'),
+                          style: TextStyle(
                             fontSize: 14,
-                            color: Colors.green,
+                            color: AppColors.cardTitle(context),
                             decoration: TextDecoration.underline,
                           ),
                         ),
@@ -343,14 +355,15 @@ class WalletTransactionHelpers {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () {
+            InkwellButton(
+              onTap: () {
                 Navigator.of(context).pop();
               },
-              child: const Text(
-                'Close',
-                style: TextStyle(color: Colors.green),
-              ),
+              label: AppLocalizations.of(rootContext)!.translate('close'),
+              backgroundColor: AppColors.background(context),
+              textColor: AppColors.text(context),
+              icon: Icons.cancel_rounded,
+              iconColor: AppColors.gradient(context),
             ),
           ],
         );
@@ -466,8 +479,8 @@ class WalletTransactionHelpers {
       color: isInternal
           ? Colors.amber
           : isSent
-              ? Colors.redAccent[100]
-              : Colors.tealAccent,
+              ? Colors.red[900]
+              : AppColors.background(context),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
@@ -478,40 +491,44 @@ class WalletTransactionHelpers {
               children: [
                 Icon(
                   isConfirmed ? Icons.check_circle : Icons.timelapse,
-                  color: isConfirmed ? Colors.green : Colors.amber,
+                  color: isConfirmed ? AppColors.text(context) : Colors.blue,
                 ),
                 Text(
                   // Show only the fee payed for internal transactions
                   isInternal
-                      ? "Internal: - $fee satoshis"
-                      : '${isSent ? "Sent: - " : "Received: + "}$amount satoshis',
-                  style: const TextStyle(
+                      ? "${AppLocalizations.of(context)!.translate('internal')}: - $fee sats"
+                      : '${isSent ? "${AppLocalizations.of(context)!.translate('sent')}: - " : "${AppLocalizations.of(context)!.translate('received')}: + "}$amount sats',
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    color: AppColors.text(context),
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: Colors.green),
+                Icon(
+                  Icons.chevron_right,
+                  color: AppColors.text(context),
+                ),
               ],
             ),
             const SizedBox(height: 4),
             if (!isInternal)
               Text(
                 isSent
-                    ? "To: $counterpartyAddress"
-                    : "From: $counterpartyAddress",
-                style: const TextStyle(
+                    ? "${AppLocalizations.of(context)!.translate('to')}: $counterpartyAddress"
+                    : "${AppLocalizations.of(context)!.translate('from')}: $counterpartyAddress",
+                style: TextStyle(
                   fontSize: 14,
-                  color: Colors.black,
+                  color: AppColors.text(context),
                 ),
               ),
             const SizedBox(height: 4),
             if (isSent && !isInternal)
               Text(
-                isInternal
-                    ? '$fee satoshis spent in fees'
-                    : 'Fee: $fee satoshis',
-                style: const TextStyle(fontSize: 14, color: Colors.black),
+                '${AppLocalizations.of(context)!.translate('fee')}: $fee sats',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.text(context),
+                ),
               ),
           ],
         ),

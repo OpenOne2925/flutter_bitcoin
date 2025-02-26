@@ -1,23 +1,24 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter_wallet/services/settings_provider.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/settings/settings_provider.dart';
+import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/splash_screen.dart';
 import 'package:flutter_wallet/wallet_pages/ca_wallet_page.dart';
 import 'package:flutter_wallet/wallet_pages/create_shared_wallet.dart';
 import 'package:flutter_wallet/wallet_pages/import_shared_wallet.dart';
 import 'package:flutter_wallet/utilities/pin_setup_page.dart';
 import 'package:flutter_wallet/utilities/pin_verification_page.dart';
-import 'package:flutter_wallet/wallet_pages/settings_page.dart';
+import 'package:flutter_wallet/settings/settings_page.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet_page.dart';
-import 'package:flutter_wallet/utilities/theme_provider.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/wallet_pages/tutorial_page.dart';
 import 'package:flutter_wallet/wallet_pages/wallet_page.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
-import 'package:showcaseview/showcaseview.dart';
 
 void main() async {
   // Ensure all Flutter bindings are initialized before running Hive
@@ -53,16 +54,12 @@ void main() async {
   );
 
   runApp(
-    ShowCaseWidget(
-      builder: (context) => MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (context) => ThemeProvider(darkTheme)),
-        ],
-        child: const MaterialApp(
-          debugShowCheckedModeBanner: false,
-          home: SplashScreenWrapper(),
-        ),
-      ),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => WalletService()),
+      ],
+      child: const MyAppWrapper(),
     ),
   );
 }
@@ -70,6 +67,7 @@ void main() async {
 // FlutterSecureStorage for encryption key management
 final secureStorage = FlutterSecureStorage();
 
+// 🔹 Secure storage for encryption key management
 Future<List<int>> _getEncryptionKey() async {
   String? encodedKey = await secureStorage.read(key: 'encryptionKey');
 
@@ -83,37 +81,92 @@ Future<List<int>> _getEncryptionKey() async {
   }
 }
 
+// 🔹 Wrapper to Ensure SettingsProvider Loads Before UI
+
+class MyAppWrapper extends StatefulWidget {
+  const MyAppWrapper({super.key});
+
+  @override
+  State<MyAppWrapper> createState() => MyAppWrapperState();
+}
+
+class MyAppWrapperState extends State<MyAppWrapper> {
+  bool _isSettingsLoaded = false;
+  bool _isSplashDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startSplashScreenTimer();
+    _loadSettings();
+  }
+
+  // ⏳ Ensures SplashScreen is shown for at least 3 seconds
+  void _startSplashScreenTimer() {
+    Future.delayed(const Duration(seconds: 3), () {
+      setState(() {
+        _isSplashDone = true;
+      });
+    });
+  }
+
+  // 🔄 Loads settings asynchronously
+  Future<void> _loadSettings() async {
+    final settingsProvider =
+        Provider.of<SettingsProvider>(context, listen: false);
+    await settingsProvider.loadSettings();
+    setState(() {
+      _isSettingsLoaded = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: (_isSettingsLoaded && _isSplashDone)
+          ? const MyApp() // ✅ Show Main App Only After Splash Duration Ends
+          : const SplashScreen(), // ✅ Always Show Splash Screen for 3 Secs
+    );
+  }
+}
+
+// 🔹 Main Application
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (context) => ThemeProvider(darkTheme)),
-        ChangeNotifierProvider(create: (context) => SettingsProvider()),
+    final settingsProvider = Provider.of<SettingsProvider>(context);
+
+    return MaterialApp(
+      title: 'Wallet',
+      theme: settingsProvider.themeData,
+      debugShowCheckedModeBanner: false,
+      locale: Locale(settingsProvider.languageCode),
+      supportedLocales: const [
+        Locale('en', ''),
+        Locale('es', ''),
+        Locale('it', ''),
+        Locale('fr', ''),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
-          return MaterialApp(
-            title: 'Wallet',
-            theme: themeProvider.themeData,
-            initialRoute: _determineInitialRoute(),
-            routes: {
-              '/wallet_page': (context) => const WalletPage(),
-              '/ca_wallet_page': (context) => const CAWalletPage(),
-              '/pin_setup_page': (context) => const PinSetupPage(),
-              '/pin_verification_page': (context) =>
-                  const PinVerificationPage(),
-              '/shared_wallet': (context) => const SharedWalletPage(),
-              '/create_shared': (context) => const CreateSharedWallet(),
-              '/import_shared': (context) => const ImportSharedWallet(),
-              '/settings': (context) => const SettingsPage(),
-              '/tutorial': (context) => const TutorialPage(),
-            },
-          );
-        },
-      ),
+      localizationsDelegates: const [
+        AppLocalizations.delegate, // Custom translation delegate
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      initialRoute: _determineInitialRoute(),
+      routes: {
+        '/wallet_page': (context) => const WalletPage(),
+        '/ca_wallet_page': (context) => const CAWalletPage(),
+        '/pin_setup_page': (context) => const PinSetupPage(),
+        '/pin_verification_page': (context) => const PinVerificationPage(),
+        '/shared_wallet': (context) => const SharedWalletPage(),
+        '/create_shared': (context) => const CreateSharedWallet(),
+        '/import_shared': (context) => const ImportSharedWallet(),
+        '/settings': (context) => const SettingsPage(),
+        '/tutorial': (context) => const TutorialPage(),
+      },
     );
   }
 
@@ -134,6 +187,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// 🔹 Splash Screen Wrapper to Properly Initialize the App
 class SplashScreenWrapper extends StatefulWidget {
   const SplashScreenWrapper({super.key});
 
@@ -162,10 +216,6 @@ class SplashScreenWrapperState extends State<SplashScreenWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      // Wrap with MaterialApp
-      debugShowCheckedModeBanner: false,
-      home: const SplashScreen(),
-    );
+    return const SplashScreen();
   }
 }

@@ -2,10 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
+import 'package:flutter_wallet/utilities/snackbar_helper.dart';
 import 'package:hive/hive.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class WalletSecurityHelpers {
   final BuildContext context;
@@ -26,8 +29,6 @@ class WalletSecurityHelpers {
     TextEditingController pinController =
         TextEditingController(); // Controller for the PIN input
 
-    print('ciao');
-
     final rootContext = context;
 
     return await showDialog<bool>(
@@ -35,28 +36,28 @@ class WalletSecurityHelpers {
           barrierDismissible: false,
           builder: (BuildContext context) {
             return AlertDialog(
-              backgroundColor:
-                  Colors.grey[900], // Dark background for the dialog
+              backgroundColor: AppColors.dialog(context),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20.0), // Rounded corners
               ),
-              title: const Text(
-                'Enter PIN',
+              title: Text(
+                AppLocalizations.of(rootContext)!.translate('enter_pin'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.green,
+                  color: AppColors.cardTitle(context),
                 ),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Please enter your 6-digit PIN:',
+                  Text(
+                    AppLocalizations.of(rootContext)!
+                        .translate('enter_6_digits_pin'),
                     style: TextStyle(
                       fontSize: 16,
-                      color: Colors.white70,
+                      color: AppColors.text(rootContext),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -68,51 +69,54 @@ class WalletSecurityHelpers {
                     obscureText: true, // Obscure input for security
                     decoration: CustomTextFieldStyles.textFieldDecoration(
                       context: context,
-                      labelText: 'Enter PIN',
-                      hintText: 'Enter PIN',
+                      labelText: AppLocalizations.of(rootContext)!
+                          .translate('enter_pin'),
+                      hintText: AppLocalizations.of(rootContext)!
+                          .translate('enter_pin'),
                     ),
-                    style: TextStyle(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface, // Dynamic text color
-                    ),
+                    style: TextStyle(color: AppColors.text(context)),
                   ),
                 ],
               ),
               actions: [
-                InkwellButton(
-                  onTap: () => Navigator.of(context).pop(false),
-                  label: 'Cancel',
-                  backgroundColor: Colors.white,
-                  textColor: Colors.black,
-                  icon: Icons.cancel_rounded,
-                  iconColor: Colors.black,
-                ),
-                InkwellButton(
-                  onTap: () async {
-                    try {
-                      // TODO: FIX
-                      Navigator.of(context).pop(true);
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    InkwellButton(
+                      onTap: () => Navigator.of(context).pop(false),
+                      // label:
+                      //     AppLocalizations.of(rootContext)!.translate('cancel'),
+                      backgroundColor: AppColors.text(context),
+                      textColor: AppColors.gradient(context),
+                      icon: Icons.cancel_rounded,
+                      iconColor: AppColors.gradient(context),
+                    ),
+                    InkwellButton(
+                      onTap: () async {
+                        try {
+                          Navigator.of(context).pop(true);
 
-                      await verifyPin(pinController, dialog,
-                          isSingleWallet: isSingleWallet);
-                    } catch (e) {
-                      ScaffoldMessenger.of(rootContext).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Invalid PIN',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  },
-                  label: 'Confirm',
-                  backgroundColor: Colors.green,
-                  textColor: Colors.white,
-                  icon: Icons.check_rounded,
-                  iconColor: Colors.white,
+                          await verifyPin(
+                            pinController,
+                            isSingleWallet: isSingleWallet,
+                          );
+                        } catch (e) {
+                          SnackBarHelper.show(
+                            rootContext,
+                            message: AppLocalizations.of(rootContext)!
+                                .translate('pin_incorrect'),
+                            color: AppColors.error(rootContext),
+                          );
+                        }
+                      },
+                      // label: AppLocalizations.of(rootContext)!
+                      //     .translate('confirm'),
+                      backgroundColor: AppColors.background(context),
+                      textColor: AppColors.text(context),
+                      icon: Icons.check_rounded,
+                      iconColor: AppColors.gradient(context),
+                    ),
+                  ],
                 ),
               ],
             );
@@ -121,99 +125,71 @@ class WalletSecurityHelpers {
         false;
   }
 
-  Future<bool?> verifyPin(TextEditingController pinController, String dialog,
-      {bool isSingleWallet = false}) async {
+  Future<bool?> verifyPin(
+    TextEditingController pinController, {
+    bool isSingleWallet = false,
+  }) async {
     var walletBox = Hive.box('walletBox');
     String? savedPin = walletBox.get('userPin');
 
     String savedMnemonic = walletBox.get('walletMnemonic');
 
     if (savedPin == pinController.text) {
-      if (dialog == 'Reset App') {
-        return await resetAppDialog();
-      } else if (dialog == 'Your Private Data') {
-        privateDataDialog(context, savedMnemonic, isSingleWallet);
-      }
+      privateDataDialog(context, savedMnemonic, isSingleWallet);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Incorrect PIN')),
+      SnackBarHelper.show(
+        context,
+        message: AppLocalizations.of(context)!.translate('pin_incorrect'),
+        color: AppColors.error(context),
       );
     }
     return null;
   }
 
-  Future<bool> resetAppDialog() async {
-    return await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.grey[900],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.0),
-          ),
-          title: const Text("Reset App"),
-          content: const Text(
-              "Are you sure you want to delete all local data and reset the app?"),
-          actions: [
-            InkwellButton(
-              onTap: () => Navigator.pop(context, false),
-              label: 'Cancel',
-              backgroundColor: Colors.white,
-              textColor: Colors.black,
-            ),
-            InkwellButton(
-              onTap: () => Navigator.pop(context, true),
-              label: 'Reset',
-              backgroundColor: Colors.red,
-              textColor: Colors.white,
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void privateDataDialog(
-      BuildContext context, String savedMnemonic, bool isSingleWallet) {
+    BuildContext context,
+    String savedMnemonic,
+    bool isSingleWallet,
+  ) {
     final rootContext = context;
 
     showDialog(
       context: rootContext,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: Colors.grey[900],
+          backgroundColor: AppColors.dialog(context),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20.0),
           ),
-          title: const Text(
-            'Your Private Data',
+          title: Text(
+            AppLocalizations.of(rootContext)!.translate('private_data'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green,
+              color: AppColors.cardTitle(context),
             ),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text(
-                'Here is your saved mnemonic:',
+              Text(
+                AppLocalizations.of(rootContext)!.translate('saved_mnemonic'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.white70, // Softer text color
+                  color: AppColors.cardTitle(context),
                 ),
               ),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12.0),
                 decoration: BoxDecoration(
-                  color: Colors.grey[800],
+                  color: AppColors.container(context),
                   borderRadius: BorderRadius.circular(8.0), // Rounded edges
                   border: Border.all(
-                    color: Colors.green, // Border color for emphasis
+                    color: AppColors.background(context),
                   ),
                 ),
                 child: Row(
@@ -223,27 +199,24 @@ class WalletSecurityHelpers {
                       child: SelectableText(
                         savedMnemonic,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
-                          color: Colors.white70, // Softer text color
+                          color: AppColors.text(context),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8), // Space between text and icon
+                    const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.copy,
-                        color: Colors.green, // Highlighted icon color
+                        color: AppColors.icon(context),
                       ),
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: savedMnemonic));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content:
-                                const Text('Mnemonic copied to clipboard!'),
-                            backgroundColor: Colors.white,
-                            duration: const Duration(seconds: 2),
-                          ),
+                        SnackBarHelper.show(
+                          rootContext,
+                          message: AppLocalizations.of(rootContext)!
+                              .translate('mnemonic_clipboard'),
                         );
                       },
                     ),
@@ -252,22 +225,22 @@ class WalletSecurityHelpers {
               ),
               if (!isSingleWallet) ...[
                 const SizedBox(height: 16),
-                const Text(
-                  'Here is your saved descriptor:',
+                Text(
+                  "${AppLocalizations.of(rootContext)!.translate('saved_descriptor')}: ",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.white70, // Softer text color
+                    color: AppColors.cardTitle(context),
                   ),
                 ),
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(12.0),
                   decoration: BoxDecoration(
-                    color: Colors.grey[800],
+                    color: AppColors.container(context),
                     borderRadius: BorderRadius.circular(8.0), // Rounded edges
                     border: Border.all(
-                      color: Colors.green, // Border color for emphasis
+                      color: AppColors.background(context),
                     ),
                   ),
                   child: Row(
@@ -277,29 +250,26 @@ class WalletSecurityHelpers {
                         child: Text(
                           descriptor.toString(),
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
-                            color: Colors.white70, // Softer text color
+                            color: AppColors.text(context),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8), // Space between text and icon
+                      const SizedBox(width: 8),
                       IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.copy,
-                          color: Colors.green, // Highlighted icon color
+                          color: AppColors.icon(context),
                         ),
                         onPressed: () {
                           Clipboard.setData(
                               ClipboardData(text: descriptor.toString()));
-                          ScaffoldMessenger.of(rootContext).showSnackBar(
-                            SnackBar(
-                              content:
-                                  const Text('Descriptor copied to clipboard!'),
-                              backgroundColor: Colors.white,
-                              duration: const Duration(seconds: 2),
-                            ),
+                          SnackBarHelper.show(
+                            rootContext,
+                            message: AppLocalizations.of(rootContext)!
+                                .translate('descriptor_clipboard'),
                           );
                         },
                       ),
@@ -365,7 +335,7 @@ class WalletSecurityHelpers {
                                 backgroundColor: Colors.white,
                                 textColor: Colors.black,
                                 icon: Icons.check_circle,
-                                iconColor: Colors.greenAccent,
+                                iconColor: AppColors.accent(context),
                               ),
                             ],
                           );
@@ -388,35 +358,33 @@ class WalletSecurityHelpers {
                   // Write JSON data to the file
                   await file.writeAsString(data);
 
-                  ScaffoldMessenger.of(rootContext).showSnackBar(
-                    SnackBar(
-                      content:
-                          Text('File saved to ${directory.path}/$fileName'),
-                    ),
+                  SnackBarHelper.show(
+                    rootContext,
+                    message:
+                        '${AppLocalizations.of(rootContext)!.translate('file_saved')} ${directory.path}/$fileName',
                   );
                 } else {
-                  // Permission denied
-                  ScaffoldMessenger.of(rootContext).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                          'Storage permission is required to save the file'),
-                    ),
-                  );
+                  SnackBarHelper.show(rootContext,
+                      message: AppLocalizations.of(rootContext)!
+                          .translate('storage_permission_needed'),
+                      color: AppColors.error(context));
                 }
               },
               style: TextButton.styleFrom(
-                foregroundColor: Colors.green,
+                foregroundColor: AppColors.cardTitle(context),
               ),
-              child: const Text('Download Descriptor'),
+              child: Text(AppLocalizations.of(rootContext)!
+                  .translate('download_descriptor')),
             ),
             InkwellButton(
               onTap: () {
                 Navigator.of(context).pop();
               },
               label: 'Close',
-              backgroundColor: Colors.green,
-              textColor: Colors.white,
-              icon: Icons.close,
+              backgroundColor: AppColors.background(context),
+              textColor: AppColors.text(context),
+              icon: Icons.cancel_rounded,
+              iconColor: AppColors.gradient(context),
             ),
           ],
         );

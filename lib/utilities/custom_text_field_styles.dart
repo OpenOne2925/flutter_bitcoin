@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class CustomTextFieldStyles {
   static InputDecoration textFieldDecoration({
@@ -7,8 +8,8 @@ class CustomTextFieldStyles {
     String? hintText,
     Color? borderColor, // Optional custom border color
   }) {
-    final defaultBorderColor = Colors.grey.withAlpha((0.6 * 255).toInt());
-    final focusedBorderColor = borderColor ?? Colors.green;
+    final defaultBorderColor = AppColors.text(context);
+    final focusedBorderColor = borderColor ?? AppColors.primary(context);
 
     return InputDecoration(
       labelText: labelText,
@@ -16,12 +17,12 @@ class CustomTextFieldStyles {
       labelStyle: TextStyle(
         fontSize: 16.0,
         fontWeight: FontWeight.bold,
-        color: Colors.green,
+        color: AppColors.primary(context),
       ),
       floatingLabelStyle: TextStyle(
         fontSize: 14.0,
         fontWeight: FontWeight.bold,
-        color: Colors.green,
+        color: AppColors.primary(context),
       ),
       hintText: hintText,
       hintStyle: TextStyle(
@@ -29,7 +30,7 @@ class CustomTextFieldStyles {
         color: Colors.grey.withAlpha((0.8 * 255).toInt()),
       ),
       filled: true,
-      fillColor: Colors.black,
+      fillColor: AppColors.gradient(context),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12.0),
         borderSide: BorderSide(

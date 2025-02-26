@@ -35,6 +35,31 @@ android {
         }
     }
 
+    flavorDimensions "network"
+    productFlavors {
+        bitcoin_mainnet {
+            dimension "network"
+            applicationId "com.bitcoin.sharedhaven.mainnet" // Unique ID for mainnet
+            versionNameSuffix "-mainnet"
+        }
+
+        bitcoin_testnet {
+            dimension "network"
+            applicationId "com.bitcoin.sharedhaven.testnet" // Unique ID for testnet
+            versionNameSuffix "-testnet"
+        }
+    }
+
+   applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            if (variant.buildType.name == "release") {
+                output.outputFileName = "SharedHaven-release.apk"
+            } else if (variant.buildType.name == "debug") {
+                output.outputFileName = "SharedHaven-debug.apk"
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled true

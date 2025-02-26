@@ -1,13 +1,15 @@
 import 'dart:convert';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
-import 'package:flutter_wallet/utilities/theme_provider.dart';
+import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class BaseScaffold extends StatefulWidget {
   final Widget body;
@@ -39,6 +41,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
   @override
   void initState() {
     super.initState();
+
     _descriptorBox = Hive.box<dynamic>('descriptorBox');
     // printDescriptorBoxContents();
     _getVersion();
@@ -106,19 +109,21 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
     return showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
+        final localizationContext = Navigator.of(context).context;
+
         return AlertDialog(
-          backgroundColor: Colors.grey[900],
+          backgroundColor: AppColors.gradient(context),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20.0),
           ),
-          title: const Text(
-            'Edit Alias',
+          title: Text(
+            AppLocalizations.of(localizationContext)!.translate('edit_alias'),
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.green,
+              color: AppColors.primary(context),
             ),
           ),
           content: SingleChildScrollView(
@@ -126,17 +131,17 @@ class BaseScaffoldState extends State<BaseScaffold> {
               children: pubKeysAlias.map((entry) {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 12.0),
-                  padding: const EdgeInsets.all(12.0),
+                  padding: EdgeInsets.all(12.0),
                   decoration: BoxDecoration(
-                    color: Colors.grey[850],
+                    color: AppColors.gradient(context),
                     borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: Colors.green),
+                    border: Border.all(color: AppColors.primary(context)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "Public Key: ${entry['publicKey']}",
+                        "${AppLocalizations.of(localizationContext)!.translate('pub_key')}: ${entry['publicKey']}",
                         style: const TextStyle(
                           fontSize: 14,
                           color: Colors.white70,
@@ -148,7 +153,6 @@ class BaseScaffoldState extends State<BaseScaffold> {
                         controller: aliasControllers[entry['publicKey']],
                         style: const TextStyle(color: Colors.white),
                         decoration: InputDecoration(
-                          hintText: "Enter new alias",
                           hintStyle: const TextStyle(color: Colors.grey),
                           filled: true,
                           fillColor: Colors.grey[800],
@@ -187,15 +191,16 @@ class BaseScaffoldState extends State<BaseScaffold> {
                         // Store the updated data in Hive
                         box.put(compositeKey, jsonEncode(parsedValue));
 
-                        Navigator.of(context).pop(true);
+                        Navigator.of(dialogContext).pop(true);
                       } catch (e) {
                         print("Error updating Hive box: $e");
                       }
                     }
                   },
-                  style: TextButton.styleFrom(backgroundColor: Colors.green),
-                  child: const Text(
-                    "Save",
+                  style: TextButton.styleFrom(
+                      backgroundColor: AppColors.primary(context)),
+                  child: Text(
+                    AppLocalizations.of(localizationContext)!.translate('save'),
                     style: TextStyle(color: Colors.black),
                   ),
                 ),
@@ -203,11 +208,13 @@ class BaseScaffoldState extends State<BaseScaffold> {
                 // Cancel Button
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).pop(false);
+                    Navigator.of(dialogContext).pop(false);
                   },
-                  style: TextButton.styleFrom(backgroundColor: Colors.green),
-                  child: const Text(
-                    "Cancel",
+                  style: TextButton.styleFrom(
+                      backgroundColor: AppColors.primary(context)),
+                  child: Text(
+                    AppLocalizations.of(localizationContext)!
+                        .translate('cancel'),
                     style: TextStyle(color: Colors.black),
                   ),
                 ),
@@ -221,7 +228,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
   @override
   Widget build(BuildContext context) {
-    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final settingsProvider = Provider.of<SettingsProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -229,52 +236,88 @@ class BaseScaffoldState extends State<BaseScaffold> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             widget.title,
-            if (widget
-                .isTestnet) // Show the Testnet banner if `isTestnet` is true
-              const Text(
-                'You are on Testnet!',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.redAccent,
-                  fontWeight: FontWeight.bold,
+            if (isTestnet) // Show the Testnet banner if `isTestnet` is true
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.container(context)
+                      .withAlpha((0.8 * 255).toInt()),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.redAccent,
+                    width: 1,
+                  ),
+                ),
+                child: Text(
+                  AppLocalizations.of(context)!.translate('network_banner'),
+                  style: TextStyle(
+                    fontSize: 16, // Bigger font
+                    fontWeight: FontWeight.bold,
+                    color: Colors.redAccent, // High contrast color
+                  ),
                 ),
               ),
           ],
         ),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.accent(context),
+                AppColors.gradient(context),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             icon: Icon(
-              isDarkMode ? Icons.dark_mode : Icons.light_mode,
-              color: isDarkMode ? Colors.deepPurple : Colors.green,
+              settingsProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
+              color: AppColors.icon(context),
             ),
             onPressed: () {
-              Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
+              Provider.of<SettingsProvider>(context, listen: false)
+                  .toggleTheme();
               setState(() {});
             },
           ),
         ],
       ),
       drawer: Drawer(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildDrawerHeader(context),
-            const SizedBox(height: 10),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _buildPersonalWalletTile(context),
-                  const SizedBox(height: 10),
-                  _buildSharedWalletTiles(context),
-                  const SizedBox(height: 10),
-                  _buildCreateSharedWalletTile(context),
-                ],
-              ),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.accent(context),
+                AppColors.gradient(context),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            const Divider(),
-            _buildSettingsTile(context),
-          ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildDrawerHeader(context),
+              const SizedBox(height: 10),
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _buildPersonalWalletTile(context),
+                    const SizedBox(height: 10),
+                    _buildSharedWalletTiles(context),
+                    const SizedBox(height: 10),
+                    _buildCreateSharedWalletTile(context),
+                  ],
+                ),
+              ),
+              const Divider(),
+              _buildSettingsTile(context),
+            ],
+          ),
         ),
       ),
       body: widget.onRefresh != null
@@ -283,9 +326,12 @@ class BaseScaffoldState extends State<BaseScaffold> {
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Container(
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Colors.greenAccent, Colors.white],
+                      colors: [
+                        AppColors.accent(context),
+                        AppColors.gradient(context)
+                      ],
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                     ),
@@ -298,9 +344,12 @@ class BaseScaffoldState extends State<BaseScaffold> {
               ),
             )
           : Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.greenAccent, Colors.white],
+                  colors: [
+                    AppColors.accent(context),
+                    AppColors.gradient(context)
+                  ],
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -315,9 +364,12 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
   Widget _buildDrawerHeader(BuildContext context) {
     return DrawerHeader(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.green, Colors.greenAccent],
+          colors: [
+            AppColors.accent(context),
+            AppColors.gradient(context),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -340,10 +392,10 @@ class BaseScaffoldState extends State<BaseScaffold> {
           const SizedBox(height: 10),
           Flexible(
             flex: 1,
-            child: const Text(
-              'Welcome to ShareHaven',
+            child: Text(
+              AppLocalizations.of(context)!.translate('welcome'),
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.text(context),
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -352,9 +404,9 @@ class BaseScaffoldState extends State<BaseScaffold> {
           Flexible(
             flex: 1,
             child: Text(
-              'Version: $_version',
-              style: const TextStyle(
-                color: Colors.white70,
+              '${AppLocalizations.of(context)!.translate('version')}: $_version',
+              style: TextStyle(
+                color: AppColors.text(context),
                 fontSize: 16,
               ),
             ),
@@ -362,9 +414,9 @@ class BaseScaffoldState extends State<BaseScaffold> {
           Flexible(
             flex: 1,
             child: Text(
-              'Your Bitcoin wallet companion.',
+              AppLocalizations.of(context)!.translate('welcoming_description'),
               style: TextStyle(
-                color: Colors.white.withAlpha((0.8 * 255).toInt()),
+                color: AppColors.text(context).withAlpha((0.8 * 255).toInt()),
                 fontSize: 14,
               ),
             ),
@@ -377,15 +429,23 @@ class BaseScaffoldState extends State<BaseScaffold> {
   Widget _buildPersonalWalletTile(BuildContext context) {
     return Card(
       elevation: 6,
-      shadowColor: Colors.greenAccent,
+      color: AppColors.gradient(context),
+      shadowColor: AppColors.background(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: const Icon(Icons.wallet, color: Colors.green),
-        title: const Text(
-          'Personal Wallet',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        leading: Icon(
+          Icons.wallet,
+          color: AppColors.cardTitle(context),
+        ),
+        title: Text(
+          AppLocalizations.of(context)!.translate('personal_wallet'),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.text(context),
+          ),
         ),
         onTap: () {
           Navigator.of(context).pushNamedAndRemoveUntil(
@@ -463,24 +523,30 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
                 return Card(
                   elevation: 6,
-                  shadowColor: Colors.greenAccent,
+                  color: AppColors.gradient(context),
+                  shadowColor: AppColors.background(context),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: ListTile(
-                    leading: const Icon(Icons.account_balance_wallet,
-                        color: Colors.black),
+                    leading: Icon(
+                      Icons.account_balance_wallet,
+                      color: AppColors.cardTitle(context),
+                    ),
                     title: Text(
                       '${descriptorName}_$displayAlias',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Colors.green,
+                        color: AppColors.text(context),
                       ),
                     ),
                     subtitle: Text(
                       descriptor,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.text(context),
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     onLongPress: () async {
@@ -534,21 +600,22 @@ class BaseScaffoldState extends State<BaseScaffold> {
   Widget _buildCreateSharedWalletTile(BuildContext context) {
     return Card(
       elevation: 6,
-      shadowColor: Colors.greenAccent,
+      color: AppColors.gradient(context),
+      shadowColor: AppColors.background(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: const Icon(
+        leading: Icon(
           Icons.add_circle,
-          color: Colors.green,
+          color: AppColors.cardTitle(context),
         ),
-        title: const Text(
-          'Create Shared Wallet',
+        title: Text(
+          AppLocalizations.of(context)!.translate('create_shared_wallet'),
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.text(context)),
         ),
         onTap: () {
           Navigator.of(context).pushNamedAndRemoveUntil(
@@ -561,21 +628,22 @@ class BaseScaffoldState extends State<BaseScaffold> {
   Widget _buildSettingsTile(BuildContext context) {
     return Card(
       elevation: 6,
-      shadowColor: Colors.greenAccent,
+      color: AppColors.gradient(context),
+      shadowColor: AppColors.background(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-        leading: const Icon(
+        leading: Icon(
           Icons.settings,
-          color: Colors.green,
+          color: AppColors.cardTitle(context),
         ),
-        title: const Text(
-          'Settings',
+        title: Text(
+          AppLocalizations.of(context)!.translate('settings'),
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.text(context)),
         ),
         onTap: () {
           Navigator.of(context).pushNamed('/settings');
