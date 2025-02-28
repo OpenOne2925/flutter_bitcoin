@@ -126,6 +126,8 @@ const Map<String, String> localizedStringsEn = {
   'spending_path': 'Spending Path',
   'signers': 'Signers',
   'confirm_transaction': 'Do you want to sign this transaction?',
+  'psbt_not_finalized':
+      'This PSBT is not finalized yet, share it to the other users!',
 
   // File
   'storage_permission_needed':
@@ -170,6 +172,9 @@ const Map<String, String> localizedStringsEn = {
   'copy': 'Copy',
   'share': 'Share',
   'sign': 'Sign',
+  'yes': 'Yes',
+  'no': 'No',
+  'decode': 'Decode',
 
   // Spending Summary
   'spending_summary': 'Spending Summary',
@@ -271,6 +276,9 @@ const Map<String, String> localizedStringsEn = {
   'public_keys_with_alias': 'Public Keys with Alias',
   'create_import_message':
       'Manage your shared Bitcoin wallets with ease! Whether creating a new wallet or importing an existing one, we’ve got you covered.',
-  'yes': 'Yes',
-  'setting_wallet': 'Setting up you wallet...'
+  'setting_wallet': 'Setting up your wallet...',
+  'morning_check': '🌅 Good morning! It\'s time for a refresh!',
+  'afternoon_check': '🌞 Afternoon check-in! Give it a refresh!',
+  'night_check': '🌙 Late night refresh? Why not!',
+  'processing': 'Processing...',
 };

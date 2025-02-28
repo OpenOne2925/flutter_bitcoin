@@ -160,7 +160,7 @@ class SharedWalletState extends State<SharedWallet> {
   late Policy externalWalletPolicy;
 
   // Timer and Refresh Logic
-  late DateTime _lastRefreshed;
+  DateTime? _lastRefreshed;
 
   @override
   void initState() {
@@ -168,10 +168,6 @@ class SharedWalletState extends State<SharedWallet> {
 
     walletService = WalletService();
     settingsProvider = SettingsProvider();
-
-    setState(() {
-      _lastRefreshed = DateTime.now();
-    });
 
     openBoxAndCheckWallet().then((_) {
       _initializePage();
@@ -315,6 +311,8 @@ class SharedWalletState extends State<SharedWallet> {
           _currentHeight = _walletData!.currentHeight;
           _timeStamp = _walletData!.timeStamp;
           utxos = _walletData!.utxos!;
+          _lastRefreshed = _walletData!.lastRefreshed;
+
           _isLoading = false;
         });
       }
@@ -421,6 +419,7 @@ class SharedWalletState extends State<SharedWallet> {
 
   Future<void> _fetchCurrentBlockHeight() async {
     int currentHeight = await walletService.fetchCurrentBlockHeight();
+    // print('currentHeight: $currentHeight');
 
     String blockTimestamp =
         await walletService.fetchBlockTimestamp(currentHeight);
@@ -481,7 +480,10 @@ class SharedWalletState extends State<SharedWallet> {
 
     await _fetchCurrentBlockHeight();
 
-    await walletService.saveLocalData(wallet);
+    await walletService.saveLocalData(
+      wallet,
+      _lastRefreshed!,
+    );
 
     String walletAddress = walletService.getAddress(wallet);
     setState(() {
@@ -591,6 +593,8 @@ class SharedWalletState extends State<SharedWallet> {
       isLoading: _isLoading,
       transactions: _transactions,
       wallet: wallet,
+      isSingleWallet: false,
+      descriptor: _descriptor,
     );
 
     final spendingHelper = WalletSpendingPathHelpers(
@@ -604,6 +608,14 @@ class SharedWalletState extends State<SharedWallet> {
       myAlias: myAlias,
       context: context,
       policy: policy,
+      amountController: _amountController,
+      recipientController: _recipientController,
+      mounted: mounted,
+      mnemonic: widget.mnemonic,
+      wallet: wallet,
+      address: address,
+      myFingerPrint: myFingerPrint,
+      descriptor: _descriptor,
     );
 
     final walletButtonsHelper = WalletButtonsHelper(
@@ -637,6 +649,7 @@ class SharedWalletState extends State<SharedWallet> {
       body: RefreshIndicator(
         key: _refreshIndicatorKey, // Assign the GlobalKey to RefreshIndicator
         onRefresh: () async {
+          // print('TimeStamp: $_timeStamp');
           final List<ConnectivityResult> connectivityResult =
               await (Connectivity().checkConnectivity());
 

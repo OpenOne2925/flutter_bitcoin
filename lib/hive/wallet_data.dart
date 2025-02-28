@@ -17,7 +17,7 @@ class WalletData extends HiveObject {
   int availableBalance;
 
   @HiveField(4)
-  List<Map<String, dynamic>> transactions; // Store transaction IDs or details
+  List<Map<String, dynamic>> transactions;
 
   @HiveField(5)
   int currentHeight;
@@ -28,6 +28,9 @@ class WalletData extends HiveObject {
   @HiveField(7)
   List<dynamic>? utxos;
 
+  @HiveField(8)
+  DateTime? lastRefreshed;
+
   WalletData({
     required this.address,
     required this.balance,
@@ -37,5 +40,6 @@ class WalletData extends HiveObject {
     required this.currentHeight,
     required this.timeStamp,
     required this.utxos,
+    required this.lastRefreshed,
   });
 }

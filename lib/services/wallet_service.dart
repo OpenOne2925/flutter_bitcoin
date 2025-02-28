@@ -3,7 +3,6 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
@@ -180,7 +179,7 @@ class WalletService extends ChangeNotifier {
       );
 
       return true;
-    } on Exception {
+    } catch (e) {
       // print("Error: ${e.toString()}");
       return false;
     }
@@ -336,7 +335,7 @@ class WalletService extends ChangeNotifier {
       print("Mempool API failed, falling back to default");
     }
 
-    return 2.toDouble();
+    return 1.toDouble();
   }
 
   Future<List<Map<String, dynamic>>> getTransactions(String address) async {
@@ -406,7 +405,7 @@ class WalletService extends ChangeNotifier {
       } else {
         // Handle HTTP errors for block details API
         print('HTTP Error (Block API): ${response.statusCode}');
-        return "";
+        throw ('HTTP Error (Block API): ${response.statusCode}');
       }
     } catch (e) {
       // Handle any unexpected exceptions
@@ -864,7 +863,6 @@ class WalletService extends ChangeNotifier {
   ///
 
   Future<Wallet> createSharedWallet(String descriptor) async {
-    print(network);
     return wallet = await Wallet.create(
       descriptor: await Descriptor.create(
         descriptor: descriptor,
@@ -903,13 +901,17 @@ class WalletService extends ChangeNotifier {
     return 'wsh(or_d($multi,$timelockCondition))';
   }
 
-  Future<void> saveLocalData(Wallet wallet) async {
+  Future<void> saveLocalData(
+    Wallet wallet,
+    DateTime lastRefreshed,
+  ) async {
     String currentAddress = getAddress(wallet);
 
     final totalBalance = await getBitcoinBalance(currentAddress);
     final availableBalance = totalBalance['confirmedBalance'];
     final ledgerBalance = totalBalance['pendingBalance'];
     final currentHeight = await fetchCurrentBlockHeight();
+    final timestamp = await fetchBlockTimestamp(currentHeight);
 
     List<Map<String, dynamic>> transactions =
         await getTransactions(currentAddress);
@@ -922,8 +924,9 @@ class WalletService extends ChangeNotifier {
       availableBalance: availableBalance!,
       transactions: transactions,
       currentHeight: currentHeight,
-      timeStamp: await fetchBlockTimestamp(currentHeight),
+      timeStamp: timestamp,
       utxos: await getUtxos(currentAddress),
+      lastRefreshed: lastRefreshed,
     );
 
     // Save the data to Hive

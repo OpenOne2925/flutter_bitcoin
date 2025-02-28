@@ -127,6 +127,12 @@ const Map<String, String> localizedStringsIt = {
   'blocks': 'Blocchi',
   'use_available_balance': 'Usa Saldo Disponibile',
   'select_spending_path': 'Seleziona Percorso di Spesa',
+  'psbt_created': 'PSBT Creato',
+  'spending_path': 'Percorso di Spesa',
+  'signers': 'Firmatari',
+  'confirm_transaction': 'Vuoi firmare questa transazione?',
+  'psbt_not_finalized':
+      'Questo PSBT non è ancora finalizzato, condividilo con gli altri utenti!',
 
 // File (File)
   'storage_permission_needed':
@@ -166,6 +172,13 @@ const Map<String, String> localizedStringsIt = {
   'set_pin': 'Imposta PIN',
   'reset': 'Reimposta',
   'submit': 'Invia',
+  'add': 'Aggiungi',
+  'copy': 'Copia',
+  'share': 'Condividi',
+  'sign': 'Firma',
+  'yes': 'Sì',
+  'no': 'No',
+  'decode': 'Decodifica',
 
 // Spending Summary (Riepilogo delle spese)
   'spending_summary': 'Riepilogo delle spese',
@@ -250,7 +263,7 @@ const Map<String, String> localizedStringsIt = {
   'enter_mnemonic': 'Inserisci Mnemonico',
   'enter_12': 'Inserisci qui il tuo mnemonico di 12 parole',
   'create_wallet': 'Crea Portafoglio',
-  'generate_mnemonic': 'Genera Mnemonico',
+  'generate_mnemonic': 'Genera Mnemonica',
 
   // Varie
   'select_currency': 'Seleziona valuta',
@@ -269,5 +282,9 @@ const Map<String, String> localizedStringsIt = {
   'public_keys_with_alias': 'Chiavi pubbliche con alias',
   'create_import_message':
       'Gestisci i tuoi portafogli Bitcoin condivisi con facilità! Che tu stia creando un nuovo portafoglio o importandone uno esistente, siamo qui per aiutarti.',
-  'yes': 'Sì',
+  'setting_wallet': 'Configurando il tuo portafoglio...',
+  'morning_check': "🌅 Buongiorno! È ora di un aggiornamento!",
+  'afternoon_check': "🌞 Controllo del pomeriggio! Dai un aggiornamento!",
+  'night_check': "🌙 Aggiornamento notturno? Perché no!",
+  'processing': 'Elaborazione...'
 };

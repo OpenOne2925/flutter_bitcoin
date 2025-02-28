@@ -101,7 +101,6 @@ class CAWalletPageState extends State<CAWalletPage> {
   void _validateMnemonic(String value) async {
     final isValid =
         value.trim().isNotEmpty && await _walletService.checkMnemonic(value);
-    print(isValid);
 
     setState(() {
       _isMnemonicEntered = isValid;

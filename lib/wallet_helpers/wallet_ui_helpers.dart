@@ -8,6 +8,7 @@ import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/utilities/snackbar_helper.dart';
+import 'package:flutter_wallet/wallet_helpers/wallet_security_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_transaction_helpers.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
@@ -26,11 +27,14 @@ class WalletUiHelpers {
   final bool isInitialized;
   final TextEditingController pubKeyController;
   final SettingsProvider settingsProvider;
-  final DateTime lastRefreshed;
+  final DateTime? lastRefreshed;
   final BuildContext context;
   final bool isLoading;
   final List<Map<String, dynamic>> transactions;
   final Wallet wallet;
+
+  final bool isSingleWallet;
+  final WalletSecurityHelpers securityHelper;
 
   WalletService walletService = WalletService();
 
@@ -51,7 +55,16 @@ class WalletUiHelpers {
     required this.isLoading,
     required this.transactions,
     required this.wallet,
-  });
+    required this.isSingleWallet,
+    String? descriptor,
+    String? descriptorName,
+    List<Map<String, String>>? pubKeysAlias,
+  }) : securityHelper = WalletSecurityHelpers(
+          context: context,
+          descriptor: descriptor,
+          descriptorName: descriptorName,
+          pubKeysAlias: pubKeysAlias,
+        );
 
   // Box for displaying general wallet info with onTap functionality
   Widget buildWalletInfoBox(
@@ -94,15 +107,35 @@ class WalletUiHelpers {
                               color: AppColors.cardTitle(context),
                             ),
                           ),
-                          GestureDetector(
-                            onTap: () {
-                              _showPubKeyDialog();
-                            },
-                            child: Icon(
-                              Icons.more_vert,
-                              color: AppColors.cardTitle(context),
-                              size: 22,
-                            ),
+                          Row(
+                            // Wrap the two icons inside another Row
+                            children: [
+                              GestureDetector(
+                                onTap: () {
+                                  securityHelper.showPinDialog(
+                                    'Your Private Data',
+                                    isSingleWallet: isSingleWallet,
+                                  );
+                                },
+                                child: Icon(
+                                  Icons.remove_red_eye,
+                                  color: AppColors.cardTitle(context),
+                                  size: 22,
+                                ),
+                              ),
+                              SizedBox(
+                                  width: 10), // Add spacing between the icons
+                              GestureDetector(
+                                onTap: () {
+                                  _showPubKeyDialog();
+                                },
+                                child: Icon(
+                                  Icons.more_vert,
+                                  color: AppColors.cardTitle(context),
+                                  size: 22,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -255,7 +288,7 @@ class WalletUiHelpers {
                       ),
 
                       // RefreshIndicator
-                      if (DateTime.now().difference(lastRefreshed).inHours >=
+                      if (DateTime.now().difference(lastRefreshed!).inHours >=
                           2) ...[
                         const SizedBox(height: 8),
                         Text(
@@ -279,11 +312,11 @@ class WalletUiHelpers {
   String getTimeBasedMessage() {
     int hour = DateTime.now().hour;
     if (hour >= 5 && hour < 12) {
-      return "🌅 Good morning! It's time for a refresh!";
+      return AppLocalizations.of(context)!.translate('morning_check');
     } else if (hour >= 12 && hour < 18) {
-      return "🌞 Afternoon check-in! Give it a refresh!";
+      return AppLocalizations.of(context)!.translate('afternoon_check');
     } else {
-      return "🌙 Late night refresh? Why not!";
+      return AppLocalizations.of(context)!.translate('night_check');
     }
   }
 

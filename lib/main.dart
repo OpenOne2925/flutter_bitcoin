@@ -149,11 +149,13 @@ class MyApp extends StatelessWidget {
         Locale('es', ''),
         Locale('it', ''),
         Locale('fr', ''),
+        Locale('ru', ''),
       ],
       localizationsDelegates: const [
         AppLocalizations.delegate, // Custom translation delegate
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
       ],
       initialRoute: _determineInitialRoute(),
       routes: {

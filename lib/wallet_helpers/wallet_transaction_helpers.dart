@@ -28,7 +28,13 @@ class WalletTransactionHelpers {
     final blockTime = isConfirmed
         ? DateTime.fromMillisecondsSinceEpoch(
             unformattedBlockTime * 1000,
-          ).add(Duration(hours: -2))
+          ).add(Duration(hours: -2)).toString().substring(
+            0,
+            DateTime.fromMillisecondsSinceEpoch(unformattedBlockTime * 1000)
+                    .add(Duration(hours: -2))
+                    .toString()
+                    .length -
+                7)
         : 'Unconfirmed';
 
     print(blockTime);

@@ -39,7 +39,7 @@ class PinVerificationPageState extends State<PinVerificationPage>
 
     if (savedPin == _pinController.text) {
       setState(() {
-        _status = AppLocalizations.of(context)!.translate('pin_verified');
+        _status = 'PIN verified successfully.';
       });
 
       // Play the unlock animation
@@ -52,26 +52,33 @@ class PinVerificationPageState extends State<PinVerificationPage>
       });
     } else {
       setState(() {
-        _status = AppLocalizations.of(context)!.translate('pin_incorrect');
+        _status = 'Incorrect PIN. Try again.';
       });
     }
   }
 
   Widget _buildStatusBanner() {
+    String statusText;
+
     if (_status.isEmpty) return const SizedBox.shrink();
+
+    if (_status.contains('Incorrect')) {
+      statusText = AppLocalizations.of(context)!.translate('pin_incorrect');
+    } else {
+      statusText = AppLocalizations.of(context)!.translate('pin_verified');
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color:
-            _status.contains(AppLocalizations.of(context)!.translate('success'))
-                ? AppColors.background(context)
-                : AppColors.error(context),
+        color: _status.contains('success')
+            ? AppColors.background(context)
+            : AppColors.error(context),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        _status,
+        statusText,
         style: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.bold,

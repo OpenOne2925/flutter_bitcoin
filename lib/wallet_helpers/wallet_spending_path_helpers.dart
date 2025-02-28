@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
+import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers.dart';
 
 class WalletSpendingPathHelpers {
   final List<Map<String, String>> pubKeysAlias;
@@ -17,8 +20,15 @@ class WalletSpendingPathHelpers {
   final String myAlias;
   final BuildContext context;
   final Map<String, dynamic> policy;
-
   final ScrollController _scrollController = ScrollController();
+  final WalletSendtxHelpers sendTxHelper;
+  final TextEditingController amountController;
+  final TextEditingController recipientController;
+  final bool mounted;
+  final String mnemonic;
+  final Wallet wallet;
+  final String address;
+
   bool _isUserInteracting = false;
   bool _isScrollingForward = true;
   Timer? _scrollTimer;
@@ -34,7 +44,36 @@ class WalletSpendingPathHelpers {
     required this.myAlias,
     required this.context,
     required this.policy,
-  }) {
+    required this.amountController,
+    required this.recipientController,
+    required this.mounted,
+    required this.mnemonic,
+    required this.wallet,
+    required this.address,
+
+    // SharedWallet Variables
+    String? descriptor,
+    String? myFingerPrint,
+    List<String>? signersList,
+  }) : sendTxHelper = WalletSendtxHelpers(
+          isSingleWallet: false,
+          context: context,
+          recipientController: recipientController,
+          amountController: amountController,
+          walletService: walletService,
+          policy: policy,
+          myFingerPrint: myFingerPrint ?? '',
+          currentHeight: currentHeight,
+          utxos: utxos,
+          spendingPaths: mySpendingPaths,
+          descriptor: descriptor ?? '',
+          signersList: signersList ?? [],
+          mnemonic: mnemonic,
+          mounted: mounted,
+          address: address,
+          pubKeysAlias: pubKeysAlias,
+          wallet: wallet,
+        ) {
     _startAutoScroll(); // Start scrolling when the class is initialized
   }
 
@@ -327,13 +366,19 @@ class WalletSpendingPathHelpers {
                         color: AppColors.cardTitle(context),
                       ),
                     ),
+
                     const SizedBox(width: 6),
+
                     Icon(
                       Icons.vpn_key,
                       color: AppColors.icon(context),
                       size: 20,
                     ),
+
                     const SizedBox(width: 6),
+
+                    // Show all available paths
+
                     GestureDetector(
                       onTap: () {
                         showPathsDialog();
@@ -344,8 +389,120 @@ class WalletSpendingPathHelpers {
                         size: 22,
                       ),
                     ),
+
+                    const SizedBox(width: 6),
+
+                    // Send available balance from spending path
+                    GestureDetector(
+                      onTap: () async {
+                        final rootContext = context;
+
+                        bool recipientEntered = await showDialog(
+                          context: rootContext,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: Text(
+                                AppLocalizations.of(rootContext)!
+                                    .translate('enter_rec_addr'),
+                                style: TextStyle(
+                                  color: AppColors.cardTitle(context),
+                                ),
+                              ),
+                              backgroundColor: AppColors.dialog(context),
+                              content: StatefulBuilder(
+                                builder: (
+                                  BuildContext context,
+                                  StateSetter setState,
+                                ) {
+                                  return SingleChildScrollView(
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxHeight:
+                                            MediaQuery.of(context).size.height *
+                                                0.7,
+                                      ),
+                                      child: TextFormField(
+                                        controller: recipientController,
+                                        decoration: CustomTextFieldStyles
+                                            .textFieldDecoration(
+                                          context: context,
+                                          labelText: AppLocalizations.of(
+                                                  rootContext)!
+                                              .translate('recipient_address'),
+                                          hintText:
+                                              AppLocalizations.of(rootContext)!
+                                                  .translate('enter_rec_addr'),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                              actions: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    InkwellButton(
+                                      onTap: () =>
+                                          Navigator.of(context).pop(true),
+                                      label: AppLocalizations.of(rootContext)!
+                                          .translate('confirm'),
+                                      backgroundColor:
+                                          AppColors.background(context),
+                                      textColor: AppColors.text(context),
+                                      icon: Icons.verified,
+                                      iconColor: AppColors.gradient(context),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        );
+
+                        if (recipientEntered) {
+                          // Show loading dialog
+                          showDialog(
+                            context: rootContext,
+                            barrierDismissible: false, // Prevent closing
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                backgroundColor: AppColors.dialog(context),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      AppLocalizations.of(rootContext)!
+                                          .translate('processing'),
+                                      style: TextStyle(
+                                        color: AppColors.text(context),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          );
+
+                          sendTxHelper.sendTx(
+                            true,
+                            isFromSpendingPath: true,
+                            index: index,
+                            amount: totalSpendable,
+                          );
+                        }
+                      },
+                      child: Icon(
+                        Icons.send,
+                        color: AppColors.icon(context),
+                        size: 22,
+                      ),
+                    ),
                   ],
                 ),
+
                 const SizedBox(height: 8),
 
                 // 🔹 **Spendable Balance (Big Bold Text)**

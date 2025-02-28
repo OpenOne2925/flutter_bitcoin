@@ -56,7 +56,15 @@ class WalletSendtxHelpers {
     this.pubKeysAlias,
   });
 
-  void sendTx(bool isCreating, {String? recipientAddressQr}) async {
+  void sendTx(
+    bool isCreating, {
+    String? recipientAddressQr,
+    bool isFromSpendingPath = false,
+    int? index,
+    int? amount,
+  }) async {
+    final rootContext = context;
+
     if (recipientAddressQr != null) {
       recipientController.text = recipientAddressQr;
     }
@@ -69,9 +77,41 @@ class WalletSendtxHelpers {
     final extractedData =
         walletService.extractDataByFingerprint(policy!, myFingerPrint!);
 
+    // Initially set the first available spending path or the path from the spendingPath box
     if (extractedData.isNotEmpty) {
-      selectedPath = extractedData[0]; // Default to the first path
+      selectedPath = index != null ? extractedData[index] : extractedData[0];
+      selectedIndex = index ?? 0;
     }
+
+    if (isFromSpendingPath == true) {
+      int sendAllBalance = 0;
+      try {
+        sendAllBalance = int.parse((await walletService.createPartialTx(
+          descriptor.toString(),
+          mnemonic,
+          recipientController.text,
+          BigInt.from(amount!),
+          selectedIndex,
+          isSendAllBalance: true,
+          spendingPaths: spendingPaths,
+        ))!);
+      } catch (e) {
+        Navigator.of(rootContext, rootNavigator: true).pop();
+
+        SnackBarHelper.show(
+          rootContext,
+          message: e.toString(),
+          color: AppColors.error(rootContext),
+        );
+        return;
+      }
+
+      amountController.text = sendAllBalance.toString();
+    }
+    // print(policy);
+    // print(myFingerPrint);
+
+    // print(selectedPath);
 
     // print('extractedData: $extractedData');
 
@@ -83,8 +123,6 @@ class WalletSendtxHelpers {
     bool showPSBT = isCreating;
     bool isFirstTap =
         true; // Tracks whether this is the first tap JUST for the signing menu
-
-    final rootContext = context;
 
     showDialog(
       context: rootContext,
@@ -121,83 +159,6 @@ class WalletSendtxHelpers {
                                   const SizedBox(height: 16),
                                   TextFormField(
                                     controller: psbtController,
-                                    // onFieldSubmitted: (event) async {
-                                    //   try {
-                                    //     psbt = await PartiallySignedTransaction
-                                    //         .fromString(psbtController!.text);
-
-                                    //     Transaction result = psbt.extractTx();
-
-                                    //     // TODO: Get type of spending path, check timelocks
-
-                                    //     selectedPath = walletService
-                                    //         .extractSpendingPathFromPsbt(
-                                    //       psbt,
-                                    //       extractedData,
-                                    //     );
-
-                                    //     print(extractedData);
-
-                                    //     final outputs = result.output();
-
-                                    //     signers = walletService
-                                    //         .extractSignersFromPsbt(psbt);
-
-                                    //     final signersAliases = walletService
-                                    //         .getAliasesFromFingerprint(
-                                    //             pubKeysAlias!, signers!);
-
-                                    //     bool isInternalTransaction = false;
-
-                                    //     int totalSpent = 0;
-
-                                    //     isInternalTransaction =
-                                    //         await walletService
-                                    //             .areEqualAddresses(outputs);
-
-                                    //     Address? receiverAddress;
-
-                                    //     for (final output in outputs) {
-                                    //       receiverAddress = await walletService
-                                    //           .getAddressFromScriptOutput(
-                                    //               output);
-
-                                    //       // TODO: Do not add change address
-
-                                    //       print(
-                                    //           'receiverAddress: $receiverAddress');
-
-                                    //       if (isInternalTransaction) {
-                                    //         totalSpent += output.value.toInt();
-                                    //       } else if (receiverAddress
-                                    //               .asString() !=
-                                    //           address) {
-                                    //         totalSpent += output.value.toInt();
-                                    //       }
-                                    //     }
-
-                                    //     setState(() {
-                                    //       showPSBT = true;
-
-                                    //       signingAmountController!.text =
-                                    //           totalSpent.toString();
-                                    //       signersList = signersAliases;
-                                    //       recipientController.text =
-                                    //           receiverAddress.toString();
-                                    //     });
-                                    //   } catch (e) {
-                                    //     SnackBarHelper.show(
-                                    //       context,
-                                    //       message: AppLocalizations.of(context)!
-                                    //           .translate('invalid_psbt'),
-                                    //       color: AppColors.error(context),
-                                    //     );
-                                    //   }
-
-                                    //   // print("Total spent: $totalSpent");
-
-                                    //   // walletService.printInChunks(psbt.asString());
-                                    // },
                                     decoration: CustomTextFieldStyles
                                         .textFieldDecoration(
                                       context: context,
@@ -209,9 +170,7 @@ class WalletSendtxHelpers {
                                               .translate('enter_psbt'),
                                     ),
                                     style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface,
+                                      color: AppColors.text(context),
                                     ),
                                   ),
                                   const SizedBox(height: 16),
@@ -316,7 +275,8 @@ class WalletSendtxHelpers {
                             ),
 
                             Visibility(
-                              visible: !isCreating && showPSBT,
+                              visible: (!isCreating && showPSBT) ||
+                                  isFromSpendingPath == true,
                               child: selectedPath != null
                                   ? Card(
                                       elevation: 3,
@@ -410,7 +370,9 @@ class WalletSendtxHelpers {
 
                             // Dropdown for selecting the spending path
                             Visibility(
-                              visible: isCreating && !isSingleWallet,
+                              visible: isCreating &&
+                                  !isSingleWallet &&
+                                  isFromSpendingPath == false,
                               child: Column(
                                 children: [
                                   DropdownButtonFormField<Map<String, dynamic>>(
@@ -545,7 +507,8 @@ class WalletSendtxHelpers {
                             ),
 
                             Visibility(
-                              visible: isCreating,
+                              visible:
+                                  isCreating && isFromSpendingPath == false,
                               child: InkwellButton(
                                 onTap: () async {
                                   try {
@@ -814,7 +777,12 @@ class WalletSendtxHelpers {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     InkwellButton(
-                      onTap: () => Navigator.of(context).pop(false),
+                      onTap: () {
+                        Navigator.of(context).pop(false);
+                        if (isFromSpendingPath) {
+                          Navigator.of(rootContext, rootNavigator: true).pop();
+                        }
+                      },
                       label:
                           AppLocalizations.of(rootContext)!.translate('cancel'),
                       backgroundColor: AppColors.text(context),
@@ -824,6 +792,9 @@ class WalletSendtxHelpers {
                     ),
                     InkwellButton(
                       onTap: () async {
+                        FocusScope.of(context)
+                            .unfocus(); // Remove focus from TextFormField
+
                         bool userConfirmed = false;
                         try {
                           // Step 1: Ensure psbtController is not empty
@@ -887,7 +858,6 @@ class WalletSendtxHelpers {
                                   isFirstTap = false;
                                 });
                               } catch (e) {
-                                print('porcodio');
                                 SnackBarHelper.show(
                                   rootContext,
                                   message: AppLocalizations.of(rootContext)!
@@ -905,23 +875,43 @@ class WalletSendtxHelpers {
                                     title: Text(
                                       AppLocalizations.of(rootContext)!
                                           .translate('confirm_transaction'),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(false),
-                                        child: Text(
-                                          AppLocalizations.of(rootContext)!
-                                              .translate('cancel'),
-                                        ),
+                                      style: TextStyle(
+                                        color: AppColors.cardTitle(context),
                                       ),
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(true),
-                                        child: Text(
-                                          AppLocalizations.of(rootContext)!
-                                              .translate('yes'),
-                                        ),
+                                    ),
+                                    backgroundColor: AppColors.dialog(context),
+                                    actions: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          InkwellButton(
+                                            onTap: () => Navigator.of(context)
+                                                .pop(false),
+                                            label: AppLocalizations.of(
+                                                    rootContext)!
+                                                .translate('no'),
+                                            backgroundColor:
+                                                AppColors.error(context),
+                                            textColor: AppColors.text(context),
+                                            icon: Icons.dangerous,
+                                            iconColor:
+                                                AppColors.gradient(context),
+                                          ),
+                                          InkwellButton(
+                                            onTap: () =>
+                                                Navigator.of(context).pop(true),
+                                            label: AppLocalizations.of(
+                                                    rootContext)!
+                                                .translate('yes'),
+                                            backgroundColor:
+                                                AppColors.background(context),
+                                            textColor: AppColors.text(context),
+                                            icon: Icons.verified,
+                                            iconColor:
+                                                AppColors.gradient(context),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   );
@@ -984,8 +974,10 @@ class WalletSendtxHelpers {
                             );
                             Navigator.of(context).pop();
                           }
-                        } catch (e) {
+                        } catch (e, stackTrace) {
                           Navigator.of(context).pop();
+
+                          print(stackTrace);
 
                           SnackBarHelper.show(
                             rootContext,
@@ -1017,8 +1009,12 @@ class WalletSendtxHelpers {
       (_) {
         recipientController.clear();
         if (!isSingleWallet) {
-          psbtController!.clear();
-          signingAmountController!.clear();
+          if (psbtController != null) {
+            psbtController!.clear();
+          }
+          if (signingAmountController != null) {
+            signingAmountController!.clear();
+          }
         }
         amountController.clear();
 
@@ -1033,59 +1029,102 @@ class WalletSendtxHelpers {
   Future<void> showPSBTDialog(String result) async {
     final rootContext = context;
 
+    TextEditingController psbt = TextEditingController();
+    psbt.text = result;
+
     return showDialog(
       context: rootContext,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: AppColors.dialog(context),
-          title: Text(
-            AppLocalizations.of(rootContext)!.translate('psbt_created'),
-            style: TextStyle(
-              color: AppColors.cardTitle(context),
-            ),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                AppLocalizations.of(rootContext)!.translate('psbt_created'),
+                style: TextStyle(
+                  color: AppColors.cardTitle(context),
+                ),
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.close,
+                  color: AppColors.cardTitle(context),
+                ),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            ],
           ),
           content: SingleChildScrollView(
-            child: Text(
-              result,
-              overflow: TextOverflow.ellipsis,
+            // Wrap content in a scrollable view
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight:
+                    MediaQuery.of(context).size.height * 0.4, // Limits height
+              ),
+              child: Column(
+                mainAxisSize:
+                    MainAxisSize.min, // Prevents unnecessary expansion
+                children: [
+                  Text(
+                    AppLocalizations.of(rootContext)!
+                        .translate('psbt_not_finalized'),
+                    style: TextStyle(
+                      color: AppColors.text(context),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: psbt,
+                    readOnly: true,
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText:
+                          AppLocalizations.of(rootContext)!.translate('psbt'),
+                    ),
+                    style: TextStyle(
+                      color: AppColors.text(context),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: <Widget>[
-            // Copy Button
-            TextButton.icon(
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: result));
-                SnackBarHelper.show(
-                  context,
-                  message: AppLocalizations.of(rootContext)!
-                      .translate('psbt_clipboard'),
-                );
-              },
-              icon: const Icon(Icons.copy),
-              label: Text(
-                AppLocalizations.of(rootContext)!.translate('copy'),
-              ),
-            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Copy Button
+                InkwellButton(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: result));
+                    SnackBarHelper.show(
+                      rootContext,
+                      message: AppLocalizations.of(rootContext)!
+                          .translate('psbt_clipboard'),
+                    );
+                  },
+                  label: AppLocalizations.of(rootContext)!.translate('copy'),
+                  backgroundColor: AppColors.text(context),
+                  textColor: AppColors.gradient(context),
+                  icon: Icons.copy,
+                  iconColor: AppColors.gradient(context),
+                ),
 
-            // Share Button
-            TextButton.icon(
-              onPressed: () {
-                Share.share(result);
-              },
-              icon: const Icon(Icons.share),
-              label: Text(
-                AppLocalizations.of(rootContext)!.translate('share'),
-              ),
-            ),
-
-            // Close Button
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text(
-                AppLocalizations.of(rootContext)!.translate('close'),
-              ),
+                // Share Button
+                InkwellButton(
+                  onTap: () {
+                    Share.share(result);
+                  },
+                  label: AppLocalizations.of(rootContext)!.translate('share'),
+                  backgroundColor: AppColors.text(context),
+                  textColor: AppColors.gradient(context),
+                  icon: Icons.share,
+                  iconColor: AppColors.gradient(context),
+                ),
+              ],
             ),
           ],
         );

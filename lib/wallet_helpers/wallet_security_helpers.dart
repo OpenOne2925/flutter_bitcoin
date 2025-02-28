@@ -280,101 +280,104 @@ class WalletSecurityHelpers {
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () async {
-                // Serialize data to JSON
-                final data = jsonEncode({
-                  'descriptor': descriptor,
-                  'publicKeysWithAlias': pubKeysAlias,
-                  'descriptorName': descriptorName,
-                });
+            Visibility(
+              visible: !isSingleWallet,
+              child: TextButton(
+                onPressed: () async {
+                  // Serialize data to JSON
+                  final data = jsonEncode({
+                    'descriptor': descriptor,
+                    'publicKeysWithAlias': pubKeysAlias,
+                    'descriptorName': descriptorName,
+                  });
 
-                // Request storage permission (required for Android 11 and below)
-                if (await Permission.storage.request().isGranted) {
-                  // Get default Downloads directory
-                  final directory = Directory('/storage/emulated/0/Download');
-                  if (!await directory.exists()) {
-                    await directory.create(recursive: true);
-                  }
-
-                  String fileName = '$descriptorName.json';
-                  String filePath = '${directory.path}/$fileName';
-                  File file = File(filePath);
-
-                  // Check if the file already exists
-                  if (await file.exists()) {
-                    final shouldProceed = await showDialog<bool>(
-                        context: rootContext,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            backgroundColor: Colors
-                                .grey[900], // Dark background for the dialog
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                  20.0), // Rounded corners
-                            ),
-                            title: const Text('File Already Exists'),
-                            content: const Text(
-                                ' A file with the same name already exists. Do you want to save it anyway?'),
-                            actions: [
-                              InkwellButton(
-                                onTap: () {
-                                  Navigator.of(context).pop(false);
-                                },
-                                label: 'Cancel',
-                                backgroundColor: Colors.white,
-                                textColor: Colors.black,
-                                icon: Icons.cancel_rounded,
-                                iconColor: Colors.redAccent,
-                              ),
-                              InkwellButton(
-                                onTap: () {
-                                  Navigator.of(context).pop(true);
-                                },
-                                label: 'Yes',
-                                backgroundColor: Colors.white,
-                                textColor: Colors.black,
-                                icon: Icons.check_circle,
-                                iconColor: AppColors.accent(context),
-                              ),
-                            ],
-                          );
-                        });
-
-                    // If the user chooses not to proceed, exit
-                    if (!shouldProceed!) {
-                      return;
+                  // Request storage permission (required for Android 11 and below)
+                  if (await Permission.storage.request().isGranted) {
+                    // Get default Downloads directory
+                    final directory = Directory('/storage/emulated/0/Download');
+                    if (!await directory.exists()) {
+                      await directory.create(recursive: true);
                     }
 
-                    // Increment the file name index until a unique file name is found
-                    int index = 1;
-                    while (await file.exists()) {
-                      fileName = '$descriptorName($index).json';
-                      filePath = '${directory.path}/$fileName';
-                      file = File(filePath);
-                      index++;
-                    }
-                  }
-                  // Write JSON data to the file
-                  await file.writeAsString(data);
+                    String fileName = '$descriptorName.json';
+                    String filePath = '${directory.path}/$fileName';
+                    File file = File(filePath);
 
-                  SnackBarHelper.show(
-                    rootContext,
-                    message:
-                        '${AppLocalizations.of(rootContext)!.translate('file_saved')} ${directory.path}/$fileName',
-                  );
-                } else {
-                  SnackBarHelper.show(rootContext,
-                      message: AppLocalizations.of(rootContext)!
-                          .translate('storage_permission_needed'),
-                      color: AppColors.error(context));
-                }
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.cardTitle(context),
+                    // Check if the file already exists
+                    if (await file.exists()) {
+                      final shouldProceed = await showDialog<bool>(
+                          context: rootContext,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              backgroundColor: Colors
+                                  .grey[900], // Dark background for the dialog
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                    20.0), // Rounded corners
+                              ),
+                              title: const Text('File Already Exists'),
+                              content: const Text(
+                                  ' A file with the same name already exists. Do you want to save it anyway?'),
+                              actions: [
+                                InkwellButton(
+                                  onTap: () {
+                                    Navigator.of(context).pop(false);
+                                  },
+                                  label: 'Cancel',
+                                  backgroundColor: Colors.white,
+                                  textColor: Colors.black,
+                                  icon: Icons.cancel_rounded,
+                                  iconColor: Colors.redAccent,
+                                ),
+                                InkwellButton(
+                                  onTap: () {
+                                    Navigator.of(context).pop(true);
+                                  },
+                                  label: 'Yes',
+                                  backgroundColor: Colors.white,
+                                  textColor: Colors.black,
+                                  icon: Icons.check_circle,
+                                  iconColor: AppColors.accent(context),
+                                ),
+                              ],
+                            );
+                          });
+
+                      // If the user chooses not to proceed, exit
+                      if (!shouldProceed!) {
+                        return;
+                      }
+
+                      // Increment the file name index until a unique file name is found
+                      int index = 1;
+                      while (await file.exists()) {
+                        fileName = '$descriptorName($index).json';
+                        filePath = '${directory.path}/$fileName';
+                        file = File(filePath);
+                        index++;
+                      }
+                    }
+                    // Write JSON data to the file
+                    await file.writeAsString(data);
+
+                    SnackBarHelper.show(
+                      rootContext,
+                      message:
+                          '${AppLocalizations.of(rootContext)!.translate('file_saved')} ${directory.path}/$fileName',
+                    );
+                  } else {
+                    SnackBarHelper.show(rootContext,
+                        message: AppLocalizations.of(rootContext)!
+                            .translate('storage_permission_needed'),
+                        color: AppColors.error(context));
+                  }
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.cardTitle(context),
+                ),
+                child: Text(AppLocalizations.of(rootContext)!
+                    .translate('download_descriptor')),
               ),
-              child: Text(AppLocalizations.of(rootContext)!
-                  .translate('download_descriptor')),
             ),
             InkwellButton(
               onTap: () {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:flutter_wallet/utilities/base_scaffold.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
@@ -60,7 +61,7 @@ class WalletPageState extends State<WalletPage> {
   String _timeStamp = "";
 
   // Timer and Refresh Logic
-  late DateTime _lastRefreshed;
+  DateTime? _lastRefreshed;
 
   // Storage
   var walletBox = Hive.box('walletBox');
@@ -76,10 +77,6 @@ class WalletPageState extends State<WalletPage> {
     // Initialize WalletService
     walletService = WalletService();
     settingsProvider = SettingsProvider();
-
-    setState(() {
-      _lastRefreshed = DateTime.now();
-    });
 
     // Load wallet data and fetch the block height only once when the widget is initialized
     _loadWalletFromHive().then((_) {
@@ -164,6 +161,8 @@ class WalletPageState extends State<WalletPage> {
         _transactions = _walletData!.transactions;
         _currentHeight = _walletData!.currentHeight;
         _timeStamp = _walletData!.timeStamp;
+        _lastRefreshed = _walletData!.lastRefreshed;
+
         _isLoading = false;
       });
     } else {
@@ -189,10 +188,19 @@ class WalletPageState extends State<WalletPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("🌐 No Internet Connection"),
+          backgroundColor: AppColors.background(context),
+          title: Text(
+            AppLocalizations.of(context)!.translate('no_connection'),
+            style: TextStyle(
+              color: AppColors.text(context),
+            ),
+          ),
           content: Text(
-            "Your wallet needs to sync with the blockchain.\n\nPlease connect to the internet to proceed.",
-            style: TextStyle(fontSize: 16),
+            AppLocalizations.of(context)!.translate('connect_internet'),
+            style: TextStyle(
+              color: AppColors.text(context),
+              fontSize: 16,
+            ),
           ),
           actions: [
             TextButton(
@@ -217,7 +225,7 @@ class WalletPageState extends State<WalletPage> {
 
     await _fetchCurrentBlockHeight();
 
-    await walletService.saveLocalData(wallet);
+    await walletService.saveLocalData(wallet, _lastRefreshed!);
 
     String walletAddress = walletService.getAddress(wallet);
     setState(() {
@@ -244,7 +252,7 @@ class WalletPageState extends State<WalletPage> {
       _transactions = transactions;
     });
 
-    await walletService.saveLocalData(wallet);
+    await walletService.saveLocalData(wallet, _lastRefreshed!);
   }
 
   Future<void> _fetchCurrentBlockHeight() async {
@@ -314,6 +322,7 @@ class WalletPageState extends State<WalletPage> {
       isLoading: _isLoading,
       transactions: _transactions,
       wallet: wallet,
+      isSingleWallet: true,
     );
 
     final walletButtonsHelper = WalletButtonsHelper(

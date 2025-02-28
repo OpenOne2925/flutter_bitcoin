@@ -21,6 +21,7 @@ class SettingsPage extends StatelessWidget {
       'es',
       'it',
       'fr',
+      'ru',
     ];
 
     final currencies = [

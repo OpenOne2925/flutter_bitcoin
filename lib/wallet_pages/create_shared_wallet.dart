@@ -788,80 +788,88 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 ],
               ),
               actions: [
-                InkwellButton(
-                  onTap: () => Navigator.pop(context),
-                  label: AppLocalizations.of(rootContext)!.translate('cancel'),
-                  backgroundColor: AppColors.text(context),
-                  textColor: AppColors.gradient(context),
-                  icon: Icons.cancel_rounded,
-                  iconColor: AppColors.gradient(context),
-                ),
-                InkwellButton(
-                  onTap: () {
-                    final String newPublicKey = publicKeyController.text.trim();
-                    final String newAlias = aliasController.text.trim();
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    InkwellButton(
+                      onTap: () => Navigator.pop(context),
+                      label:
+                          AppLocalizations.of(rootContext)!.translate('cancel'),
+                      backgroundColor: AppColors.text(context),
+                      textColor: AppColors.gradient(context),
+                      icon: Icons.cancel_rounded,
+                      iconColor: AppColors.gradient(context),
+                    ),
+                    InkwellButton(
+                      onTap: () {
+                        final String newPublicKey =
+                            publicKeyController.text.trim();
+                        final String newAlias = aliasController.text.trim();
 
-                    if (newPublicKey.isEmpty || newAlias.isEmpty) {
-                      setDialogState(() {
-                        errorMessage = AppLocalizations.of(rootContext)!
-                            .translate('both_fields_required');
-                      });
-                      return;
-                    }
-
-                    // Exclude the current key when checking for duplicates
-                    bool publicKeyExists = publicKeysWithAlias.any((entry) =>
-                        entry['publicKey']?.toLowerCase() ==
-                            newPublicKey.toLowerCase() &&
-                        entry['publicKey']?.toLowerCase() !=
-                            currentPublicKey?.toLowerCase());
-
-                    bool aliasExists = publicKeysWithAlias.any((entry) =>
-                        entry['alias']?.toLowerCase() ==
-                            newAlias.toLowerCase() &&
-                        entry['alias']?.toLowerCase() !=
-                            currentAlias?.toLowerCase());
-
-                    if (publicKeyExists) {
-                      setDialogState(() {
-                        errorMessage = AppLocalizations.of(rootContext)!
-                            .translate('pub_key_exists');
-                      });
-                    } else if (aliasExists) {
-                      setDialogState(() {
-                        errorMessage = AppLocalizations.of(rootContext)!
-                            .translate('alias_exists');
-                      });
-                    } else {
-                      if (isUpdating) {
-                        setState(() {
-                          key!['publicKey'] = newPublicKey;
-                          key['alias'] = newAlias;
-                        });
-                        Navigator.pop(context);
-
-                        SnackBarHelper.show(
-                          rootContext,
-                          message: AppLocalizations.of(rootContext)!
-                              .translate('multisig_updated'),
-                        );
-                      } else {
-                        setState(() {
-                          publicKeysWithAlias.add({
-                            'publicKey': newPublicKey,
-                            'alias': newAlias,
+                        if (newPublicKey.isEmpty || newAlias.isEmpty) {
+                          setDialogState(() {
+                            errorMessage = AppLocalizations.of(rootContext)!
+                                .translate('both_fields_required');
                           });
-                        });
-                        Navigator.pop(context);
-                      }
-                    }
-                  },
-                  label: AppLocalizations.of(rootContext)!
-                      .translate(isUpdating ? 'Save' : 'Add'),
-                  backgroundColor: AppColors.background(context),
-                  textColor: AppColors.text(context),
-                  icon: isUpdating ? Icons.save : Icons.add_task,
-                  iconColor: AppColors.gradient(context),
+                          return;
+                        }
+
+                        // Exclude the current key when checking for duplicates
+                        bool publicKeyExists = publicKeysWithAlias.any(
+                            (entry) =>
+                                entry['publicKey']?.toLowerCase() ==
+                                    newPublicKey.toLowerCase() &&
+                                entry['publicKey']?.toLowerCase() !=
+                                    currentPublicKey?.toLowerCase());
+
+                        bool aliasExists = publicKeysWithAlias.any((entry) =>
+                            entry['alias']?.toLowerCase() ==
+                                newAlias.toLowerCase() &&
+                            entry['alias']?.toLowerCase() !=
+                                currentAlias?.toLowerCase());
+
+                        if (publicKeyExists) {
+                          setDialogState(() {
+                            errorMessage = AppLocalizations.of(rootContext)!
+                                .translate('pub_key_exists');
+                          });
+                        } else if (aliasExists) {
+                          setDialogState(() {
+                            errorMessage = AppLocalizations.of(rootContext)!
+                                .translate('alias_exists');
+                          });
+                        } else {
+                          if (isUpdating) {
+                            setState(() {
+                              key!['publicKey'] = newPublicKey;
+                              key['alias'] = newAlias;
+                            });
+                            Navigator.pop(context);
+
+                            SnackBarHelper.show(
+                              rootContext,
+                              message: AppLocalizations.of(rootContext)!
+                                  .translate('multisig_updated'),
+                            );
+                          } else {
+                            setState(() {
+                              publicKeysWithAlias.add({
+                                'publicKey': newPublicKey,
+                                'alias': newAlias,
+                              });
+                            });
+                            Navigator.pop(context);
+                          }
+                        }
+                      },
+                      label: AppLocalizations.of(rootContext)!
+                          .translate(isUpdating ? 'save' : 'add'),
+                      backgroundColor: AppColors.background(context),
+                      textColor: AppColors.text(context),
+                      icon: isUpdating ? Icons.save : Icons.add_task,
+                      iconColor: AppColors.gradient(context),
+                    ),
+                  ],
                 ),
               ],
             );
@@ -1039,84 +1047,91 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 ),
               ),
               actions: [
-                InkwellButton(
-                  onTap: () => Navigator.pop(context),
-                  label: AppLocalizations.of(rootContext)!.translate('cancel'),
-                  backgroundColor: AppColors.text(context),
-                  textColor: AppColors.gradient(context),
-                  icon: Icons.cancel_rounded,
-                  iconColor: AppColors.gradient(context),
-                ),
-                InkwellButton(
-                  onTap: () {
-                    if (thresholdController.text.isNotEmpty &&
-                        olderController.text.isNotEmpty &&
-                        selectedPubKeys.isNotEmpty) {
-                      // Convert input to integer for accurate comparison
-                      int newOlder = int.tryParse(olderController.text) ?? -1;
-                      final newPubkeys = selectedPubKeys;
-                      final String newThreshold =
-                          thresholdController.text.trim();
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    InkwellButton(
+                      onTap: () => Navigator.pop(context),
+                      label:
+                          AppLocalizations.of(rootContext)!.translate('cancel'),
+                      backgroundColor: AppColors.text(context),
+                      textColor: AppColors.gradient(context),
+                      icon: Icons.cancel_rounded,
+                      iconColor: AppColors.gradient(context),
+                    ),
+                    InkwellButton(
+                      onTap: () {
+                        if (thresholdController.text.isNotEmpty &&
+                            olderController.text.isNotEmpty &&
+                            selectedPubKeys.isNotEmpty) {
+                          // Convert input to integer for accurate comparison
+                          int newOlder =
+                              int.tryParse(olderController.text) ?? -1;
+                          final newPubkeys = selectedPubKeys;
+                          final String newThreshold =
+                              thresholdController.text.trim();
 
-                      // Check if older value already exists in the list
-                      bool isDuplicateOlder = timelockConditions.any(
-                        (existingCondition) =>
-                            int.tryParse(
-                                    existingCondition['older'].toString()) ==
-                                newOlder &&
-                            existingCondition['older'].toString() !=
-                                currentOlder,
-                      );
-
-                      if (isDuplicateOlder) {
-                        SnackBarHelper.show(
-                          rootContext,
-                          message: AppLocalizations.of(rootContext)!
-                              .translate('error_older'),
-                          color: AppColors.error(rootContext),
-                        );
-                      } else {
-                        if (isUpdating) {
-                          setState(() {
-                            // Update the condition with new values
-                            condition!['threshold'] = newThreshold;
-                            condition['older'] = newOlder.toString();
-                            condition['pubkeys'] = jsonEncode(newPubkeys);
-                          });
-
-                          Navigator.pop(context);
-
-                          SnackBarHelper.show(
-                            rootContext,
-                            message: AppLocalizations.of(rootContext)!
-                                .translate('timelock_updated'),
+                          // Check if older value already exists in the list
+                          bool isDuplicateOlder = timelockConditions.any(
+                            (existingCondition) =>
+                                int.tryParse(existingCondition['older']
+                                        .toString()) ==
+                                    newOlder &&
+                                existingCondition['older'].toString() !=
+                                    currentOlder,
                           );
-                        } else {
-                          setState(() {
-                            // Add the new timelock condition to the list
-                            timelockConditions.add({
-                              'threshold': thresholdController.text,
-                              'older': olderController.text,
-                              'pubkeys': jsonEncode(newPubkeys),
-                            });
-                            // print(timelockConditions);
-                          });
 
-                          // Close the dialog after adding the condition
-                          Navigator.pop(context);
+                          if (isDuplicateOlder) {
+                            SnackBarHelper.show(
+                              rootContext,
+                              message: AppLocalizations.of(rootContext)!
+                                  .translate('error_older'),
+                              color: AppColors.error(rootContext),
+                            );
+                          } else {
+                            if (isUpdating) {
+                              setState(() {
+                                // Update the condition with new values
+                                condition!['threshold'] = newThreshold;
+                                condition['older'] = newOlder.toString();
+                                condition['pubkeys'] = jsonEncode(newPubkeys);
+                              });
+
+                              Navigator.pop(context);
+
+                              SnackBarHelper.show(
+                                rootContext,
+                                message: AppLocalizations.of(rootContext)!
+                                    .translate('timelock_updated'),
+                              );
+                            } else {
+                              setState(() {
+                                // Add the new timelock condition to the list
+                                timelockConditions.add({
+                                  'threshold': thresholdController.text,
+                                  'older': olderController.text,
+                                  'pubkeys': jsonEncode(newPubkeys),
+                                });
+                                // print(timelockConditions);
+                              });
+
+                              // Close the dialog after adding the condition
+                              Navigator.pop(context);
+                            }
+                          }
+                        } else {
+                          // print('Validation Failed: One or more fields are empty');
+                          throw ('Validation Failed: One or more fields are empty');
                         }
-                      }
-                    } else {
-                      // print('Validation Failed: One or more fields are empty');
-                      throw ('Validation Failed: One or more fields are empty');
-                    }
-                  },
-                  label: AppLocalizations.of(rootContext)!
-                      .translate(isUpdating ? 'Save' : 'Add'),
-                  backgroundColor: AppColors.background(context),
-                  textColor: AppColors.text(context),
-                  icon: isUpdating ? Icons.save : Icons.add_task,
-                  iconColor: AppColors.gradient(context),
+                      },
+                      label: AppLocalizations.of(rootContext)!
+                          .translate(isUpdating ? 'save' : 'add'),
+                      backgroundColor: AppColors.background(context),
+                      textColor: AppColors.text(context),
+                      icon: isUpdating ? Icons.save : Icons.add_task,
+                      iconColor: AppColors.gradient(context),
+                    ),
+                  ],
                 ),
               ],
             );

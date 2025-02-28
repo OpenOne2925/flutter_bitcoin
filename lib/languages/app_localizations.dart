@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations_it.dart';
+import 'package:flutter_wallet/languages/app_localizations_ru.dart';
 import 'app_localizations_en.dart';
 import 'app_localizations_es.dart';
 import 'app_localizations_fr.dart';
@@ -30,6 +31,9 @@ class AppLocalizations {
       case 'fr':
         _localizedStrings = localizedStringsFr;
         break;
+      case 'ru':
+        _localizedStrings = localizedStringsRu;
+        break;
       default:
         _localizedStrings = localizedStringsEn;
     }
@@ -46,7 +50,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) {
-    return ['en', 'es', 'fr', 'it'].contains(locale.languageCode);
+    return ['en', 'es', 'fr', 'it', 'ru'].contains(locale.languageCode);
   }
 
   @override

@@ -131,6 +131,12 @@ const Map<String, String> localizedStringsEs = {
   'blocks': 'Bloques',
   'use_available_balance': 'Usar Saldo Disponible',
   'select_spending_path': 'Seleccionar Ruta de Gasto',
+  'psbt_created': 'PSBT Creado',
+  'spending_path': 'Ruta de Gasto',
+  'signers': 'Firmantes',
+  'confirm_transaction': '¿Quieres firmar esta transacción?',
+  'psbt_not_finalized':
+      'Este PSBT aún no está finalizado, ¡compártelo con los otros usuarios!',
 
 // File (Archivo)
   'storage_permission_needed':
@@ -171,6 +177,13 @@ const Map<String, String> localizedStringsEs = {
   'set_pin': 'Establecer PIN',
   'reset': 'Restablecer',
   'submit': 'Enviar',
+  'add': 'Agregar',
+  'copy': 'Copiar',
+  'share': 'Compartir',
+  'sign': 'Firmar',
+  'yes': 'Sí',
+  'no': 'No',
+  'decode': 'Decodifica',
 
 // Spending Summary (Resumen de gastos)
   'spending_summary': 'Resumen de gastos',
@@ -274,5 +287,9 @@ const Map<String, String> localizedStringsEs = {
   'public_keys_with_alias': 'Claves públicas con alias',
   'create_import_message':
       '¡Gestiona tus billeteras compartidas de Bitcoin con facilidad! Ya sea creando una nueva billetera o importando una existente, estamos aquí para ayudarte.',
-  'Yes': 'Sí'
+  'setting_wallet': 'Configurando tu monedero...',
+  'morning_check': "🌅 ¡Buenos días! ¡Es hora de actualizar!",
+  'afternoon_check': "🌞 ¡Revisión de la tarde! ¡Dale una actualización!",
+  'night_check': "🌙 ¿Refresco nocturno? ¡Por qué no!",
+  'processing': 'Procesando...'
 };
