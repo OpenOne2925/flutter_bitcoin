@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
-import 'package:flutter_wallet/utilities/base_scaffold.dart';
+import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
-import 'package:flutter_wallet/utilities/snackbar_helper.dart';
+import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
+import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive/hive.dart';
@@ -158,14 +160,10 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       _status = 'Loading';
     });
 
-    await Future.delayed(const Duration(milliseconds: 500));
-
     if (isValid) {
       setState(() {
         _status = 'Success';
       });
-
-      await Future.delayed(const Duration(seconds: 1));
 
       // _walletService.printInChunks(_descriptor.toString());
 
@@ -347,12 +345,10 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     tooltip: AppLocalizations.of(context)!
                         .translate('copy_to_clipboard'),
                     onPressed: () {
-                      Clipboard.setData(ClipboardData(text: _publicKey!));
-
-                      SnackBarHelper.show(
-                        context,
-                        message: AppLocalizations.of(context)!
-                            .translate('pub_key_clipboard'),
+                      UtilitiesService.copyToClipboard(
+                        context: context,
+                        text: _publicKey.toString(),
+                        messageKey: 'pub_key_clipboard',
                       );
                     },
                   ),
@@ -493,11 +489,10 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                             (condition) => condition['pubkeys'].isEmpty);
                       });
 
-                      SnackBarHelper.show(
+                      SnackBarHelper.showError(
                         context,
                         message:
                             "${key['alias']} ${AppLocalizations.of(context)!.translate('alias_removed')}",
-                        color: AppColors.error(context),
                       );
                     },
                     background: Container(
@@ -729,152 +724,128 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
     final rootContext = context;
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            return AlertDialog(
-              backgroundColor: AppColors.dialog(context),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.0),
+    DialogHelper.buildCustomStatefulDialog(
+      context: rootContext,
+      titleKey: isUpdating ? 'edit_public_key' : 'add_public_key',
+      contentBuilder: (setDialogState) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: publicKeyController,
+              decoration: CustomTextFieldStyles.textFieldDecoration(
+                context: context,
+                labelText: AppLocalizations.of(rootContext)!
+                    .translate('enter_pub_key'),
+                hintText: AppLocalizations.of(rootContext)!
+                    .translate('enter_pub_key'),
+                borderColor: AppColors.background(context),
               ),
-              title: Text(
-                AppLocalizations.of(rootContext)!.translate(
-                    isUpdating ? 'edit_public_key' : 'add_public_key'),
-                style: TextStyle(color: AppColors.cardTitle(context)),
+              style: TextStyle(
+                color: AppColors.text(context),
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: publicKeyController,
-                    decoration: CustomTextFieldStyles.textFieldDecoration(
-                      context: context,
-                      labelText: AppLocalizations.of(rootContext)!
-                          .translate('enter_pub_key'),
-                      hintText: AppLocalizations.of(rootContext)!
-                          .translate('enter_pub_key'),
-                      borderColor: AppColors.background(context),
-                    ),
-                    style: TextStyle(
-                      color: AppColors.text(context),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: aliasController,
-                    decoration: CustomTextFieldStyles.textFieldDecoration(
-                      context: context,
-                      labelText: AppLocalizations.of(rootContext)!
-                          .translate('enter_alias'),
-                      hintText: AppLocalizations.of(rootContext)!
-                          .translate('enter_alias'),
-                      borderColor: AppColors.background(context),
-                    ),
-                    style: TextStyle(
-                      color: AppColors.text(context),
-                    ),
-                  ),
-                  if (errorMessage != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      errorMessage!,
-                      style: TextStyle(
-                        color: AppColors.error(context),
-                      ),
-                    ),
-                  ],
-                ],
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: aliasController,
+              decoration: CustomTextFieldStyles.textFieldDecoration(
+                context: context,
+                labelText:
+                    AppLocalizations.of(rootContext)!.translate('enter_alias'),
+                hintText:
+                    AppLocalizations.of(rootContext)!.translate('enter_alias'),
+                borderColor: AppColors.background(context),
               ),
-              actions: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    InkwellButton(
-                      onTap: () => Navigator.pop(context),
-                      label:
-                          AppLocalizations.of(rootContext)!.translate('cancel'),
-                      backgroundColor: AppColors.text(context),
-                      textColor: AppColors.gradient(context),
-                      icon: Icons.cancel_rounded,
-                      iconColor: AppColors.gradient(context),
-                    ),
-                    InkwellButton(
-                      onTap: () {
-                        final String newPublicKey =
-                            publicKeyController.text.trim();
-                        final String newAlias = aliasController.text.trim();
-
-                        if (newPublicKey.isEmpty || newAlias.isEmpty) {
-                          setDialogState(() {
-                            errorMessage = AppLocalizations.of(rootContext)!
-                                .translate('both_fields_required');
-                          });
-                          return;
-                        }
-
-                        // Exclude the current key when checking for duplicates
-                        bool publicKeyExists = publicKeysWithAlias.any(
-                            (entry) =>
-                                entry['publicKey']?.toLowerCase() ==
-                                    newPublicKey.toLowerCase() &&
-                                entry['publicKey']?.toLowerCase() !=
-                                    currentPublicKey?.toLowerCase());
-
-                        bool aliasExists = publicKeysWithAlias.any((entry) =>
-                            entry['alias']?.toLowerCase() ==
-                                newAlias.toLowerCase() &&
-                            entry['alias']?.toLowerCase() !=
-                                currentAlias?.toLowerCase());
-
-                        if (publicKeyExists) {
-                          setDialogState(() {
-                            errorMessage = AppLocalizations.of(rootContext)!
-                                .translate('pub_key_exists');
-                          });
-                        } else if (aliasExists) {
-                          setDialogState(() {
-                            errorMessage = AppLocalizations.of(rootContext)!
-                                .translate('alias_exists');
-                          });
-                        } else {
-                          if (isUpdating) {
-                            setState(() {
-                              key!['publicKey'] = newPublicKey;
-                              key['alias'] = newAlias;
-                            });
-                            Navigator.pop(context);
-
-                            SnackBarHelper.show(
-                              rootContext,
-                              message: AppLocalizations.of(rootContext)!
-                                  .translate('multisig_updated'),
-                            );
-                          } else {
-                            setState(() {
-                              publicKeysWithAlias.add({
-                                'publicKey': newPublicKey,
-                                'alias': newAlias,
-                              });
-                            });
-                            Navigator.pop(context);
-                          }
-                        }
-                      },
-                      label: AppLocalizations.of(rootContext)!
-                          .translate(isUpdating ? 'save' : 'add'),
-                      backgroundColor: AppColors.background(context),
-                      textColor: AppColors.text(context),
-                      icon: isUpdating ? Icons.save : Icons.add_task,
-                      iconColor: AppColors.gradient(context),
-                    ),
-                  ],
+              style: TextStyle(
+                color: AppColors.text(context),
+              ),
+            ),
+            if (errorMessage != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                errorMessage!,
+                style: TextStyle(
+                  color: AppColors.error(context),
                 ),
-              ],
-            );
-          },
+              ),
+            ],
+          ],
         );
+      },
+      actionsBuilder: (setDialogState) {
+        return [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              InkwellButton(
+                onTap: () {
+                  final String newPublicKey = publicKeyController.text.trim();
+                  final String newAlias = aliasController.text.trim();
+
+                  if (newPublicKey.isEmpty || newAlias.isEmpty) {
+                    setDialogState(() {
+                      errorMessage = AppLocalizations.of(rootContext)!
+                          .translate('both_fields_required');
+                    });
+                    return;
+                  }
+
+                  // Exclude the current key when checking for duplicates
+                  bool publicKeyExists = publicKeysWithAlias.any((entry) =>
+                      entry['publicKey']?.toLowerCase() ==
+                          newPublicKey.toLowerCase() &&
+                      entry['publicKey']?.toLowerCase() !=
+                          currentPublicKey?.toLowerCase());
+
+                  bool aliasExists = publicKeysWithAlias.any((entry) =>
+                      entry['alias']?.toLowerCase() == newAlias.toLowerCase() &&
+                      entry['alias']?.toLowerCase() !=
+                          currentAlias?.toLowerCase());
+
+                  if (publicKeyExists) {
+                    setDialogState(() {
+                      errorMessage = AppLocalizations.of(rootContext)!
+                          .translate('pub_key_exists');
+                    });
+                  } else if (aliasExists) {
+                    setDialogState(() {
+                      errorMessage = AppLocalizations.of(rootContext)!
+                          .translate('alias_exists');
+                    });
+                  } else {
+                    if (isUpdating) {
+                      setState(() {
+                        key!['publicKey'] = newPublicKey;
+                        key['alias'] = newAlias;
+                      });
+                      Navigator.of(context, rootNavigator: true).pop();
+
+                      SnackBarHelper.show(
+                        rootContext,
+                        message: AppLocalizations.of(rootContext)!
+                            .translate('multisig_updated'),
+                      );
+                    } else {
+                      setState(() {
+                        publicKeysWithAlias.add({
+                          'publicKey': newPublicKey,
+                          'alias': newAlias,
+                        });
+                      });
+                      Navigator.of(context, rootNavigator: true).pop();
+                    }
+                  }
+                },
+                label: AppLocalizations.of(rootContext)!
+                    .translate(isUpdating ? 'save' : 'add'),
+                backgroundColor: AppColors.background(context),
+                textColor: AppColors.text(context),
+                icon: isUpdating ? Icons.save : Icons.add_task,
+                iconColor: AppColors.gradient(context),
+              ),
+            ],
+          ),
+        ];
       },
     );
   }
@@ -916,227 +887,191 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
     final rootContext = context;
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          // If the StateSetter variable is called setState it will cause rebuilding problems
-          // Give another name like setDialogState
-          builder: (BuildContext context, StateSetter setDialogState) {
-            return AlertDialog(
-              backgroundColor:
-                  AppColors.dialog(context), // Set the background color
-              shape: RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(16.0), // Optional rounded corners
-              ),
-              title: Text(
-                AppLocalizations.of(rootContext)!
-                    .translate(isUpdating ? 'edit_timelock' : 'add_timelock'),
-                style: TextStyle(
-                  color: AppColors.cardTitle(context),
-                ),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (publicKeysWithAlias.isNotEmpty)
-                      Wrap(
-                        spacing: 8.0,
-                        children: publicKeysWithAlias.map((key) {
-                          bool isSelected = selectedPubKeys.any((selectedKey) =>
+    DialogHelper.buildCustomStatefulDialog(
+      context: rootContext,
+      titleKey: isUpdating ? 'edit_timelock' : 'add_timelock',
+      contentBuilder: (setDialogState) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (publicKeysWithAlias.isNotEmpty)
+              Wrap(
+                spacing: 8.0,
+                children: publicKeysWithAlias.map((key) {
+                  bool isSelected = selectedPubKeys.any((selectedKey) =>
+                      selectedKey['publicKey'] == key['publicKey']);
+                  return GestureDetector(
+                    onTap: () {
+                      setDialogState(() {
+                        if (isSelected) {
+                          selectedPubKeys.removeWhere((selectedKey) =>
                               selectedKey['publicKey'] == key['publicKey']);
-                          return GestureDetector(
-                            onTap: () {
-                              setDialogState(() {
-                                if (isSelected) {
-                                  selectedPubKeys.removeWhere((selectedKey) =>
-                                      selectedKey['publicKey'] ==
-                                      key['publicKey']);
-                                } else {
-                                  selectedPubKeys.add({
-                                    'publicKey': key['publicKey']!,
-                                    'alias': key['alias']!
-                                  });
-                                }
-                                // print(selectedPubKeys);
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(8.0),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppColors.background(context)
-                                        .withAlpha((0.8 * 255).toInt())
-                                    : AppColors.background(context)
-                                        .withAlpha((0.2 * 255).toInt()),
-                                borderRadius: BorderRadius.circular(8.0),
-                                border: Border.all(
-                                  color: AppColors.primary(context),
-                                ),
-                              ),
-                              child: Text(
-                                key['alias']!,
-                                style: const TextStyle(fontSize: 14),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    const SizedBox(height: 10),
-                    if (selectedPubKeys.isNotEmpty)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextFormField(
-                            controller: thresholdController,
-                            onChanged: (value) {
-                              setDialogState(() {
-                                if (int.tryParse(value) != null &&
-                                    int.parse(value) > selectedPubKeys.length) {
-                                  // If the entered value exceeds the max, reset it to the max
-                                  thresholdController.text =
-                                      selectedPubKeys.length.toString();
-                                  thresholdController.selection =
-                                      TextSelection.fromPosition(
-                                    TextPosition(
-                                      offset: thresholdController.text.length,
-                                    ),
-                                  );
-                                } else {
-                                  thresholdController.text = value;
-                                }
-                              });
-                            },
-                            decoration:
-                                CustomTextFieldStyles.textFieldDecoration(
-                              context: context,
-                              labelText: AppLocalizations.of(rootContext)!
-                                  .translate('threshold'),
-                              hintText: AppLocalizations.of(rootContext)!
-                                  .translate('threshold'),
-                              borderColor: AppColors.background(context),
-                            ),
-                            style: TextStyle(
-                              color: AppColors.text(context),
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: olderController,
-                            decoration:
-                                CustomTextFieldStyles.textFieldDecoration(
-                              context: context,
-                              labelText: AppLocalizations.of(rootContext)!
-                                  .translate('enter_older'),
-                              hintText: AppLocalizations.of(rootContext)!
-                                  .translate('older'),
-                              borderColor: AppColors.background(context),
-                            ),
-                            style: TextStyle(
-                              color: AppColors.text(context),
-                            ),
-                            keyboardType: TextInputType.number,
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    InkwellButton(
-                      onTap: () => Navigator.pop(context),
-                      label:
-                          AppLocalizations.of(rootContext)!.translate('cancel'),
-                      backgroundColor: AppColors.text(context),
-                      textColor: AppColors.gradient(context),
-                      icon: Icons.cancel_rounded,
-                      iconColor: AppColors.gradient(context),
-                    ),
-                    InkwellButton(
-                      onTap: () {
-                        if (thresholdController.text.isNotEmpty &&
-                            olderController.text.isNotEmpty &&
-                            selectedPubKeys.isNotEmpty) {
-                          // Convert input to integer for accurate comparison
-                          int newOlder =
-                              int.tryParse(olderController.text) ?? -1;
-                          final newPubkeys = selectedPubKeys;
-                          final String newThreshold =
-                              thresholdController.text.trim();
-
-                          // Check if older value already exists in the list
-                          bool isDuplicateOlder = timelockConditions.any(
-                            (existingCondition) =>
-                                int.tryParse(existingCondition['older']
-                                        .toString()) ==
-                                    newOlder &&
-                                existingCondition['older'].toString() !=
-                                    currentOlder,
-                          );
-
-                          if (isDuplicateOlder) {
-                            SnackBarHelper.show(
-                              rootContext,
-                              message: AppLocalizations.of(rootContext)!
-                                  .translate('error_older'),
-                              color: AppColors.error(rootContext),
-                            );
-                          } else {
-                            if (isUpdating) {
-                              setState(() {
-                                // Update the condition with new values
-                                condition!['threshold'] = newThreshold;
-                                condition['older'] = newOlder.toString();
-                                condition['pubkeys'] = jsonEncode(newPubkeys);
-                              });
-
-                              Navigator.pop(context);
-
-                              SnackBarHelper.show(
-                                rootContext,
-                                message: AppLocalizations.of(rootContext)!
-                                    .translate('timelock_updated'),
-                              );
-                            } else {
-                              setState(() {
-                                // Add the new timelock condition to the list
-                                timelockConditions.add({
-                                  'threshold': thresholdController.text,
-                                  'older': olderController.text,
-                                  'pubkeys': jsonEncode(newPubkeys),
-                                });
-                                // print(timelockConditions);
-                              });
-
-                              // Close the dialog after adding the condition
-                              Navigator.pop(context);
-                            }
-                          }
                         } else {
-                          // print('Validation Failed: One or more fields are empty');
-                          throw ('Validation Failed: One or more fields are empty');
+                          selectedPubKeys.add({
+                            'publicKey': key['publicKey']!,
+                            'alias': key['alias']!
+                          });
                         }
-                      },
-                      label: AppLocalizations.of(rootContext)!
-                          .translate(isUpdating ? 'save' : 'add'),
-                      backgroundColor: AppColors.background(context),
-                      textColor: AppColors.text(context),
-                      icon: isUpdating ? Icons.save : Icons.add_task,
-                      iconColor: AppColors.gradient(context),
+                        // print(selectedPubKeys);
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8.0),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.background(context)
+                                .withAlpha((0.8 * 255).toInt())
+                            : AppColors.background(context)
+                                .withAlpha((0.2 * 255).toInt()),
+                        borderRadius: BorderRadius.circular(8.0),
+                        border: Border.all(
+                          color: AppColors.primary(context),
+                        ),
+                      ),
+                      child: Text(
+                        key['alias']!,
+                        style: const TextStyle(fontSize: 14),
+                      ),
                     ),
-                  ],
-                ),
-              ],
-            );
-          },
+                  );
+                }).toList(),
+              ),
+            const SizedBox(height: 10),
+            if (selectedPubKeys.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: thresholdController,
+                    onChanged: (value) {
+                      setDialogState(() {
+                        if (int.tryParse(value) != null &&
+                            int.parse(value) > selectedPubKeys.length) {
+                          // If the entered value exceeds the max, reset it to the max
+                          thresholdController.text =
+                              selectedPubKeys.length.toString();
+                          thresholdController.selection =
+                              TextSelection.fromPosition(
+                            TextPosition(
+                              offset: thresholdController.text.length,
+                            ),
+                          );
+                        } else {
+                          thresholdController.text = value;
+                        }
+                      });
+                    },
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText: AppLocalizations.of(rootContext)!
+                          .translate('threshold'),
+                      hintText: AppLocalizations.of(rootContext)!
+                          .translate('threshold'),
+                      borderColor: AppColors.background(context),
+                    ),
+                    style: TextStyle(
+                      color: AppColors.text(context),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: olderController,
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText: AppLocalizations.of(rootContext)!
+                          .translate('enter_older'),
+                      hintText:
+                          AppLocalizations.of(rootContext)!.translate('older'),
+                      borderColor: AppColors.background(context),
+                    ),
+                    style: TextStyle(
+                      color: AppColors.text(context),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ),
+          ],
         );
+      },
+      actionsBuilder: (setDialogState) {
+        return [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              InkwellButton(
+                onTap: () {
+                  if (thresholdController.text.isNotEmpty &&
+                      olderController.text.isNotEmpty &&
+                      selectedPubKeys.isNotEmpty) {
+                    // Convert input to integer for accurate comparison
+                    int newOlder = int.tryParse(olderController.text) ?? -1;
+                    final newPubkeys = selectedPubKeys;
+                    final String newThreshold = thresholdController.text.trim();
+
+                    // Check if older value already exists in the list
+                    bool isDuplicateOlder = timelockConditions.any(
+                      (existingCondition) =>
+                          int.tryParse(existingCondition['older'].toString()) ==
+                              newOlder &&
+                          existingCondition['older'].toString() != currentOlder,
+                    );
+
+                    if (isDuplicateOlder) {
+                      SnackBarHelper.show(
+                        rootContext,
+                        message: AppLocalizations.of(rootContext)!
+                            .translate('error_older'),
+                        color: AppColors.error(rootContext),
+                      );
+                    } else {
+                      if (isUpdating) {
+                        setState(() {
+                          // Update the condition with new values
+                          condition!['threshold'] = newThreshold;
+                          condition['older'] = newOlder.toString();
+                          condition['pubkeys'] = jsonEncode(newPubkeys);
+                        });
+
+                        Navigator.of(context, rootNavigator: true).pop();
+
+                        SnackBarHelper.show(
+                          rootContext,
+                          message: AppLocalizations.of(rootContext)!
+                              .translate('timelock_updated'),
+                        );
+                      } else {
+                        setState(() {
+                          // Add the new timelock condition to the list
+                          timelockConditions.add({
+                            'threshold': thresholdController.text,
+                            'older': olderController.text,
+                            'pubkeys': jsonEncode(newPubkeys),
+                          });
+                          // print(timelockConditions);
+                        });
+
+                        // Close the dialog after adding the condition
+                        Navigator.of(context, rootNavigator: true).pop();
+                      }
+                    }
+                  } else {
+                    // print('Validation Failed: One or more fields are empty');
+                    throw ('Validation Failed: One or more fields are empty');
+                  }
+                },
+                label: AppLocalizations.of(rootContext)!
+                    .translate(isUpdating ? 'save' : 'add'),
+                backgroundColor: AppColors.background(context),
+                textColor: AppColors.text(context),
+                icon: isUpdating ? Icons.save : Icons.add_task,
+                iconColor: AppColors.gradient(context),
+              ),
+            ],
+          ),
+        ];
       },
     );
   }
@@ -1269,413 +1204,374 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
   void _createDescriptorDialog(BuildContext context) {
     final rootContext = context;
 
-    showDialog(
+    DialogHelper.buildCustomDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: AppColors.dialog(context),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          title: Text(
-            AppLocalizations.of(rootContext)!
-                .translate('descriptor_created')
-                .replaceAll('{x}', _descriptorName),
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w600,
-              fontSize: 18,
-              color: AppColors.cardTitle(context),
+      titleKey: 'descriptor_created',
+      titleParams: {'x': _descriptorName},
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Display descriptor
+          Container(
+            padding: const EdgeInsets.all(12.0),
+            decoration: BoxDecoration(
+              color: AppColors.container(context),
+              border: Border.all(
+                color: AppColors.background(context),
+              ),
+              borderRadius: BorderRadius.circular(8.0),
             ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Display descriptor
-                Container(
-                  padding: const EdgeInsets.all(12.0),
-                  decoration: BoxDecoration(
-                    color: AppColors.container(context),
-                    border: Border.all(
-                      color: AppColors.background(context),
+                Expanded(
+                  child: Text(
+                    _finalDescriptor,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Theme.of(context).colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
                     ),
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _finalDescriptor,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      IconButton(
-                        icon:
-                            Icon(Icons.copy, color: AppColors.primary(context)),
-                        tooltip: AppLocalizations.of(rootContext)!
-                            .translate('copy_to_clipboard'),
-                        onPressed: () {
-                          Clipboard.setData(
-                              ClipboardData(text: _finalDescriptor));
-                          SnackBarHelper.show(
-                            rootContext,
-                            message: AppLocalizations.of(rootContext)!
-                                .translate('descriptor_clipboard'),
-                          );
-                        },
-                      ),
-                    ],
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(height: 20),
-                // Display conditions
-                Text(
-                  AppLocalizations.of(rootContext)!.translate('conditions'),
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: AppColors.cardTitle(context),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Column(
-                  children: timelockConditions.map((condition) {
-                    // Retrieve aliases for the selected public keys
-                    List<String> aliases =
-                        (condition['pubkeys'] as List<Map<String, String>>)
-                            .map((key) => key['alias']!)
-                            .toList();
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10.0),
-                      padding: const EdgeInsets.all(8.0),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: AppColors.primary(context)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          RichText(
-                            text: TextSpan(
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.text(context),
-                              ),
-                              children: [
-                                TextSpan(
-                                  text:
-                                      '${AppLocalizations.of(rootContext)!.translate('threshold')}: ',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.cardTitle(context),
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: '${condition['threshold']}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.normal,
-                                    color: AppColors.text(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          RichText(
-                            text: TextSpan(
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.text(context),
-                              ),
-                              children: [
-                                TextSpan(
-                                  text:
-                                      '${AppLocalizations.of(rootContext)!.translate('older')}: ',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.cardTitle(context),
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: '${condition['older']}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.normal,
-                                    color: AppColors.text(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          RichText(
-                            text: TextSpan(
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                              children: [
-                                TextSpan(
-                                  text:
-                                      '${AppLocalizations.of(rootContext)!.translate('aliases')}: ',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.cardTitle(context),
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: aliases.join(', '),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.normal,
-                                    color: AppColors.text(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                IconButton(
+                  icon: Icon(Icons.copy, color: AppColors.primary(context)),
+                  tooltip: AppLocalizations.of(rootContext)!
+                      .translate('copy_to_clipboard'),
+                  onPressed: () {
+                    UtilitiesService.copyToClipboard(
+                      context: rootContext,
+                      text: _finalDescriptor,
+                      messageKey: 'descriptor_clipboard',
                     );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-                // Display public keys with aliases
-                Text(
-                  AppLocalizations.of(rootContext)!.translate('pub_keys'),
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: AppColors.cardTitle(context),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Column(
-                  children: publicKeysWithAlias.map((key) {
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10.0),
-                      padding: const EdgeInsets.all(8.0),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(8.0),
-                        border: Border.all(color: AppColors.primary(context)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          RichText(
-                            text: TextSpan(
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                              children: [
-                                TextSpan(
-                                  text:
-                                      '${AppLocalizations.of(rootContext)!.translate('pub_key')}: ',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.cardTitle(context),
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: '${key['publicKey']}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.normal,
-                                    color: AppColors.text(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          RichText(
-                            text: TextSpan(
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                              children: [
-                                TextSpan(
-                                  text:
-                                      '${AppLocalizations.of(rootContext)!.translate('alias')}: ',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.cardTitle(context),
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: '${key['alias']}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.normal,
-                                    color: AppColors.text(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                  },
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                // Serialize data to JSON
-                final data = jsonEncode({
-                  'descriptor': _finalDescriptor,
-                  'publicKeysWithAlias': publicKeysWithAlias,
-                  'descriptorName': _descriptorName,
-                });
+          const SizedBox(height: 20),
+          // Display conditions
+          Text(
+            AppLocalizations.of(rootContext)!.translate('conditions'),
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: AppColors.cardTitle(context),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Column(
+            children: timelockConditions.map((condition) {
+              // Retrieve aliases for the selected public keys
+              List<String> aliases =
+                  (condition['pubkeys'] as List<Map<String, String>>)
+                      .map((key) => key['alias']!)
+                      .toList();
 
-                // Request storage permission (required for Android 11 and below)
-                if (await Permission.storage.request().isGranted) {
-                  // Get default Downloads directory
-                  final directory = Directory('/storage/emulated/0/Download');
-                  if (!await directory.exists()) {
-                    await directory.create(recursive: true);
-                  }
-
-                  String fileName = '$_descriptorName.json';
-                  String filePath = '${directory.path}/$fileName';
-                  File file = File(filePath);
-
-                  // Check if the file already exists
-                  if (await file.exists()) {
-                    final shouldProceed = await showDialog<bool>(
-                        context: context,
-                        builder: (BuildContext context) {
-                          return AlertDialog(
-                            backgroundColor: AppColors.dialog(context),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20.0),
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10.0),
+                padding: const EdgeInsets.all(8.0),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(8.0),
+                  border: Border.all(color: AppColors.primary(context)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.text(context),
+                        ),
+                        children: [
+                          TextSpan(
+                            text:
+                                '${AppLocalizations.of(rootContext)!.translate('threshold')}: ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.cardTitle(context),
                             ),
-                            title: Text(
-                              AppLocalizations.of(rootContext)!
-                                  .translate('file_already_exists'),
-                              style: TextStyle(
-                                color: AppColors.cardTitle(context),
-                              ),
+                          ),
+                          TextSpan(
+                            text: '${condition['threshold']}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.normal,
+                              color: AppColors.text(context),
                             ),
-                            content: Text(
-                              AppLocalizations.of(rootContext)!
-                                  .translate('file_save_prompt'),
-                              style: TextStyle(
-                                color: AppColors.text(context),
-                              ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    RichText(
+                      text: TextSpan(
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.text(context),
+                        ),
+                        children: [
+                          TextSpan(
+                            text:
+                                '${AppLocalizations.of(rootContext)!.translate('older')}: ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.cardTitle(context),
                             ),
-                            actions: [
-                              InkwellButton(
-                                onTap: () {
-                                  Navigator.of(context).pop(false);
-                                },
-                                label: AppLocalizations.of(rootContext)!
-                                    .translate('cancel'),
-                                backgroundColor: AppColors.error(context),
-                                textColor: AppColors.gradient(context),
-                                icon: Icons.cancel_rounded,
-                                iconColor: AppColors.text(context),
-                              ),
-                              InkwellButton(
-                                onTap: () {
-                                  Navigator.of(context).pop(true);
-                                },
-                                label: AppLocalizations.of(rootContext)!
-                                    .translate('yes'),
-                                backgroundColor: AppColors.background(context),
-                                textColor: AppColors.text(context),
-                                icon: Icons.check_circle,
-                                iconColor: AppColors.gradient(context),
-                              ),
-                            ],
-                          );
-                        });
+                          ),
+                          TextSpan(
+                            text: '${condition['older']}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.normal,
+                              color: AppColors.text(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    RichText(
+                      text: TextSpan(
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        children: [
+                          TextSpan(
+                            text:
+                                '${AppLocalizations.of(rootContext)!.translate('aliases')}: ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.cardTitle(context),
+                            ),
+                          ),
+                          TextSpan(
+                            text: aliases.join(', '),
+                            style: TextStyle(
+                              fontWeight: FontWeight.normal,
+                              color: AppColors.text(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 20),
+          // Display public keys with aliases
+          Text(
+            AppLocalizations.of(rootContext)!.translate('pub_keys'),
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: AppColors.cardTitle(context),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Column(
+            children: publicKeysWithAlias.map((key) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10.0),
+                padding: const EdgeInsets.all(8.0),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(8.0),
+                  border: Border.all(color: AppColors.primary(context)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        children: [
+                          TextSpan(
+                            text:
+                                '${AppLocalizations.of(rootContext)!.translate('pub_key')}: ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.cardTitle(context),
+                            ),
+                          ),
+                          TextSpan(
+                            text: '${key['publicKey']}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.normal,
+                              color: AppColors.text(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    RichText(
+                      text: TextSpan(
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        children: [
+                          TextSpan(
+                            text:
+                                '${AppLocalizations.of(rootContext)!.translate('alias')}: ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.cardTitle(context),
+                            ),
+                          ),
+                          TextSpan(
+                            text: '${key['alias']}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.normal,
+                              color: AppColors.text(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            // Serialize data to JSON
+            final data = jsonEncode({
+              'descriptor': _finalDescriptor,
+              'publicKeysWithAlias': publicKeysWithAlias,
+              'descriptorName': _descriptorName,
+            });
 
-                    // If the user chooses not to proceed, exit
-                    if (!shouldProceed!) {
-                      return;
-                    }
+            // Request storage permission (required for Android 11 and below)
+            if (await Permission.storage.request().isGranted) {
+              // Get default Downloads directory
+              final directory = Directory('/storage/emulated/0/Download');
+              if (!await directory.exists()) {
+                await directory.create(recursive: true);
+              }
 
-                    // Increment the file name index until a unique file name is found
-                    int index = 1;
-                    while (await file.exists()) {
-                      fileName = '$_descriptorName($index).json';
-                      filePath = '${directory.path}/$fileName';
-                      file = File(filePath);
-                      index++;
-                    }
-                  }
+              String fileName = '$_descriptorName.json';
+              String filePath = '${directory.path}/$fileName';
+              File file = File(filePath);
 
-                  // Write JSON data to the file
-                  await file.writeAsString(data);
+              // Check if the file already exists
+              if (await file.exists()) {
+                final shouldProceed =
+                    (await DialogHelper.buildCustomDialog<bool>(
+                          context: rootContext,
+                          showCloseButton: false,
+                          titleKey: 'file_already_exists',
+                          content: Text(
+                            AppLocalizations.of(rootContext)!
+                                .translate('file_save_prompt'),
+                            style: TextStyle(
+                              color: AppColors.text(context),
+                            ),
+                          ),
+                          actions: [
+                            InkwellButton(
+                              onTap: () {
+                                Navigator.of(context, rootNavigator: true)
+                                    .pop(false);
+                              },
+                              label: AppLocalizations.of(rootContext)!
+                                  .translate('no'),
+                              backgroundColor: Colors.white,
+                              textColor: Colors.black,
+                              icon: Icons.cancel_rounded,
+                              iconColor: Colors.redAccent,
+                            ),
+                            InkwellButton(
+                              onTap: () {
+                                Navigator.of(context, rootNavigator: true)
+                                    .pop(true);
+                              },
+                              label: AppLocalizations.of(rootContext)!
+                                  .translate('yes'),
+                              backgroundColor: Colors.white,
+                              textColor: Colors.black,
+                              icon: Icons.check_circle,
+                              iconColor: AppColors.accent(context),
+                            ),
+                          ],
+                        )) ??
+                        false;
 
-                  SnackBarHelper.show(
-                    rootContext,
-                    message:
-                        '${AppLocalizations.of(rootContext)!.translate('file_saved')} ${directory.path}/$fileName',
-                  );
-                } else {
-                  SnackBarHelper.show(rootContext,
-                      message: AppLocalizations.of(rootContext)!
-                          .translate('storage_permission_needed'),
-                      color: AppColors.error(context));
+                // If the user chooses not to proceed, exit
+                if (!shouldProceed) {
+                  return;
                 }
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary(context),
-              ),
-              child: Text(
-                AppLocalizations.of(rootContext)!
-                    .translate('download_descriptor'),
-                style: TextStyle(
-                  color: AppColors.background(context),
-                ),
-              ),
+
+                // Increment the file name index until a unique file name is found
+                int index = 1;
+                while (await file.exists()) {
+                  fileName = '$_descriptorName($index).json';
+                  filePath = '${directory.path}/$fileName';
+                  file = File(filePath);
+                  index++;
+                }
+              }
+
+              // Write JSON data to the file
+              await file.writeAsString(data);
+
+              SnackBarHelper.show(
+                rootContext,
+                message:
+                    '${AppLocalizations.of(rootContext)!.translate('file_saved')} ${directory.path}/$fileName',
+              );
+            } else {
+              SnackBarHelper.showError(
+                rootContext,
+                message: AppLocalizations.of(rootContext)!
+                    .translate('storage_permission_needed'),
+              );
+            }
+          },
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.primary(context),
+          ),
+          child: Text(
+            AppLocalizations.of(rootContext)!.translate('download_descriptor'),
+            style: TextStyle(
+              color: AppColors.background(context),
             ),
-            TextButton(
-              onPressed: () {
-                // print('_mnemonic: $_mnemonic');
-                Navigator.pop(context);
-                _navigateToSharedWallet();
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary(context),
-              ),
-              child: Text(
-                AppLocalizations.of(rootContext)!.translate('navigate_wallet'),
-                style: TextStyle(
-                  color: AppColors.background(context),
-                ),
-              ),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            // print('_mnemonic: $_mnemonic');
+            Navigator.of(context, rootNavigator: true).pop();
+
+            _navigateToSharedWallet();
+          },
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.primary(context),
+          ),
+          child: Text(
+            AppLocalizations.of(rootContext)!.translate('navigate_wallet'),
+            style: TextStyle(
+              color: AppColors.background(context),
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary(context),
-              ),
-              child: Text(
-                AppLocalizations.of(rootContext)!.translate('close'),
-                style: TextStyle(
-                  color: AppColors.background(context),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
+      actionsLayout: Axis.vertical,
     );
   }
 }

@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
-import 'package:flutter_wallet/utilities/inkwell_button.dart';
-import 'package:flutter_wallet/utilities/snackbar_helper.dart';
+import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
+import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_security_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_transaction_helpers.dart';
 import 'package:shimmer/shimmer.dart';
@@ -163,11 +164,10 @@ class WalletUiHelpers {
                               ),
                               tooltip: 'Copy to clipboard',
                               onPressed: () {
-                                Clipboard.setData(ClipboardData(text: address));
-                                SnackBarHelper.show(
-                                  context,
-                                  message: AppLocalizations.of(context)!
-                                      .translate('address_clipboard'),
+                                UtilitiesService.copyToClipboard(
+                                  context: context,
+                                  text: address,
+                                  messageKey: 'address_clipboard',
                                 );
                               },
                             ),
@@ -320,88 +320,6 @@ class WalletUiHelpers {
     }
   }
 
-  // Box for displaying general wallet info with onTap functionality
-  Widget buildInfoBoxMultisig(
-    String title,
-    String data, {
-    VoidCallback? onTap,
-    bool showCopyButton = false,
-    String? subtitle,
-  }) {
-    return GestureDetector(
-      onTap: onTap, // Detects tap and calls the passed function
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8.0), // Rounded corners
-        ),
-        elevation: 4, // Subtle shadow for depth
-        color: AppColors.gradient(context), // Match button background
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color:
-                      AppColors.cardTitle(context), // Match button text color
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      data,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: AppColors.text(
-                            context), // Black text to match theme
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (showCopyButton) // Display copy button if true
-                    IconButton(
-                      icon: Icon(
-                        Icons.copy,
-                        color: AppColors.cardTitle(context),
-                      ),
-                      tooltip: 'Copy to clipboard',
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: data));
-                        SnackBarHelper.show(
-                          context,
-                          message: AppLocalizations.of(context)!
-                              .translate('psbt_clipboard'),
-                        );
-                      },
-                    ),
-                ],
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.error(context),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget buildTransactionsBox() {
     // print('timestamp: $timeStamp');
 
@@ -468,93 +386,64 @@ class WalletUiHelpers {
   void _showPubKeyDialog() {
     final rootContext = context;
 
-    showDialog(
+    DialogHelper.buildCustomDialog(
       context: rootContext,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: AppColors.dialog(context),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.0),
-          ),
-          title: Text(
-            AppLocalizations.of(rootContext)!.translate('pub_key'),
+      titleKey: 'pub_key',
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            AppLocalizations.of(rootContext)!.translate('saved_pub_key'),
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.cardTitle(context),
+              fontSize: 16,
+              color: AppColors.text(context),
             ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                AppLocalizations.of(rootContext)!.translate('saved_pub_key'),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.text(context),
-                ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12.0),
+            decoration: BoxDecoration(
+              color: AppColors.container(context),
+              borderRadius: BorderRadius.circular(8.0),
+              border: Border.all(
+                color: AppColors.background(context),
               ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12.0),
-                decoration: BoxDecoration(
-                  color: AppColors.container(context),
-                  borderRadius: BorderRadius.circular(8.0),
-                  border: Border.all(
-                    color: AppColors.background(context),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    pubKeyController.text,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: AppColors.text(context),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        pubKeyController.text,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: AppColors.text(context),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: Icon(
-                        Icons.copy,
-                        color: AppColors.icon(context),
-                      ),
-                      onPressed: () {
-                        Clipboard.setData(
-                            ClipboardData(text: pubKeyController.text));
-                        SnackBarHelper.show(
-                          rootContext,
-                          message: AppLocalizations.of(rootContext)!
-                              .translate('pub_key_clipboard'),
-                        );
-                      },
-                    ),
-                  ],
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(
+                    Icons.copy,
+                    color: AppColors.icon(context),
+                  ),
+                  onPressed: () {
+                    UtilitiesService.copyToClipboard(
+                      context: context,
+                      text: pubKeyController.text,
+                      messageKey: 'pub_key_clipboard',
+                    );
+                  },
                 ),
-              ),
-            ],
-          ),
-          actions: [
-            InkwellButton(
-              onTap: () {
-                Navigator.of(context).pop();
-              },
-              label: AppLocalizations.of(rootContext)!.translate('close'),
-              backgroundColor: AppColors.primary(context),
-              textColor: Colors.white,
-              icon: Icons.close,
+              ],
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 
@@ -606,10 +495,9 @@ class WalletUiHelpers {
     // print('ConnectivityResult: $connectivityResult');
 
     if (connectivityResult.contains(ConnectivityResult.none)) {
-      SnackBarHelper.show(
+      SnackBarHelper.showError(
         context,
         message: AppLocalizations.of(context)!.translate('no_internet'),
-        color: AppColors.error(context),
       );
 
       return; // Exit early if there's no internet
@@ -666,10 +554,11 @@ class WalletUiHelpers {
       print('Sync error: $e');
       print('Stack trace: $stackTrace'); // Helps debug where the error occurs
 
-      SnackBarHelper.show(context,
-          message:
-              "${AppLocalizations.of(context)!.translate('syncing_error')} ${e.toString()}",
-          color: AppColors.error(context));
+      SnackBarHelper.showError(
+        context,
+        message:
+            "${AppLocalizations.of(context)!.translate('syncing_error')} ${e.toString()}",
+      );
     }
   }
 }

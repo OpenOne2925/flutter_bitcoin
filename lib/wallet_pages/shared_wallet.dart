@@ -8,11 +8,14 @@ import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
-import 'package:flutter_wallet/utilities/base_scaffold.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_buttons_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_spending_path_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_ui_helpers.dart';
+import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
+import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:hive/hive.dart';
 
 /// SharedWallet Page
@@ -418,18 +421,23 @@ class SharedWalletState extends State<SharedWallet> {
   }
 
   Future<void> _fetchCurrentBlockHeight() async {
-    int currentHeight = await walletService.fetchCurrentBlockHeight();
-    // print('currentHeight: $currentHeight');
+    try {
+      int currentHeight = await walletService.fetchCurrentBlockHeight();
+      // print('currentHeight: $currentHeight');
 
-    String blockTimestamp =
-        await walletService.fetchBlockTimestamp(currentHeight);
+      String blockTimestamp =
+          await walletService.fetchBlockTimestamp(currentHeight);
 
-    // print('blockTimestamp: $blockTimestamp');
+      print('blockTimestamp: $blockTimestamp');
 
-    setState(() {
-      _currentHeight = currentHeight;
-      _timeStamp = blockTimestamp;
-    });
+      setState(() {
+        _currentHeight = currentHeight;
+        _timeStamp = blockTimestamp;
+      });
+    } catch (e) {
+      print('Syncing error: $e'); // Debugging log
+      throw Exception('Syncing error: $e'); // Properly throw an error
+    }
   }
 
   Future<void> _checkInternetAndSync() async {
@@ -443,29 +451,34 @@ class SharedWalletState extends State<SharedWallet> {
     }
   }
 
-  // Show a dialog box
   void _showNetworkDialog() {
-    showDialog(
-      barrierDismissible: false,
+    final rootContext = context;
+
+    DialogHelper.buildCustomDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("🌐 No Internet Connection"),
-          content: Text(
-            "Your wallet needs to sync with the blockchain.\n\nPlease connect to the internet to proceed.",
-            style: TextStyle(fontSize: 16),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                _checkInternetAndSync();
-              },
-              child: Text("Retry 🔄"),
+      titleKey: 'no_connection',
+      showCloseButton: false,
+      content: Text(
+        AppLocalizations.of(rootContext)!.translate('connect_internet'),
+        style: TextStyle(
+          color: AppColors.text(context),
+          fontSize: 16,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () async {
+            Navigator.of(context, rootNavigator: true).pop();
+            _checkInternetAndSync();
+          },
+          child: Text(
+            AppLocalizations.of(rootContext)!.translate('retry'),
+            style: TextStyle(
+              color: AppColors.text(context),
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 
@@ -574,7 +587,8 @@ class SharedWalletState extends State<SharedWallet> {
       );
     }
 
-    // print(_timeStamp);
+    print('avBalance: $avBalance');
+    print('ledBalance: $ledBalance');
 
     final walletUiHelpers = WalletUiHelpers(
       address: address,
@@ -595,6 +609,7 @@ class SharedWalletState extends State<SharedWallet> {
       wallet: wallet,
       isSingleWallet: false,
       descriptor: _descriptor,
+      descriptorName: _descriptorName,
     );
 
     final spendingHelper = WalletSpendingPathHelpers(
@@ -653,11 +668,15 @@ class SharedWalletState extends State<SharedWallet> {
           final List<ConnectivityResult> connectivityResult =
               await (Connectivity().checkConnectivity());
 
-          walletUiHelpers.handleRefresh(
-            _syncWallet,
-            connectivityResult,
-            context,
-          );
+          try {
+            walletUiHelpers.handleRefresh(
+              _syncWallet,
+              connectivityResult,
+              context,
+            );
+          } catch (e) {
+            SnackBarHelper.showError(context, message: 'syncing_error');
+          }
         },
         child: Column(
           children: [

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
-import 'package:flutter_wallet/utilities/base_scaffold.dart';
+import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
-import 'package:flutter_wallet/utilities/snackbar_helper.dart';
+import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 

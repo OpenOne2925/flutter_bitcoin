@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
-import 'package:flutter_wallet/utilities/app_colors.dart';
-import 'package:flutter_wallet/utilities/snackbar_helper.dart';
+import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class QRScannerPage extends StatefulWidget {
@@ -35,10 +34,9 @@ class QRScannerPageState extends State<QRScannerPage> {
         controller.stop(); // Stop the scanner when a valid address is found
         Navigator.pop(context, recipientAddressStr); // Return the address
       } else {
-        SnackBarHelper.show(
+        SnackBarHelper.showError(
           context,
           message: AppLocalizations.of(context)!.translate('invalid_address'),
-          color: AppColors.error(context),
         );
       }
     }

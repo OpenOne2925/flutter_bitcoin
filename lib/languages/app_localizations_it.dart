@@ -1,7 +1,7 @@
 const Map<String, String> localizedStringsIt = {
   'welcome': 'Benvenuto su ShareHaven!',
   'version': 'Versione',
-  'welcoming_description': 'Il tuo compagno di portafoglio Bitcoin.',
+  'welcoming_description': 'Il tuo compagno Bitcoin',
 
   // Settings
   'language': 'Seleziona lingua',
@@ -34,7 +34,6 @@ const Map<String, String> localizedStringsIt = {
   'personal_wallet': 'Portafoglio personale',
   'shared_wallet': 'Portafoglio condiviso',
   'ca_wallet': 'Portafoglio CA',
-  'edit_alias': 'Modifica alias',
   'pub_key': 'Chiave pubblica',
   'address': 'Indirizzo',
   'transactions': 'Transazioni',
@@ -157,6 +156,7 @@ const Map<String, String> localizedStringsIt = {
   'alias_removed': 'rimosso',
   'multisig_updated': 'Multisig aggiornato con successo',
   'timelock_updated': 'Condizione di blocco temporale aggiornata con successo',
+  'alias_updated': 'Alias aggiornato con successo',
 
 // Private Data (Dati Privati)
   'private_data': 'Dati privati',
@@ -179,14 +179,15 @@ const Map<String, String> localizedStringsIt = {
   'yes': 'Sì',
   'no': 'No',
   'decode': 'Decodifica',
+  'retry': 'Riprova 🔄',
 
 // Spending Summary (Riepilogo delle spese)
   'spending_summary': 'Riepilogo delle spese',
   'type': 'Tipo',
   'threshold': 'Soglia',
   'transaction_info': 'Informazioni sulla transazione',
-  'can_be_spent': 'può essere speso!',
-  'unconfirmed': 'Non confermato',
+  'can_be_spent': 'possoni essere spesi!',
+  'unconfirmed': 'Non confermati',
   'no_transactions_available': 'Nessuna transazione disponibile',
   'value': 'Valore',
 
@@ -205,7 +206,7 @@ const Map<String, String> localizedStringsIt = {
   'sats_available': 'sats disponibili in',
   'future_sats': 'i sats saranno disponibili in futuro',
   'upcoming_funds': 'Fondi in arrivo - Tocca ⋮ per i dettagli',
-  'spending_paths_available': 'Percorsi di spesa disponibili',
+  'spending_paths_available': 'Percorsi di spesa',
   'no_spending_paths_available': 'Nessun percorso di spesa disponibile',
 
   // Sincronizzazione
@@ -244,6 +245,7 @@ const Map<String, String> localizedStringsIt = {
   'pub_keys': 'Chiavi Pubbliche',
   'create_descriptor': 'Crea Descrittore',
   'edit_public_key': 'Modifica Chiave Pubblica',
+  'edit_alias': 'Modifica Alias',
   'add_public_key': 'Aggiungi Chiave Pubblica',
   'enter_pub_key': 'Inserisci Chiave Pubblica',
   'enter_alias': 'Inserisci Nome Alias',
@@ -256,12 +258,12 @@ const Map<String, String> localizedStringsIt = {
 
 // Creare o Ripristinare Portafoglio Singolo
   'create_restore': 'Crea o Ripristina Portafoglio',
-  'new_mnemonic': 'Nuovo mnemonico generato!',
+  'new_mnemonic': 'Nuovo mnemonica generato!',
   'wallet_loaded': 'Portafoglio caricato con successo!',
   'wallet_created': 'Portafoglio creato con successo!',
   'creating_wallet': 'Creazione del portafoglio in corso...',
-  'enter_mnemonic': 'Inserisci Mnemonico',
-  'enter_12': 'Inserisci qui il tuo mnemonico di 12 parole',
+  'enter_mnemonic': 'Inserisci Mnemonica',
+  'enter_12': 'Inserisci qui la tua mnemonica di 12 parole',
   'create_wallet': 'Crea Portafoglio',
   'generate_mnemonic': 'Genera Mnemonica',
 
@@ -286,5 +288,8 @@ const Map<String, String> localizedStringsIt = {
   'morning_check': "🌅 Buongiorno! È ora di un aggiornamento!",
   'afternoon_check': "🌞 Controllo del pomeriggio! Dai un aggiornamento!",
   'night_check': "🌙 Aggiornamento notturno? Perché no!",
-  'processing': 'Elaborazione...'
+  'processing': 'Elaborazione...',
+  'no_connection': '🌐 Nessuna connessione a Internet',
+  'connect_internet':
+      'Il tuo portafoglio deve sincronizzarsi con la blockchain.\n\nPer favore, connettiti a Internet per continuare.',
 };

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
-import 'package:flutter_wallet/utilities/inkwell_button.dart';
-import 'package:flutter_wallet/utilities/snackbar_helper.dart';
+import 'package:flutter_wallet/services/utilities_service.dart';
+import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 
@@ -36,8 +35,6 @@ class WalletTransactionHelpers {
                     .length -
                 7)
         : 'Unconfirmed';
-
-    print(blockTime);
 
     // Extract transaction fee
     final fee = transaction['fee'] ?? 0;
@@ -95,285 +92,244 @@ class WalletTransactionHelpers {
 
     final rootContext = context;
 
-    // Build the dialog
-    showDialog(
-      context: rootContext,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: AppColors.dialog(context),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.0),
-          ),
-          title: Text(
-            AppLocalizations.of(rootContext)!.translate('transaction_details'),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.cardTitle(context),
+    DialogHelper.buildCustomDialog(
+      context: context,
+      titleKey: 'transaction_details',
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 12.0),
+            padding: const EdgeInsets.all(12.0),
+            decoration: BoxDecoration(
+              color: AppColors.container(context),
+              borderRadius: BorderRadius.circular(12.0),
+              border: Border.all(color: AppColors.background(context)),
             ),
-          ),
-          content: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12.0),
-                  padding: const EdgeInsets.all(12.0),
-                  decoration: BoxDecoration(
-                    color: AppColors.container(context),
-                    borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: AppColors.background(context)),
+                // Transaction Type
+                Text(
+                  isInternal
+                      ? AppLocalizations.of(rootContext)!
+                          .translate('internal_tx')
+                      : isSent
+                          ? AppLocalizations.of(rootContext)!
+                              .translate('sent_tx')
+                          : AppLocalizations.of(rootContext)!
+                              .translate('received_tx'),
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: AppColors.cardTitle(context),
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Transaction Type
-                      Text(
-                        isInternal
-                            ? AppLocalizations.of(rootContext)!
-                                .translate('internal_tx')
-                            : isSent
-                                ? AppLocalizations.of(rootContext)!
-                                    .translate('sent_tx')
-                                : AppLocalizations.of(rootContext)!
-                                    .translate('received_tx'),
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: AppColors.cardTitle(context),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                ),
+                const SizedBox(height: 8),
 
-                      // Sender Addresses
-                      Text(
-                        AppLocalizations.of(rootContext)!.translate('senders'),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.cardTitle(context),
-                        ),
+                // Sender Addresses
+                Text(
+                  AppLocalizations.of(rootContext)!.translate('senders'),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.cardTitle(context),
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: inputAddresses.map((sender) {
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.container(context),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.primary(context)),
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: inputAddresses.map((sender) {
-                          return Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: AppColors.container(context),
-                              borderRadius: BorderRadius.circular(8),
-                              border:
-                                  Border.all(color: AppColors.primary(context)),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              sender,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.text(context),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    sender,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: AppColors.text(context),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.copy,
-                                    color: AppColors.icon(context),
-                                    size: 20,
-                                  ),
-                                  onPressed: () {
-                                    Clipboard.setData(
-                                        ClipboardData(text: sender));
-
-                                    SnackBarHelper.show(
-                                      rootContext,
-                                      message:
-                                          "${AppLocalizations.of(rootContext)!.translate('address_clipboard')}: $sender",
-                                    );
-                                  },
-                                ),
-                              ],
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.copy,
+                              color: AppColors.icon(context),
+                              size: 20,
                             ),
-                          );
-                        }).toList(),
+                            onPressed: () {
+                              UtilitiesService.copyToClipboard(
+                                context: rootContext,
+                                text: sender,
+                                messageKey: 'address_clipboard',
+                              );
+                            },
+                          ),
+                        ],
                       ),
+                    );
+                  }).toList(),
+                ),
 
-                      const SizedBox(height: 8),
+                const SizedBox(height: 8),
 
-                      // Receiver Addresses
-                      Text(
-                        AppLocalizations.of(rootContext)!
-                            .translate('receivers'),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.cardTitle(context),
-                        ),
+                // Receiver Addresses
+                Text(
+                  AppLocalizations.of(rootContext)!.translate('receivers'),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.cardTitle(context),
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: outputAddresses.map((receiver) {
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppColors.container(context),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.primary(context)),
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: outputAddresses.map((receiver) {
-                          return Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: AppColors.container(context),
-                              borderRadius: BorderRadius.circular(8),
-                              border:
-                                  Border.all(color: AppColors.primary(context)),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              receiver,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.text(context),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    receiver,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: AppColors.text(context),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.copy,
-                                    color: AppColors.icon(context),
-                                    size: 20,
-                                  ),
-                                  onPressed: () {
-                                    Clipboard.setData(
-                                        ClipboardData(text: receiver));
-
-                                    SnackBarHelper.show(
-                                      rootContext,
-                                      message:
-                                          "${AppLocalizations.of(rootContext)!.translate('address_clipboard')}: $receiver",
-                                    );
-                                  },
-                                ),
-                              ],
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.copy,
+                              color: AppColors.icon(context),
+                              size: 20,
                             ),
-                          );
-                        }).toList(),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      // Amount Sent/Received
-                      Text(
-                        AppLocalizations.of(rootContext)!.translate('amount'),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.cardTitle(context),
-                        ),
-                      ),
-                      Text(
-                        "$amount sats",
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.text(context),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Transaction Fee
-                      if (isSent || isInternal) ...[
-                        Text(
-                          AppLocalizations.of(rootContext)!.translate('fee'),
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.cardTitle(context),
+                            onPressed: () {
+                              UtilitiesService.copyToClipboard(
+                                context: rootContext,
+                                text: receiver,
+                                messageKey: 'address_clipboard',
+                              );
+                            },
                           ),
-                        ),
-                        Text(
-                          "$fee sats",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.text(context),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
 
-                      // Confirmation Details
-                      Text(
-                        AppLocalizations.of(rootContext)!
-                            .translate('confirmation_details'),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.cardTitle(context),
-                        ),
-                      ),
-                      Text(
-                        isConfirmed
-                            ? "${AppLocalizations.of(rootContext)!.translate('confirmed_block')}: $blockHeight"
-                            : "${AppLocalizations.of(rootContext)!.translate('status')}: ${AppLocalizations.of(rootContext)!.translate('unconfirmed')}",
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.text(context),
-                        ),
-                      ),
-                      if (isConfirmed)
-                        Text(
-                          "${AppLocalizations.of(rootContext)!.translate('timestamp')}: $blockTime",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.text(context),
-                          ),
-                        ),
-                      GestureDetector(
-                        onTap: () async {
-                          final Uri url = Uri.parse(
-                              "https://mempool.space/testnet4/tx/$txid/");
+                const SizedBox(height: 8),
 
-                          if (await canLaunchUrl(url)) {
-                            await launchUrl(url,
-                                mode: LaunchMode.externalApplication);
-                          } else {
-                            throw "Could not launch $url";
-                          }
-                        },
-                        child: Text(
-                          AppLocalizations.of(rootContext)!
-                              .translate('mempool'),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.cardTitle(context),
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ],
+                // Amount Sent/Received
+                Text(
+                  AppLocalizations.of(rootContext)!.translate('amount'),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.cardTitle(context),
+                  ),
+                ),
+                Text(
+                  "$amount sats",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.text(context),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Transaction Fee
+                if (isSent || isInternal) ...[
+                  Text(
+                    AppLocalizations.of(rootContext)!.translate('fee'),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.cardTitle(context),
+                    ),
+                  ),
+                  Text(
+                    "$fee sats",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.text(context),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+
+                // Confirmation Details
+                Text(
+                  AppLocalizations.of(rootContext)!
+                      .translate('confirmation_details'),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.cardTitle(context),
+                  ),
+                ),
+                Text(
+                  isConfirmed
+                      ? "${AppLocalizations.of(rootContext)!.translate('confirmed_block')}: $blockHeight"
+                      : "${AppLocalizations.of(rootContext)!.translate('status')}: ${AppLocalizations.of(rootContext)!.translate('unconfirmed')}",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.text(context),
+                  ),
+                ),
+                if (isConfirmed)
+                  Text(
+                    "${AppLocalizations.of(rootContext)!.translate('timestamp')}: $blockTime",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.text(context),
+                    ),
+                  ),
+                GestureDetector(
+                  onTap: () async {
+                    final Uri url =
+                        Uri.parse("https://mempool.space/testnet4/tx/$txid/");
+
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url,
+                          mode: LaunchMode.externalApplication);
+                    } else {
+                      throw "Could not launch $url";
+                    }
+                  },
+                  child: Text(
+                    AppLocalizations.of(rootContext)!.translate('mempool'),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.cardTitle(context),
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          actions: [
-            InkwellButton(
-              onTap: () {
-                Navigator.of(context).pop();
-              },
-              label: AppLocalizations.of(rootContext)!.translate('close'),
-              backgroundColor: AppColors.background(context),
-              textColor: AppColors.text(context),
-              icon: Icons.cancel_rounded,
-              iconColor: AppColors.gradient(context),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
   }
 

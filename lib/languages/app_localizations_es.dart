@@ -35,7 +35,6 @@ const Map<String, String> localizedStringsEs = {
   'personal_wallet': 'Billetera personal',
   'shared_wallet': 'Billetera compartida',
   'ca_wallet': 'Billetera CA',
-  'edit_alias': 'Editar alias',
   'pub_key': 'Clave pública',
   'address': 'Dirección',
   'transactions': 'Transacciones',
@@ -162,6 +161,7 @@ const Map<String, String> localizedStringsEs = {
   'alias_removed': 'eliminado',
   'multisig_updated': 'Multisig actualizado con éxito',
   'timelock_updated': 'Condición de bloqueo de tiempo actualizada con éxito',
+  'alias_updated': 'Alias actualizado con éxito',
 
 // Private Data (Datos privados)
   'private_data': 'Datos privados',
@@ -184,6 +184,7 @@ const Map<String, String> localizedStringsEs = {
   'yes': 'Sí',
   'no': 'No',
   'decode': 'Decodifica',
+  'retry': 'Reintentar 🔄',
 
 // Spending Summary (Resumen de gastos)
   'spending_summary': 'Resumen de gastos',
@@ -210,7 +211,7 @@ const Map<String, String> localizedStringsEs = {
   'sats_available': 'sats disponibles en',
   'future_sats': 'los sats estarán disponibles en el futuro',
   'upcoming_funds': 'Fondos próximos - Pulsa ⋮ para más detalles',
-  'spending_paths_available': 'Rutas de gasto disponibles',
+  'spending_paths_available': 'Rutas de gasto',
   'no_spending_paths_available': 'No hay rutas de gasto disponibles',
 
   // Syncing
@@ -249,6 +250,7 @@ const Map<String, String> localizedStringsEs = {
   'pub_keys': 'Claves Públicas',
   'create_descriptor': 'Crear Descriptor',
   'edit_public_key': 'Editar Clave Pública',
+  'edit_alias': 'Editar Alias',
   'add_public_key': 'Agregar Clave Pública',
   'enter_pub_key': 'Ingrese Clave Pública',
   'enter_alias': 'Ingrese Nombre del Alias',
@@ -291,5 +293,8 @@ const Map<String, String> localizedStringsEs = {
   'morning_check': "🌅 ¡Buenos días! ¡Es hora de actualizar!",
   'afternoon_check': "🌞 ¡Revisión de la tarde! ¡Dale una actualización!",
   'night_check': "🌙 ¿Refresco nocturno? ¡Por qué no!",
-  'processing': 'Procesando...'
+  'processing': 'Procesando...',
+  'no_connection': '🌐 Sin conexión a Internet',
+  'connect_internet':
+      'Tu monedero necesita sincronizarse con la blockchain.\n\nPor favor, conéctate a Internet para continuar.',
 };

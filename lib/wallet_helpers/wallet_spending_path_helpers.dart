@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
@@ -8,6 +7,7 @@ import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers.dart';
+import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 
 class WalletSpendingPathHelpers {
   final List<Map<String, String>> pubKeysAlias;
@@ -397,101 +397,74 @@ class WalletSpendingPathHelpers {
                       onTap: () async {
                         final rootContext = context;
 
-                        bool recipientEntered = await showDialog(
-                          context: rootContext,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: Text(
-                                AppLocalizations.of(rootContext)!
-                                    .translate('enter_rec_addr'),
-                                style: TextStyle(
-                                  color: AppColors.cardTitle(context),
+                        bool recipientEntered = (await DialogHelper
+                                .buildCustomDialog<bool>(
+                              context: rootContext,
+                              titleKey: 'enter_rec_addr',
+                              content: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  maxHeight:
+                                      MediaQuery.of(context).size.height * 0.7,
                                 ),
-                              ),
-                              backgroundColor: AppColors.dialog(context),
-                              content: StatefulBuilder(
-                                builder: (
-                                  BuildContext context,
-                                  StateSetter setState,
-                                ) {
-                                  return SingleChildScrollView(
-                                    child: ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        maxHeight:
-                                            MediaQuery.of(context).size.height *
-                                                0.7,
-                                      ),
-                                      child: TextFormField(
-                                        controller: recipientController,
-                                        decoration: CustomTextFieldStyles
-                                            .textFieldDecoration(
-                                          context: context,
-                                          labelText: AppLocalizations.of(
-                                                  rootContext)!
-                                              .translate('recipient_address'),
-                                          hintText:
-                                              AppLocalizations.of(rootContext)!
-                                                  .translate('enter_rec_addr'),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
+                                child: TextFormField(
+                                  controller: recipientController,
+                                  decoration:
+                                      CustomTextFieldStyles.textFieldDecoration(
+                                    context: context,
+                                    labelText: AppLocalizations.of(rootContext)!
+                                        .translate('recipient_address'),
+                                    hintText: AppLocalizations.of(rootContext)!
+                                        .translate('enter_rec_addr'),
+                                  ),
+                                ),
                               ),
                               actions: [
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     InkwellButton(
-                                      onTap: () =>
-                                          Navigator.of(context).pop(true),
+                                      onTap: () => Navigator.of(context,
+                                              rootNavigator: true)
+                                          .pop(false),
+                                      label: AppLocalizations.of(rootContext)!
+                                          .translate('cancel'),
+                                      backgroundColor: AppColors.text(context),
+                                      textColor: AppColors.gradient(context),
+                                      icon: Icons.dangerous,
+                                      iconColor: AppColors.error(context),
+                                    ),
+                                    InkwellButton(
+                                      onTap: () => Navigator.of(context,
+                                              rootNavigator: true)
+                                          .pop(true),
                                       label: AppLocalizations.of(rootContext)!
                                           .translate('confirm'),
-                                      backgroundColor:
-                                          AppColors.background(context),
-                                      textColor: AppColors.text(context),
+                                      backgroundColor: AppColors.text(context),
+                                      textColor: AppColors.gradient(context),
                                       icon: Icons.verified,
-                                      iconColor: AppColors.gradient(context),
+                                      iconColor: AppColors.icon(context),
                                     ),
                                   ],
                                 ),
                               ],
-                            );
-                          },
-                        );
+                            )) ??
+                            false;
 
                         if (recipientEntered) {
-                          // Show loading dialog
-                          showDialog(
-                            context: rootContext,
-                            barrierDismissible: false, // Prevent closing
-                            builder: (BuildContext context) {
-                              return AlertDialog(
-                                backgroundColor: AppColors.dialog(context),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircularProgressIndicator(),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      AppLocalizations.of(rootContext)!
-                                          .translate('processing'),
-                                      style: TextStyle(
-                                        color: AppColors.text(context),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          );
+                          // Show the loading dialog
+                          DialogHelper.showLoadingDialog(rootContext);
 
-                          sendTxHelper.sendTx(
-                            true,
-                            isFromSpendingPath: true,
-                            index: index,
-                            amount: totalSpendable,
-                          );
+                          try {
+                            await sendTxHelper.sendTx(
+                              true,
+                              isFromSpendingPath: true,
+                              index: index,
+                              amount: totalSpendable,
+                            );
+                          } finally {
+                            Navigator.of(rootContext, rootNavigator: true)
+                                .pop(); // Dismiss dialog
+                          }
                         }
                       },
                       child: Icon(
@@ -589,272 +562,237 @@ class WalletSpendingPathHelpers {
   void showPathsDialog() async {
     final rootContext = context;
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: AppColors.dialog(context),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.0), // Rounded corners
-          ),
-          title: Text(
-            AppLocalizations.of(rootContext)!
-                .translate('spending_paths_available'),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.cardTitle(context),
-            ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: spendingPaths.map<Widget>((pathInfo) {
-                // Extract aliases for the current pathInfo's fingerprints
-                final List<String> pathAliases =
-                    (pathInfo['fingerprints'] as List<dynamic>)
-                        .map<String>((fingerprint) {
-                  final matchedAlias = pubKeysAlias.firstWhere(
-                    (pubKeyAlias) =>
-                        pubKeyAlias['publicKey']!.contains(fingerprint),
-                    orElse: () =>
-                        {'alias': fingerprint}, // Fallback to fingerprint
-                  );
-                  return matchedAlias['alias'] ?? fingerprint;
-                }).toList();
+    DialogHelper.buildCustomDialog(
+      context: rootContext,
+      titleKey: 'spending_paths_available',
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: spendingPaths.map<Widget>((pathInfo) {
+          // Extract aliases for the current pathInfo's fingerprints
+          final List<String> pathAliases =
+              (pathInfo['fingerprints'] as List<dynamic>)
+                  .map<String>((fingerprint) {
+            final matchedAlias = pubKeysAlias.firstWhere(
+              (pubKeyAlias) => pubKeyAlias['publicKey']!.contains(fingerprint),
+              orElse: () => {'alias': fingerprint}, // Fallback to fingerprint
+            );
+            return matchedAlias['alias'] ?? fingerprint;
+          }).toList();
 
-                // Extract timelock for the path
-                final timelock = pathInfo['timelock'] ?? 0;
+          // Extract timelock for the path
+          final timelock = pathInfo['timelock'] ?? 0;
 
-                // print('Timelock for the path: $timelock');
-                // print('Current blockchain height: $currentHeight');
+          // print('Timelock for the path: $timelock');
+          // print('Current blockchain height: $currentHeight');
 
-                String timeRemaining = 'Spendable';
+          String timeRemaining = 'Spendable';
 
-                // Gather all transactions for the display
-                List<Widget> transactionDetails = utxos.map<Widget>((utxo) {
-                  // Debug print for transaction ID
-                  // print('Processing Transaction ID: ${utxo['txid']}');
+          // Gather all transactions for the display
+          List<Widget> transactionDetails = utxos.map<Widget>((utxo) {
+            // Debug print for transaction ID
+            // print('Processing Transaction ID: ${utxo['txid']}');
 
-                  // Access the block_height of the transaction
-                  final blockHeight = utxo['status']['block_height'];
-                  // print(
-                  //     'Transaction block height: $blockHeight, $_currentHeight');
+            // Access the block_height of the transaction
+            final blockHeight = utxo['status']['block_height'];
+            // print(
+            //     'Transaction block height: $blockHeight, $_currentHeight');
 
-                  final value = utxo['value'];
+            final value = utxo['value'];
 
-                  if (blockHeight == null) {
-                    // Handle unconfirmed UTXOs
-                    return RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.normal,
-                          color: AppColors.text(context),
-                        ),
-                        children: [
-                          TextSpan(
-                            text:
-                                "${AppLocalizations.of(rootContext)!.translate('value')}: ",
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.cardTitle(context),
-                            ),
-                          ),
-                          TextSpan(
-                            text:
-                                "$value sats - ${AppLocalizations.of(rootContext)!.translate('unconfirmed')}",
-                            style: TextStyle(
-                              color: AppColors.text(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  // Determine if the transaction is spendable
-                  final isSpendable =
-                      blockHeight + timelock - 1 <= currentHeight ||
-                          timelock == 0;
-                  // print('Is transaction spendable? $isSpendable');
-
-                  final remainingBlocks =
-                      blockHeight + timelock - 1 - currentHeight;
-                  // print(
-                  //     'Remaining blocks until timelock expires: $remainingBlocks');
-
-                  // Calculate time remaining if not spendable
-                  if (!isSpendable) {
-                    // print('Calculating time remaining...');
-                    print('Average block time: $avgBlockTime seconds');
-                    final totalSeconds = remainingBlocks * avgBlockTime;
-                    timeRemaining =
-                        walletService.formatTime(totalSeconds, rootContext);
-                    // print('Formatted time remaining: $timeRemaining');
-                  }
-
-                  return RichText(
-                    text: TextSpan(
+            if (blockHeight == null) {
+              // Handle unconfirmed UTXOs
+              return RichText(
+                text: TextSpan(
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.normal,
+                    color: AppColors.text(context),
+                  ),
+                  children: [
+                    TextSpan(
+                      text:
+                          "${AppLocalizations.of(rootContext)!.translate('value')}: ",
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.cardTitle(context),
+                      ),
+                    ),
+                    TextSpan(
+                      text:
+                          "$value sats - ${AppLocalizations.of(rootContext)!.translate('unconfirmed')}",
+                      style: TextStyle(
                         color: AppColors.text(context),
                       ),
-                      children: [
-                        if (isSpendable) ...[
-                          TextSpan(
-                            text: "$value sats ",
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          TextSpan(
-                            text: AppLocalizations.of(rootContext)!
-                                .translate('can_be_spent'),
-                          ),
-                        ] else ...[
-                          TextSpan(
-                            text:
-                                "${AppLocalizations.of(rootContext)!.translate('value')}: ",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.cardTitle(context)),
-                          ),
-                          TextSpan(
-                            text: "$value sats\n",
-                          ),
-                          TextSpan(
-                            text:
-                                "${AppLocalizations.of(rootContext)!.translate('time_remaining_text')}: ",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.cardTitle(context)),
-                          ),
-                          TextSpan(
-                            text: "$timeRemaining\n",
-                          ),
-                          TextSpan(
-                            text:
-                                "${AppLocalizations.of(rootContext)!.translate('blocks_remaining')}: ",
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.cardTitle(context)),
-                          ),
-                          TextSpan(
-                            text: "$remainingBlocks",
-                          ),
-                        ],
-                      ],
                     ),
-                  );
-                }).toList();
+                  ],
+                ),
+              );
+            }
 
-                // Display spending path details
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12.0),
-                  padding: const EdgeInsets.all(12.0),
-                  decoration: BoxDecoration(
-                    color: AppColors.container(context),
-                    borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: AppColors.background(context)),
+            // Determine if the transaction is spendable
+            final isSpendable =
+                blockHeight + timelock - 1 <= currentHeight || timelock == 0;
+            // print('Is transaction spendable? $isSpendable');
+
+            final remainingBlocks = blockHeight + timelock - 1 - currentHeight;
+            // print(
+            //     'Remaining blocks until timelock expires: $remainingBlocks');
+
+            // Calculate time remaining if not spendable
+            if (!isSpendable) {
+              // print('Calculating time remaining...');
+              print('Average block time: $avgBlockTime seconds');
+              final totalSeconds = remainingBlocks * avgBlockTime;
+              timeRemaining =
+                  walletService.formatTime(totalSeconds, rootContext);
+              // print('Formatted time remaining: $timeRemaining');
+            }
+
+            return RichText(
+              text: TextSpan(
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.text(context),
+                ),
+                children: [
+                  if (isSpendable) ...[
+                    TextSpan(
+                      text: "$value sats ",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    TextSpan(
+                      text: AppLocalizations.of(rootContext)!
+                          .translate('can_be_spent'),
+                    ),
+                  ] else ...[
+                    TextSpan(
+                      text:
+                          "${AppLocalizations.of(rootContext)!.translate('value')}: ",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.cardTitle(context)),
+                    ),
+                    TextSpan(
+                      text: "$value sats\n",
+                    ),
+                    TextSpan(
+                      text:
+                          "${AppLocalizations.of(rootContext)!.translate('time_remaining_text')}: ",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.cardTitle(context)),
+                    ),
+                    TextSpan(
+                      text: "$timeRemaining\n",
+                    ),
+                    TextSpan(
+                      text:
+                          "${AppLocalizations.of(rootContext)!.translate('blocks_remaining')}: ",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.cardTitle(context)),
+                    ),
+                    TextSpan(
+                      text: "$remainingBlocks",
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }).toList();
+
+          // Display spending path details
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12.0),
+            padding: const EdgeInsets.all(12.0),
+            decoration: BoxDecoration(
+              color: AppColors.container(context),
+              borderRadius: BorderRadius.circular(12.0),
+              border: Border.all(color: AppColors.background(context)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "${AppLocalizations.of(rootContext)!.translate('type')}: ${pathInfo['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK $timelock blocks' : 'MULTISIG'}",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: AppColors.cardTitle(context),
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "${AppLocalizations.of(rootContext)!.translate('type')}: ${pathInfo['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK $timelock blocks' : 'MULTISIG'}",
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: AppColors.cardTitle(context),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      pathInfo['threshold'] != null
-                          ? RichText(
-                              text: TextSpan(
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.normal,
-                                  color: AppColors.text(context),
-                                ),
-                                children: [
-                                  TextSpan(
-                                    text:
-                                        "${AppLocalizations.of(rootContext)!.translate('threshold')}: ",
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.cardTitle(context),
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: '${pathInfo['threshold']}',
-                                    style: TextStyle(
-                                      color: AppColors.text(context),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                      Text.rich(
-                        TextSpan(
+                ),
+                pathInfo['threshold'] != null
+                    ? RichText(
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.normal,
+                            color: AppColors.text(context),
+                          ),
                           children: [
-                            for (int i = 0; i < pathAliases.length; i++)
-                              TextSpan(
-                                text: pathAliases[i] +
-                                    (i == pathAliases.length - 1
-                                        ? ""
-                                        : ", "), // Remove comma for last item
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: AppColors.text(context),
-                                  fontWeight: pathAliases[i] == myAlias
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        "${AppLocalizations.of(rootContext)!.translate('transaction_info')}: ",
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.cardTitle(context),
-                        ),
-                      ),
-                      transactionDetails.isNotEmpty
-                          ? Column(children: transactionDetails)
-                          : Text(
-                              AppLocalizations.of(rootContext)!
-                                  .translate('no_transactions_available'),
+                            TextSpan(
+                              text:
+                                  "${AppLocalizations.of(rootContext)!.translate('threshold')}: ",
                               style: TextStyle(
                                 fontSize: 14,
-                                color: AppColors.error(context),
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.cardTitle(context),
                               ),
                             ),
+                            TextSpan(
+                              text: '${pathInfo['threshold']}',
+                              style: TextStyle(
+                                color: AppColors.text(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      for (int i = 0; i < pathAliases.length; i++)
+                        TextSpan(
+                          text: pathAliases[i] +
+                              (i == pathAliases.length - 1
+                                  ? ""
+                                  : ", "), // Remove comma for last item
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.text(context),
+                            fontWeight: pathAliases[i] == myAlias
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
                     ],
                   ),
-                );
-              }).toList(),
+                ),
+                Text(
+                  "${AppLocalizations.of(rootContext)!.translate('transaction_info')}: ",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.cardTitle(context),
+                  ),
+                ),
+                transactionDetails.isNotEmpty
+                    ? Column(children: transactionDetails)
+                    : Text(
+                        AppLocalizations.of(rootContext)!
+                            .translate('no_transactions_available'),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.error(context),
+                        ),
+                      ),
+              ],
             ),
-          ),
-          actions: [
-            InkwellButton(
-              onTap: () {
-                Navigator.of(context).pop();
-              },
-              label: AppLocalizations.of(rootContext)!.translate('close'),
-              backgroundColor: AppColors.background(context),
-              textColor: AppColors.text(context),
-              icon: Icons.cancel_rounded,
-              iconColor: AppColors.gradient(context),
-            ),
-          ],
-        );
-      },
+          );
+        }).toList(),
+      ),
     );
   }
 }

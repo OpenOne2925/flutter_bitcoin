@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
+import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
+import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
+import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
@@ -99,7 +102,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
     List<Map<String, dynamic>> pubKeysAlias,
     Box<dynamic> box,
     String compositeKey,
-  ) {
+  ) async {
     // Create a map of alias controllers
 
     Map<String, TextEditingController> aliasControllers = {
@@ -107,74 +110,71 @@ class BaseScaffoldState extends State<BaseScaffold> {
         entry['publicKey']!: TextEditingController(text: entry['alias']),
     };
 
-    return showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        final localizationContext = Navigator.of(context).context;
+    final localizationContext = Navigator.of(context).context;
 
-        return AlertDialog(
-          backgroundColor: AppColors.gradient(context),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.0),
-          ),
-          title: Text(
-            AppLocalizations.of(localizationContext)!.translate('edit_alias'),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary(context),
-            ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              children: pubKeysAlias.map((entry) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12.0),
-                  padding: EdgeInsets.all(12.0),
-                  decoration: BoxDecoration(
-                    color: AppColors.gradient(context),
-                    borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: AppColors.primary(context)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "${AppLocalizations.of(localizationContext)!.translate('pub_key')}: ${entry['publicKey']}",
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+    return (await DialogHelper.buildCustomDialog<bool>(
+          context: context,
+          titleKey: 'edit_alias',
+          showCloseButton: false,
+          content: Column(
+            children: pubKeysAlias.map((entry) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12.0),
+                padding: EdgeInsets.all(12.0),
+                decoration: BoxDecoration(
+                  color: AppColors.gradient(context),
+                  borderRadius: BorderRadius.circular(12.0),
+                  border: Border.all(color: AppColors.primary(context)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "${AppLocalizations.of(localizationContext)!.translate('pub_key')}: ${entry['publicKey']}",
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.text(context),
                       ),
-                      const SizedBox(width: 10),
-                      TextField(
-                        controller: aliasControllers[entry['publicKey']],
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintStyle: const TextStyle(color: Colors.grey),
-                          filled: true,
-                          fillColor: Colors.grey[800],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10.0),
-                            borderSide: BorderSide.none,
-                          ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(width: 10),
+                    TextField(
+                      controller: aliasControllers[entry['publicKey']],
+                      style: TextStyle(
+                        color: AppColors.text(context),
+                      ),
+                      decoration: InputDecoration(
+                        hintStyle: const TextStyle(color: Colors.grey),
+                        filled: true,
+                        fillColor: AppColors.container(context),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10.0),
+                          borderSide: BorderSide.none,
                         ),
                       ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
           ),
           actions: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Save Button
-                TextButton(
-                  onPressed: () {
+                InkwellButton(
+                  onTap: () {
+                    Navigator.of(context, rootNavigator: true).pop(false);
+                  },
+                  label: AppLocalizations.of(localizationContext)!
+                      .translate('cancel'),
+                  backgroundColor: AppColors.gradient(context),
+                  textColor: AppColors.text(context),
+                  icon: Icons.cancel_rounded,
+                  iconColor: AppColors.error(context),
+                ),
+                InkwellButton(
+                  onTap: () {
                     // Update all aliases in pubKeysAlias
                     for (var entry in pubKeysAlias) {
                       entry['alias'] =
@@ -191,39 +191,26 @@ class BaseScaffoldState extends State<BaseScaffold> {
                         // Store the updated data in Hive
                         box.put(compositeKey, jsonEncode(parsedValue));
 
-                        Navigator.of(dialogContext).pop(true);
+                        Navigator.of(context, rootNavigator: true).pop(true);
+
+                        SnackBarHelper.show(context, message: 'alias_updated');
                       } catch (e) {
                         print("Error updating Hive box: $e");
                       }
                     }
                   },
-                  style: TextButton.styleFrom(
-                      backgroundColor: AppColors.primary(context)),
-                  child: Text(
-                    AppLocalizations.of(localizationContext)!.translate('save'),
-                    style: TextStyle(color: Colors.black),
-                  ),
-                ),
-
-                // Cancel Button
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop(false);
-                  },
-                  style: TextButton.styleFrom(
-                      backgroundColor: AppColors.primary(context)),
-                  child: Text(
-                    AppLocalizations.of(localizationContext)!
-                        .translate('cancel'),
-                    style: TextStyle(color: Colors.black),
-                  ),
+                  label: AppLocalizations.of(localizationContext)!
+                      .translate('save'),
+                  backgroundColor: AppColors.gradient(context),
+                  textColor: AppColors.text(context),
+                  icon: Icons.cancel_rounded,
+                  iconColor: AppColors.icon(context),
                 ),
               ],
-            )
+            ),
           ],
-        );
-      },
-    );
+        )) ??
+        false;
   }
 
   @override
@@ -314,7 +301,6 @@ class BaseScaffoldState extends State<BaseScaffold> {
                   ],
                 ),
               ),
-              const Divider(),
               _buildSettingsTile(context),
             ],
           ),
@@ -404,20 +390,20 @@ class BaseScaffoldState extends State<BaseScaffold> {
           Flexible(
             flex: 1,
             child: Text(
-              '${AppLocalizations.of(context)!.translate('version')}: $_version',
+              AppLocalizations.of(context)!.translate('welcoming_description'),
               style: TextStyle(
-                color: AppColors.text(context),
-                fontSize: 16,
+                color: AppColors.text(context).withAlpha((0.8 * 255).toInt()),
+                fontSize: 14,
               ),
             ),
           ),
           Flexible(
             flex: 1,
             child: Text(
-              AppLocalizations.of(context)!.translate('welcoming_description'),
+              '${AppLocalizations.of(context)!.translate('version')}: $_version',
               style: TextStyle(
-                color: AppColors.text(context).withAlpha((0.8 * 255).toInt()),
-                fontSize: 14,
+                color: AppColors.text(context),
+                fontSize: 16,
               ),
             ),
           ),

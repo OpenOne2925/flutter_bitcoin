@@ -34,7 +34,6 @@ const Map<String, String> localizedStringsFr = {
   'personal_wallet': 'Portefeuille personnel',
   'shared_wallet': 'Portefeuille partagé',
   'ca_wallet': 'Portefeuille CA',
-  'edit_alias': 'Modifier l\'alias',
   'pub_key': 'Clé publique',
   'address': 'Adresse',
   'transactions': 'Transactions',
@@ -161,6 +160,7 @@ const Map<String, String> localizedStringsFr = {
   'multisig_updated': 'Multisig mis à jour avec succès',
   'timelock_updated':
       'Condition de verrouillage temporel mise à jour avec succès',
+  'alias_updated': 'Alias mis à jour avec succès',
 
 // Private Data (Données Privées)
   'private_data': 'Données privées',
@@ -183,6 +183,7 @@ const Map<String, String> localizedStringsFr = {
   'yes': 'Oui',
   'no': 'Non',
   'decode': 'Décode',
+  'retry': 'Réessayer 🔄',
 
 // Spending Summary (Résumé des dépenses)
   'spending_summary': 'Résumé des dépenses',
@@ -209,7 +210,7 @@ const Map<String, String> localizedStringsFr = {
   'sats_available': 'sats disponibles dans',
   'future_sats': 'les sats seront disponibles à l’avenir',
   'upcoming_funds': 'Fonds à venir - Appuyez sur ⋮ pour plus de détails',
-  'spending_paths_available': 'Chemins de dépenses disponibles',
+  'spending_paths_available': 'Chemins de dépenses',
   'no_spending_paths_available': 'Aucun chemin de dépenses disponible',
 
 // Synchronisation
@@ -249,6 +250,7 @@ const Map<String, String> localizedStringsFr = {
   'pub_keys': 'Clés Publiques',
   'create_descriptor': 'Créer un Descripteur',
   'edit_public_key': 'Modifier la Clé Publique',
+  'edit_alias': 'Modifier l\'alias',
   'add_public_key': 'Ajouter une Clé Publique',
   'enter_pub_key': 'Entrez la Clé Publique',
   'enter_alias': 'Entrez le Nom de l\'Alias',
@@ -292,5 +294,8 @@ const Map<String, String> localizedStringsFr = {
   'afternoon_check':
       "🌞 Vérification de l’après-midi ! Faites un rafraîchissement !",
   'night_check': "🌙 Rafraîchissement nocturne ? Pourquoi pas !",
-  'processing': 'Traitement en cours...'
+  'processing': 'Traitement en cours...',
+  'no_connection': '🌐 Pas de connexion Internet',
+  'connect_internet':
+      'Votre portefeuille doit se synchroniser avec la blockchain.\n\nVeuillez vous connecter à Internet pour continuer.',
 };

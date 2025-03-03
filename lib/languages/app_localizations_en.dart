@@ -153,6 +153,7 @@ const Map<String, String> localizedStringsEn = {
   'alias_removed': 'removed',
   'multisig_updated': 'Multisig updated successfully',
   'timelock_updated': 'Timelock condition updated successfully',
+  'alias_updated': 'Alias updated successfully',
 
   // Private Data
   'private_data': 'Private Data',
@@ -175,6 +176,7 @@ const Map<String, String> localizedStringsEn = {
   'yes': 'Yes',
   'no': 'No',
   'decode': 'Decode',
+  'retry': 'Retry 🔄',
 
   // Spending Summary
   'spending_summary': 'Spending Summary',
@@ -201,7 +203,7 @@ const Map<String, String> localizedStringsEn = {
   'sats_available': 'sats available in',
   'future_sats': 'sats will be available in the future',
   'upcoming_funds': 'Upcoming Funds - Tap ⋮ for details',
-  'spending_paths_available': 'Available Spending Paths',
+  'spending_paths_available': 'Spending Paths',
   'no_spending_paths_available': 'No spending paths available',
 
   // Syncing
@@ -238,6 +240,7 @@ const Map<String, String> localizedStringsEn = {
   'pub_keys': 'Public Keys',
   'create_descriptor': 'Create Descriptor',
   'edit_public_key': 'Edit Public Key',
+  'edit_alias': 'Edit Alias',
   'add_public_key': 'Add Public Key',
   'enter_pub_key': 'Enter Public Key',
   'enter_alias': 'Enter Alias Name',
@@ -281,4 +284,7 @@ const Map<String, String> localizedStringsEn = {
   'afternoon_check': '🌞 Afternoon check-in! Give it a refresh!',
   'night_check': '🌙 Late night refresh? Why not!',
   'processing': 'Processing...',
+  'no_connection': '🌐 No Internet Connection',
+  'connect_internet':
+      'Your wallet needs to sync with the blockchain.\n\nPlease connect to the internet to proceed.',
 };

@@ -1,12 +1,13 @@
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
-import 'package:flutter_wallet/utilities/snackbar_helper.dart';
+import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
+import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:share_plus/share_plus.dart';
 
 class WalletSendtxHelpers {
@@ -56,7 +57,7 @@ class WalletSendtxHelpers {
     this.pubKeysAlias,
   });
 
-  void sendTx(
+  Future<void> sendTx(
     bool isCreating, {
     String? recipientAddressQr,
     bool isFromSpendingPath = false,
@@ -98,10 +99,9 @@ class WalletSendtxHelpers {
       } catch (e) {
         Navigator.of(rootContext, rootNavigator: true).pop();
 
-        SnackBarHelper.show(
+        SnackBarHelper.showError(
           rootContext,
           message: e.toString(),
-          color: AppColors.error(rootContext),
         );
         return;
       }
@@ -124,886 +124,616 @@ class WalletSendtxHelpers {
     bool isFirstTap =
         true; // Tracks whether this is the first tap JUST for the signing menu
 
-    showDialog(
+    return DialogHelper.buildCustomStatefulDialog(
       context: rootContext,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            return AlertDialog(
-              backgroundColor: AppColors.dialog(context),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20.0),
+      titleKey: isCreating ? 'sending_menu' : 'signing_menu',
+      contentBuilder: (setDialogState) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Visibility(
+              visible: !isCreating,
+              child: Column(
+                children: [
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: psbtController,
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText:
+                          AppLocalizations.of(rootContext)!.translate('psbt'),
+                      hintText: AppLocalizations.of(rootContext)!
+                          .translate('enter_psbt'),
+                    ),
+                    style: TextStyle(
+                      color: AppColors.text(context),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
-              title: Text(
-                AppLocalizations.of(rootContext)!
-                    .translate(isCreating ? 'sending_menu' : 'signing_menu'),
-                style: TextStyle(
-                  color: AppColors.cardTitle(context),
-                ),
+            ),
+
+            Visibility(
+              visible: isCreating || showPSBT,
+              child: Column(
+                children: [
+                  TextFormField(
+                    readOnly: !isCreating,
+                    controller: recipientController,
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText: AppLocalizations.of(rootContext)!
+                          .translate('recipient_address'),
+                      hintText: AppLocalizations.of(rootContext)!
+                          .translate('enter_rec_addr'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
-              content: StatefulBuilder(
-                builder: (BuildContext context, StateSetter setState) {
-                  return SingleChildScrollView(
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.7,
+            ),
+
+            // Identify who has already signed the PSBT
+            Visibility(
+              visible: signersList!.isNotEmpty,
+              child: Column(
+                children: [
+                  Text(
+                    AppLocalizations.of(rootContext)!.translate('signers'),
+                    style: TextStyle(
+                      color: AppColors.cardTitle(context),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 8.0,
+                    runSpacing: 6.0,
+                    children: signersList!.map((signer) {
+                      return Chip(
+                        label: Text(
+                          signer,
+                          style: TextStyle(color: AppColors.text(context)),
+                        ),
+                        backgroundColor: AppColors.primary(context),
+                        avatar: Icon(
+                          Icons.verified,
+                          color: AppColors.text(context),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+            Visibility(
+              visible: isCreating || showPSBT,
+              child: Column(
+                children: [
+                  TextFormField(
+                    controller:
+                        isCreating ? amountController : signingAmountController,
+                    readOnly: !isCreating,
+                    onChanged: (value) {
+                      setDialogState(() {
+                        // print('Editing');
+                      });
+                    },
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText:
+                          "${AppLocalizations.of(rootContext)!.translate('amount')} (sats)",
+                      hintText: AppLocalizations.of(rootContext)!
+                          .translate('enter_amount_sats'),
+                    ),
+                    style: TextStyle(
+                      color: AppColors.text(context),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+
+            Visibility(
+              visible: (!isCreating && showPSBT) || isFromSpendingPath == true,
+              child: selectedPath != null
+                  ? Card(
+                      elevation: 3,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: IntrinsicHeight(
+                      color: AppColors.background(context),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
                         child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Visibility(
-                              visible: !isCreating,
-                              child: Column(
-                                children: [
-                                  const SizedBox(height: 16),
-                                  TextFormField(
-                                    controller: psbtController,
-                                    decoration: CustomTextFieldStyles
-                                        .textFieldDecoration(
-                                      context: context,
-                                      labelText:
-                                          AppLocalizations.of(rootContext)!
-                                              .translate('psbt'),
-                                      hintText:
-                                          AppLocalizations.of(rootContext)!
-                                              .translate('enter_psbt'),
-                                    ),
-                                    style: TextStyle(
-                                      color: AppColors.text(context),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
+                            Text(
+                              AppLocalizations.of(rootContext)!
+                                  .translate('spending_path'),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.text(context),
                               ),
                             ),
-
-                            Visibility(
-                              visible: isCreating || showPSBT,
-                              child: Column(
+                            SizedBox(height: 8),
+                            RichText(
+                              text: TextSpan(
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.text(context),
+                                ),
                                 children: [
-                                  TextFormField(
-                                    readOnly: !isCreating,
-                                    controller: recipientController,
-                                    decoration: CustomTextFieldStyles
-                                        .textFieldDecoration(
-                                      context: context,
-                                      labelText:
-                                          AppLocalizations.of(rootContext)!
-                                              .translate('recipient_address'),
-                                      hintText:
-                                          AppLocalizations.of(rootContext)!
-                                              .translate('enter_rec_addr'),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
-                              ),
-                            ),
-
-                            // Identify who has already signed the PSBT
-                            Visibility(
-                              visible: signersList!.isNotEmpty,
-                              child: Column(
-                                children: [
-                                  Text(
-                                    AppLocalizations.of(rootContext)!
-                                        .translate('signers'),
+                                  TextSpan(
+                                    text:
+                                        "${AppLocalizations.of(rootContext)!.translate('type')}: ",
                                     style: TextStyle(
-                                      color: AppColors.cardTitle(context),
                                       fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Wrap(
-                                    spacing: 8.0,
-                                    runSpacing: 6.0,
-                                    children: signersList!.map((signer) {
-                                      return Chip(
-                                        label: Text(
-                                          signer,
-                                          style: TextStyle(
-                                              color: AppColors.text(context)),
-                                        ),
-                                        backgroundColor:
-                                            AppColors.primary(context),
-                                        avatar: Icon(
-                                          Icons.verified,
-                                          color: AppColors.text(context),
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                      );
-                                    }).toList(),
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
-                              ),
-                            ),
-                            Visibility(
-                              visible: isCreating || showPSBT,
-                              child: Column(
-                                children: [
-                                  TextFormField(
-                                    controller: isCreating
-                                        ? amountController
-                                        : signingAmountController,
-                                    readOnly: !isCreating,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        // print('Editing');
-                                      });
-                                    },
-                                    decoration: CustomTextFieldStyles
-                                        .textFieldDecoration(
-                                      context: context,
-                                      labelText:
-                                          "${AppLocalizations.of(rootContext)!.translate('amount')} (sats)",
-                                      hintText:
-                                          AppLocalizations.of(rootContext)!
-                                              .translate('enter_amount_sats'),
-                                    ),
-                                    style: TextStyle(
-                                      color: AppColors.text(context),
-                                    ),
-                                    keyboardType: TextInputType.number,
-                                  ),
-                                  const SizedBox(height: 16),
-                                ],
-                              ),
-                            ),
-
-                            Visibility(
-                              visible: (!isCreating && showPSBT) ||
-                                  isFromSpendingPath == true,
-                              child: selectedPath != null
-                                  ? Card(
-                                      elevation: 3,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      color: AppColors.background(context),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12.0),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              AppLocalizations.of(rootContext)!
-                                                  .translate('spending_path'),
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.text(context),
-                                              ),
-                                            ),
-                                            SizedBox(height: 8),
-                                            RichText(
-                                              text: TextSpan(
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color:
-                                                      AppColors.text(context),
-                                                ),
-                                                children: [
-                                                  TextSpan(
-                                                    text:
-                                                        "${AppLocalizations.of(rootContext)!.translate('type')}: ",
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: AppColors.text(
-                                                          context),
-                                                    ),
-                                                  ),
-                                                  TextSpan(
-                                                    text: selectedPath!['type']
-                                                            .contains(
-                                                                'RELATIVETIMELOCK')
-                                                        ? "TIMELOCK: ${selectedPath!['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}, ${selectedPath!['threshold']} of ${(selectedPath!['fingerprints'] as List).length}"
-                                                        : "MULTISIG ${selectedPath!['threshold']} of ${(selectedPath!['fingerprints'] as List).length}",
-                                                  ),
-                                                  TextSpan(
-                                                      text: "\n"), // New line
-                                                  TextSpan(
-                                                    text:
-                                                        "${AppLocalizations.of(rootContext)!.translate('keys')}: ",
-                                                    style: TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      color: AppColors.text(
-                                                          context),
-                                                    ),
-                                                  ),
-                                                  TextSpan(
-                                                    text: selectedPath![
-                                                            'fingerprints']
-                                                        .map((fingerprint) {
-                                                      final matchedAlias =
-                                                          pubKeysAlias!
-                                                              .firstWhere(
-                                                        (pubKeyAlias) =>
-                                                            pubKeyAlias[
-                                                                    'publicKey']!
-                                                                .contains(
-                                                                    fingerprint),
-                                                        orElse: () => {
-                                                          'alias': fingerprint
-                                                        }, // Fallback to fingerprint
-                                                      );
-                                                      return matchedAlias[
-                                                              'alias'] ??
-                                                          fingerprint;
-                                                    }).join(', '),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    )
-                                  : SizedBox(), // Empty widget if no selectedPath
-                            ),
-
-                            // Dropdown for selecting the spending path
-                            Visibility(
-                              visible: isCreating &&
-                                  !isSingleWallet &&
-                                  isFromSpendingPath == false,
-                              child: Column(
-                                children: [
-                                  DropdownButtonFormField<Map<String, dynamic>>(
-                                    value: selectedPath,
-                                    items: extractedData.map((data) {
-                                      // Check if the item meets the condition
-                                      isSelectable =
-                                          walletService.checkCondition(
-                                        data,
-                                        utxos!,
-                                        isCreating
-                                            ? amountController.text
-                                            : signingAmountController!.text,
-                                        currentHeight,
-                                      );
-
-                                      // print(isSelectable);
-
-                                      // Replace fingerprints with aliases
-                                      List<String> aliases =
-                                          (data['fingerprints']
-                                                  as List<dynamic>)
-                                              .map<String>((fingerprint) {
-                                        final matchedAlias =
-                                            pubKeysAlias!.firstWhere(
-                                          (pubKeyAlias) =>
-                                              pubKeyAlias['publicKey']!
-                                                  .contains(fingerprint),
-                                          orElse: () => {
-                                            'alias': fingerprint
-                                          }, // Fallback to fingerprint
-                                        );
-
-                                        return matchedAlias['alias'] ??
-                                            fingerprint;
-                                      }).toList();
-
-                                      return DropdownMenuItem<
-                                          Map<String, dynamic>>(
-                                        value: data,
-                                        enabled:
-                                            isSelectable, // Disable interaction for unselectable items
-                                        child: Text(
-                                          "${AppLocalizations.of(rootContext)!.translate('type')}: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK: ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}' : 'MULTISIG'}, "
-                                          "${data['threshold'] != null ? '${data['threshold']} of ${aliases.length}, ' : ''} ${AppLocalizations.of(rootContext)!.translate('keys')}: ${aliases.join(', ')}",
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: isSelectable
-                                                ? AppColors.text(context)
-                                                : AppColors.unavailableColor,
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
-                                    onTap: () {
-                                      setState(() {
-                                        // print('Rebuilding');
-                                      });
-                                    },
-                                    onChanged:
-                                        (Map<String, dynamic>? newValue) {
-                                      if (newValue != null) {
-                                        setState(() {
-                                          selectedPath =
-                                              newValue; // Update the selected path
-                                          selectedIndex = extractedData.indexOf(
-                                              newValue); // Update the index
-                                        });
-                                        print(selectedPath);
-                                        print(selectedIndex);
-                                      } else {
-                                        // Optionally handle the selection of unselectable items
-                                        print("This item is unavailable.");
-                                      }
-                                    },
-                                    selectedItemBuilder:
-                                        (BuildContext context) {
-                                      return extractedData.map((data) {
-                                        isSelectable =
-                                            walletService.checkCondition(
-                                          data,
-                                          utxos!,
-                                          isCreating
-                                              ? amountController.text
-                                              : signingAmountController!.text,
-                                          currentHeight,
-                                        );
-
-                                        // print(isSelectable);
-
-                                        return Text(
-                                          "${AppLocalizations.of(rootContext)!.translate('type')}: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}' : 'MULTISIG'}, ...",
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: isSelectable
-                                                ? AppColors.text(context)
-                                                : AppColors.unavailableColor,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        );
-                                      }).toList();
-                                    },
-                                    decoration: InputDecoration(
-                                      labelText: AppLocalizations.of(
-                                              rootContext)!
-                                          .translate('spending_path_required'),
-                                      labelStyle: TextStyle(
-                                          color: AppColors.text(context)),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                            color: AppColors.text(context)),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: AppColors.primary(context),
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    dropdownColor: AppColors.gradient(context),
-                                    style: TextStyle(
-                                        color: AppColors.text(rootContext)),
-                                    icon: Icon(
-                                      Icons.arrow_drop_down,
                                       color: AppColors.text(context),
                                     ),
                                   ),
-                                  const SizedBox(height: 16),
+                                  TextSpan(
+                                    text: selectedPath!['type']
+                                            .contains('RELATIVETIMELOCK')
+                                        ? "TIMELOCK: ${selectedPath!['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}${selectedPath!['fingerprints'].length > 1 ? ", ${selectedPath!['threshold']} of ${(selectedPath!['fingerprints'] as List).length}" : ""}"
+                                        : "MULTISIG ${selectedPath!['threshold']} of ${(selectedPath!['fingerprints'] as List).length}",
+                                  ),
+                                  TextSpan(text: "\n"), // New line
+                                  TextSpan(
+                                    text:
+                                        "${AppLocalizations.of(rootContext)!.translate('keys')}: ",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.text(context),
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: selectedPath!['fingerprints']
+                                        .map((fingerprint) {
+                                      final matchedAlias =
+                                          pubKeysAlias!.firstWhere(
+                                        (pubKeyAlias) =>
+                                            pubKeyAlias['publicKey']!
+                                                .contains(fingerprint),
+                                        orElse: () => {
+                                          'alias': fingerprint
+                                        }, // Fallback to fingerprint
+                                      );
+                                      return matchedAlias['alias'] ??
+                                          fingerprint;
+                                    }).join(', '),
+                                  ),
                                 ],
-                              ),
-                            ),
-
-                            Visibility(
-                              visible:
-                                  isCreating && isFromSpendingPath == false,
-                              child: InkwellButton(
-                                onTap: () async {
-                                  try {
-                                    // Validate recipient address
-                                    if (recipientController.text.isEmpty) {
-                                      showDialog(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            backgroundColor:
-                                                AppColors.dialog(context),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(20.0),
-                                            ),
-                                            title: Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.error,
-                                                  color:
-                                                      AppColors.error(context),
-                                                ),
-                                                SizedBox(width: 8),
-                                                Text(
-                                                  'Error',
-                                                  style: TextStyle(
-                                                    color:
-                                                        AppColors.text(context),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            content: Text(
-                                              AppLocalizations.of(rootContext)!
-                                                  .translate(
-                                                      'recipient_address_required'),
-                                              style: TextStyle(
-                                                  color:
-                                                      AppColors.text(context)),
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.of(context).pop(),
-                                                child: Text(
-                                                  'OK',
-                                                  style: TextStyle(
-                                                    color: AppColors.primary(
-                                                        context),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                      return; // Exit the function early if validation fails
-                                    }
-
-                                    try {
-                                      walletService.validateAddress(
-                                          recipientController.text);
-                                    } catch (e) {
-                                      showDialog(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            title: Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.error,
-                                                  color:
-                                                      AppColors.error(context),
-                                                ),
-                                                SizedBox(width: 8),
-                                                Text(
-                                                  AppLocalizations.of(
-                                                          rootContext)!
-                                                      .translate(
-                                                          'invalid_address'),
-                                                  style: TextStyle(
-                                                    color:
-                                                        AppColors.text(context),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            content: Text(e.toString()),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.of(context).pop(),
-                                                child: Text('OK'),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                      return; // Exit the function early if address is invalid
-                                    }
-                                    if (!isSingleWallet) {
-                                      // Validate spending path
-                                      if (selectedPath == null) {
-                                        showDialog(
-                                          context: context,
-                                          builder: (BuildContext context) {
-                                            return AlertDialog(
-                                              backgroundColor:
-                                                  AppColors.dialog(context),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(20.0),
-                                              ),
-                                              title: Row(
-                                                children: [
-                                                  Icon(
-                                                    Icons.error,
-                                                    color: AppColors.error(
-                                                        context),
-                                                  ),
-                                                  SizedBox(width: 8),
-                                                  Text(
-                                                    'Error',
-                                                    style: TextStyle(
-                                                      color: AppColors.text(
-                                                          context),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              content: Text(
-                                                AppLocalizations.of(
-                                                        rootContext)!
-                                                    .translate(
-                                                        'spending_path_required'),
-                                                style: TextStyle(
-                                                  color:
-                                                      AppColors.text(context),
-                                                ),
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.of(context)
-                                                          .pop(),
-                                                  child: Text(
-                                                    'OK',
-                                                    style: TextStyle(
-                                                      color: AppColors.primary(
-                                                          context),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            );
-                                          },
-                                        );
-                                        return; // Exit the function early if validation fails
-                                      }
-                                    }
-
-                                    await walletService.syncWallet(wallet);
-
-                                    final availableBalance =
-                                        wallet.getBalance().spendable;
-
-                                    final String recipientAddress =
-                                        recipientController.text.toString();
-                                    print('Selected Index: $selectedIndex');
-
-                                    int sendAllBalance = 0;
-
-                                    if (isSingleWallet) {
-                                      sendAllBalance = await walletService
-                                          .calculateSendAllBalance(
-                                        recipientAddress: recipientAddress,
-                                        wallet: wallet,
-                                        availableBalance:
-                                            availableBalance.toInt(),
-                                        walletService: walletService,
-                                      );
-                                    } else {
-                                      sendAllBalance = int.parse(
-                                          (await walletService.createPartialTx(
-                                        descriptor.toString(),
-                                        mnemonic,
-                                        recipientAddress,
-                                        availableBalance,
-                                        selectedIndex,
-                                        isSendAllBalance: true,
-                                        spendingPaths: spendingPaths,
-                                      ))!);
-                                    }
-
-                                    amountController.text =
-                                        sendAllBalance.toString();
-                                  } catch (e) {
-                                    print('Error: $e');
-                                    showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return AlertDialog(
-                                          backgroundColor:
-                                              AppColors.dialog(context),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(20.0),
-                                          ),
-                                          title: Row(
-                                            children: [
-                                              Icon(
-                                                Icons.error,
-                                                color: AppColors.error(context),
-                                              ),
-                                              SizedBox(width: 8),
-                                              Text(
-                                                'Error',
-                                                style: TextStyle(
-                                                  color:
-                                                      AppColors.text(context),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          content: Text(
-                                            "${AppLocalizations.of(rootContext)!.translate('generic_error')}: ${e.toString()}",
-                                            style: TextStyle(
-                                              color: AppColors.text(context),
-                                            ),
-                                          ),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.of(context).pop(),
-                                              child: Text(
-                                                'OK',
-                                                style: TextStyle(
-                                                  color: AppColors.primary(
-                                                      context),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-                                  }
-                                },
-                                label: AppLocalizations.of(rootContext)!
-                                    .translate('use_available_balance'),
-                                icon: Icons.account_balance_wallet_rounded,
-                                backgroundColor: AppColors.background(context),
-                                textColor: AppColors.text(context),
-                                iconColor: AppColors.gradient(context),
                               ),
                             ),
                           ],
                         ),
                       ),
+                    )
+                  : SizedBox(), // Empty widget if no selectedPath
+            ),
+
+            // Dropdown for selecting the spending path
+            Visibility(
+              visible:
+                  isCreating && !isSingleWallet && isFromSpendingPath == false,
+              child: Column(
+                children: [
+                  DropdownButtonFormField<Map<String, dynamic>>(
+                    value: selectedPath,
+                    items: extractedData.map((data) {
+                      // Check if the item meets the condition
+                      isSelectable = walletService.checkCondition(
+                        data,
+                        utxos!,
+                        isCreating
+                            ? amountController.text
+                            : signingAmountController!.text,
+                        currentHeight,
+                      );
+
+                      // print(isSelectable);
+
+                      // Replace fingerprints with aliases
+                      List<String> aliases =
+                          (data['fingerprints'] as List<dynamic>)
+                              .map<String>((fingerprint) {
+                        final matchedAlias = pubKeysAlias!.firstWhere(
+                          (pubKeyAlias) =>
+                              pubKeyAlias['publicKey']!.contains(fingerprint),
+                          orElse: () =>
+                              {'alias': fingerprint}, // Fallback to fingerprint
+                        );
+
+                        return matchedAlias['alias'] ?? fingerprint;
+                      }).toList();
+
+                      return DropdownMenuItem<Map<String, dynamic>>(
+                        value: data,
+                        enabled:
+                            isSelectable, // Disable interaction for unselectable items
+                        child: Text(
+                          "${AppLocalizations.of(rootContext)!.translate('type')}: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK: ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}' : 'MULTISIG'}, "
+                          "${data['threshold'] != null ? '${data['threshold']} of ${aliases.length}, ' : ''} ${AppLocalizations.of(rootContext)!.translate('keys')}: ${aliases.join(', ')}",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isSelectable
+                                ? AppColors.text(context)
+                                : AppColors.unavailableColor,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onTap: () {
+                      setDialogState(() {
+                        // print('Rebuilding');
+                      });
+                    },
+                    onChanged: (Map<String, dynamic>? newValue) {
+                      if (newValue != null) {
+                        setDialogState(() {
+                          selectedPath = newValue; // Update the selected path
+                          selectedIndex = extractedData
+                              .indexOf(newValue); // Update the index
+                        });
+                        print(selectedPath);
+                        print(selectedIndex);
+                      } else {
+                        // Optionally handle the selection of unselectable items
+                        print("This item is unavailable.");
+                      }
+                    },
+                    selectedItemBuilder: (BuildContext context) {
+                      return extractedData.map((data) {
+                        isSelectable = walletService.checkCondition(
+                          data,
+                          utxos!,
+                          isCreating
+                              ? amountController.text
+                              : signingAmountController!.text,
+                          currentHeight,
+                        );
+
+                        // print(isSelectable);
+
+                        return Text(
+                          "${AppLocalizations.of(rootContext)!.translate('type')}: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}' : 'MULTISIG'}, ...",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isSelectable
+                                ? AppColors.text(context)
+                                : AppColors.unavailableColor,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        );
+                      }).toList();
+                    },
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(rootContext)!
+                          .translate('spending_path_required'),
+                      labelStyle: TextStyle(color: AppColors.text(context)),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.text(context)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(
+                          color: AppColors.primary(context),
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  );
-                },
+                    dropdownColor: AppColors.gradient(context),
+                    style: TextStyle(color: AppColors.text(rootContext)),
+                    icon: Icon(
+                      Icons.arrow_drop_down,
+                      color: AppColors.text(context),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
-              actions: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    InkwellButton(
-                      onTap: () {
-                        Navigator.of(context).pop(false);
-                        if (isFromSpendingPath) {
-                          Navigator.of(rootContext, rootNavigator: true).pop();
-                        }
-                      },
-                      label:
-                          AppLocalizations.of(rootContext)!.translate('cancel'),
-                      backgroundColor: AppColors.text(context),
-                      textColor: AppColors.gradient(context),
-                      icon: Icons.cancel_rounded,
-                      iconColor: AppColors.gradient(context),
-                    ),
-                    InkwellButton(
-                      onTap: () async {
-                        FocusScope.of(context)
-                            .unfocus(); // Remove focus from TextFormField
+            ),
 
-                        bool userConfirmed = false;
+            Visibility(
+              visible: isCreating && isFromSpendingPath == false,
+              child: InkwellButton(
+                onTap: () async {
+                  try {
+                    // Validate recipient address
+                    if (recipientController.text.isEmpty) {
+                      await DialogHelper.showErrorDialog(
+                        context: context,
+                        messageKey: 'recipient_address_required',
+                      );
+
+                      return; // Exit the function early if validation fails
+                    }
+
+                    try {
+                      walletService.validateAddress(recipientController.text);
+                    } catch (e) {
+                      await DialogHelper.showErrorDialog(
+                        context: context,
+                        messageKey: 'invalid_address',
+                      );
+
+                      return; // Exit the function early if address is invalid
+                    }
+                    if (!isSingleWallet) {
+                      // Validate spending path
+                      if (selectedPath == null) {
+                        await DialogHelper.showErrorDialog(
+                          context: context,
+                          messageKey: 'spending_path_required',
+                        );
+
+                        return; // Exit the function early if validation fails
+                      }
+                    }
+
+                    await walletService.syncWallet(wallet);
+
+                    final availableBalance = wallet.getBalance().spendable;
+
+                    final String recipientAddress =
+                        recipientController.text.toString();
+                    print('Selected Index: $selectedIndex');
+
+                    int sendAllBalance = 0;
+
+                    if (isSingleWallet) {
+                      sendAllBalance =
+                          await walletService.calculateSendAllBalance(
+                        recipientAddress: recipientAddress,
+                        wallet: wallet,
+                        availableBalance: availableBalance.toInt(),
+                        walletService: walletService,
+                      );
+                    } else {
+                      sendAllBalance =
+                          int.parse((await walletService.createPartialTx(
+                        descriptor.toString(),
+                        mnemonic,
+                        recipientAddress,
+                        availableBalance,
+                        selectedIndex,
+                        isSendAllBalance: true,
+                        spendingPaths: spendingPaths,
+                      ))!);
+                    }
+
+                    amountController.text = sendAllBalance.toString();
+                  } catch (e) {
+                    print('Error: $e');
+
+                    await DialogHelper.showErrorDialog(
+                      context: context,
+                      messageKey:
+                          "${AppLocalizations.of(rootContext)!.translate('generic_error')}: ${e.toString()}",
+                    );
+                  }
+                },
+                label: AppLocalizations.of(rootContext)!
+                    .translate('use_available_balance'),
+                icon: Icons.account_balance_wallet_rounded,
+                backgroundColor: AppColors.background(context),
+                textColor: AppColors.text(context),
+                iconColor: AppColors.gradient(context),
+              ),
+            ),
+          ],
+        );
+      },
+      actionsBuilder: (setDialogState) {
+        return [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              InkwellButton(
+                onTap: () async {
+                  FocusScope.of(context)
+                      .unfocus(); // Remove focus from TextFormField
+
+                  bool userConfirmed = false;
+                  try {
+                    // Step 1: Ensure psbtController is not empty
+                    if (!isCreating) {
+                      if (psbtController == null ||
+                          psbtController!.text.isEmpty) {
+                        SnackBarHelper.showError(
+                          rootContext,
+                          message: AppLocalizations.of(rootContext)!
+                              .translate('invalid_psbt'),
+                        );
+                        return;
+                      }
+
+                      // Step 2: Extract and process PSBT
+                      if (isFirstTap) {
                         try {
-                          // Step 1: Ensure psbtController is not empty
-                          if (!isCreating) {
-                            if (psbtController == null ||
-                                psbtController!.text.isEmpty) {
-                              SnackBarHelper.show(
-                                rootContext,
-                                message: AppLocalizations.of(rootContext)!
-                                    .translate('invalid_psbt'),
-                                color: AppColors.error(rootContext),
-                              );
-                              return;
-                            }
+                          psbt = await PartiallySignedTransaction.fromString(
+                              psbtController!.text);
+                          Transaction result = psbt.extractTx();
 
-                            // Step 2: Extract and process PSBT
-                            if (isFirstTap) {
-                              try {
-                                psbt =
-                                    await PartiallySignedTransaction.fromString(
-                                        psbtController!.text);
-                                Transaction result = psbt.extractTx();
+                          selectedPath =
+                              walletService.extractSpendingPathFromPsbt(
+                            psbt,
+                            extractedData,
+                          );
 
-                                selectedPath =
-                                    walletService.extractSpendingPathFromPsbt(
-                                  psbt,
-                                  extractedData,
-                                );
+                          final outputs = result.output();
+                          signers = walletService.extractSignersFromPsbt(psbt);
+                          final signersAliases =
+                              walletService.getAliasesFromFingerprint(
+                                  pubKeysAlias!, signers!);
 
-                                final outputs = result.output();
-                                signers =
-                                    walletService.extractSignersFromPsbt(psbt);
-                                final signersAliases =
-                                    walletService.getAliasesFromFingerprint(
-                                        pubKeysAlias!, signers!);
+                          bool isInternalTransaction =
+                              await walletService.areEqualAddresses(outputs);
+                          Address? receiverAddress;
+                          int totalSpent = 0;
 
-                                bool isInternalTransaction = await walletService
-                                    .areEqualAddresses(outputs);
-                                Address? receiverAddress;
-                                int totalSpent = 0;
+                          for (final output in outputs) {
+                            receiverAddress = await walletService
+                                .getAddressFromScriptOutput(output);
 
-                                for (final output in outputs) {
-                                  receiverAddress = await walletService
-                                      .getAddressFromScriptOutput(output);
-
-                                  if (isInternalTransaction) {
-                                    totalSpent += output.value.toInt();
-                                  } else if (receiverAddress.asString() !=
-                                      address) {
-                                    totalSpent += output.value.toInt();
-                                  }
-                                }
-
-                                setDialogState(() {
-                                  showPSBT = true;
-                                  signingAmountController!.text =
-                                      totalSpent.toString();
-                                  signersList = signersAliases;
-                                  recipientController.text =
-                                      receiverAddress.toString();
-                                  isFirstTap = false;
-                                });
-                              } catch (e) {
-                                SnackBarHelper.show(
-                                  rootContext,
-                                  message: AppLocalizations.of(rootContext)!
-                                      .translate('invalid_psbt'),
-                                  color: AppColors.error(rootContext),
-                                );
-                                return;
-                              }
-                            } else {
-                              // Step 3: Ask for confirmation before signing
-                              userConfirmed = await showDialog(
-                                context: rootContext,
-                                builder: (BuildContext context) {
-                                  return AlertDialog(
-                                    title: Text(
-                                      AppLocalizations.of(rootContext)!
-                                          .translate('confirm_transaction'),
-                                      style: TextStyle(
-                                        color: AppColors.cardTitle(context),
-                                      ),
-                                    ),
-                                    backgroundColor: AppColors.dialog(context),
-                                    actions: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          InkwellButton(
-                                            onTap: () => Navigator.of(context)
-                                                .pop(false),
-                                            label: AppLocalizations.of(
-                                                    rootContext)!
-                                                .translate('no'),
-                                            backgroundColor:
-                                                AppColors.error(context),
-                                            textColor: AppColors.text(context),
-                                            icon: Icons.dangerous,
-                                            iconColor:
-                                                AppColors.gradient(context),
-                                          ),
-                                          InkwellButton(
-                                            onTap: () =>
-                                                Navigator.of(context).pop(true),
-                                            label: AppLocalizations.of(
-                                                    rootContext)!
-                                                .translate('yes'),
-                                            backgroundColor:
-                                                AppColors.background(context),
-                                            textColor: AppColors.text(context),
-                                            icon: Icons.verified,
-                                            iconColor:
-                                                AppColors.gradient(context),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  );
-                                },
-                              );
-
-                              if (!userConfirmed) return;
+                            if (isInternalTransaction) {
+                              totalSpent += output.value.toInt();
+                            } else if (receiverAddress.asString() != address) {
+                              totalSpent += output.value.toInt();
                             }
                           }
-                          if (isCreating || userConfirmed) {
-                            // Step 4: Execute the transaction signing
-                            String? result;
-                            await walletService.syncWallet(wallet);
 
-                            if (isCreating) {
-                              String recipientAddressStr =
-                                  recipientController.text;
-                              int amount = int.parse(amountController.text);
-
-                              if (isSingleWallet) {
-                                await walletService.sendSingleTx(
-                                  recipientAddressStr,
-                                  BigInt.from(amount),
-                                  wallet,
-                                  address,
-                                );
-                              } else {
-                                result = await walletService.createPartialTx(
-                                  descriptor.toString(),
-                                  mnemonic,
-                                  recipientAddressStr,
-                                  BigInt.from(amount),
-                                  selectedIndex,
-                                  spendingPaths: spendingPaths,
-                                );
-                              }
-                            } else {
-                              result = await walletService.signBroadcastTx(
-                                psbtController!.text,
-                                descriptor.toString(),
-                                mnemonic,
-                                selectedIndex,
-                              );
-                            }
-
-                            if (result != null) {
-                              await showPSBTDialog(result);
-                            }
-
-                            SnackBarHelper.show(
-                              rootContext,
-                              message: isCreating
-                                  ? AppLocalizations.of(rootContext)!
-                                      .translate('transaction_created')
-                                  : result == null
-                                      ? AppLocalizations.of(rootContext)!
-                                          .translate('transaction_broadcast')
-                                      : AppLocalizations.of(rootContext)!
-                                          .translate('transaction_signed'),
-                            );
-                            Navigator.of(context).pop();
-                          }
-                        } catch (e, stackTrace) {
-                          Navigator.of(context).pop();
-
-                          print(stackTrace);
-
-                          SnackBarHelper.show(
+                          setDialogState(() {
+                            showPSBT = true;
+                            signingAmountController!.text =
+                                totalSpent.toString();
+                            signersList = signersAliases;
+                            recipientController.text =
+                                receiverAddress.toString();
+                            isFirstTap = false;
+                          });
+                        } catch (e) {
+                          SnackBarHelper.showError(
                             rootContext,
-                            message: e.toString(),
-                            color: AppColors.error(rootContext),
+                            message: AppLocalizations.of(rootContext)!
+                                .translate('invalid_psbt'),
+                          );
+                          return;
+                        }
+                      } else {
+                        // Step 3: Ask for confirmation before signing
+                        userConfirmed = await DialogHelper.buildCustomDialog(
+                          context: rootContext,
+                          titleKey: 'confirm_transaction',
+                          content: const SizedBox(),
+                          actions: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                InkwellButton(
+                                  onTap: () =>
+                                      Navigator.of(context, rootNavigator: true)
+                                          .pop(false),
+                                  label: AppLocalizations.of(rootContext)!
+                                      .translate('no'),
+                                  backgroundColor: AppColors.error(context),
+                                  textColor: AppColors.text(context),
+                                  icon: Icons.dangerous,
+                                  iconColor: AppColors.gradient(context),
+                                ),
+                                InkwellButton(
+                                  onTap: () =>
+                                      Navigator.of(context, rootNavigator: true)
+                                          .pop(true),
+                                  label: AppLocalizations.of(rootContext)!
+                                      .translate('yes'),
+                                  backgroundColor:
+                                      AppColors.background(context),
+                                  textColor: AppColors.text(context),
+                                  icon: Icons.verified,
+                                  iconColor: AppColors.gradient(context),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+
+                        if (!userConfirmed) return;
+                      }
+                    }
+                    if (isCreating || userConfirmed) {
+                      final dialogContext = context;
+                      DialogHelper.closeDialog(dialogContext);
+
+                      // Show the loading dialog before starting the process
+                      DialogHelper.showLoadingDialog(rootContext);
+
+                      // Step 4: Execute the transaction signing
+                      String? result;
+                      // await walletService.syncWallet(wallet);
+
+                      if (isCreating) {
+                        String recipientAddressStr = recipientController.text;
+
+                        // Now, attempt to parse
+                        int? amount = int.parse(amountController.text);
+
+                        print('Amount: $amount');
+
+                        if (isSingleWallet) {
+                          await walletService.sendSingleTx(
+                            recipientAddressStr,
+                            BigInt.from(amount),
+                            wallet,
+                            address,
+                          );
+                        } else {
+                          result = await walletService.createPartialTx(
+                            descriptor.toString(),
+                            mnemonic,
+                            recipientAddressStr,
+                            BigInt.from(amount),
+                            selectedIndex,
+                            spendingPaths: spendingPaths,
                           );
                         }
-                      },
-                      label: AppLocalizations.of(rootContext)!.translate(
-                          isCreating
-                              ? 'submit'
-                              : AppLocalizations.of(rootContext)!
-                                  .translate(isFirstTap ? 'decode' : 'sign')),
-                      backgroundColor: AppColors.primary(context),
-                      textColor: AppColors.text(context),
-                      icon: isCreating
-                          ? Icons.send_to_mobile_outlined
-                          : Icons.draw,
-                      iconColor: AppColors.gradient(context),
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
-        );
+                      } else {
+                        result = await walletService.signBroadcastTx(
+                          psbtController!.text,
+                          descriptor.toString(),
+                          mnemonic,
+                          selectedIndex,
+                        );
+                      }
+
+                      if (result != null) {
+                        await showPSBTDialog(result, rootContext);
+                      }
+
+                      SnackBarHelper.show(
+                        rootContext,
+                        message: isCreating
+                            ? AppLocalizations.of(rootContext)!
+                                .translate('transaction_created')
+                            : result == null
+                                ? AppLocalizations.of(rootContext)!
+                                    .translate('transaction_broadcast')
+                                : AppLocalizations.of(rootContext)!
+                                    .translate('transaction_signed'),
+                      );
+                      Navigator.of(rootContext, rootNavigator: true).pop();
+                    }
+                  } catch (e, stackTrace) {
+                    Navigator.of(rootContext, rootNavigator: true).pop();
+                    print(stackTrace);
+                    print(e);
+
+                    SnackBarHelper.showError(
+                      rootContext,
+                      message: e.toString(),
+                    );
+                  }
+                },
+                label: AppLocalizations.of(rootContext)!.translate(isCreating
+                    ? 'submit'
+                    : AppLocalizations.of(rootContext)!
+                        .translate(isFirstTap ? 'decode' : 'sign')),
+                backgroundColor: AppColors.primary(context),
+                textColor: AppColors.text(context),
+                icon: isCreating ? Icons.send_to_mobile_outlined : Icons.draw,
+                iconColor: AppColors.gradient(context),
+              ),
+            ],
+          ),
+        ];
       },
     ).then(
       (_) {
@@ -1026,109 +756,80 @@ class WalletSendtxHelpers {
     );
   }
 
-  Future<void> showPSBTDialog(String result) async {
+  Future<void> showPSBTDialog(
+    String result,
+    BuildContext context,
+  ) async {
     final rootContext = context;
 
     TextEditingController psbt = TextEditingController();
     psbt.text = result;
 
-    return showDialog(
+    return DialogHelper.buildCustomDialog(
       context: rootContext,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: AppColors.dialog(context),
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                AppLocalizations.of(rootContext)!.translate('psbt_created'),
-                style: TextStyle(
-                  color: AppColors.cardTitle(context),
-                ),
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.close,
-                  color: AppColors.cardTitle(context),
-                ),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            // Wrap content in a scrollable view
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight:
-                    MediaQuery.of(context).size.height * 0.4, // Limits height
-              ),
-              child: Column(
-                mainAxisSize:
-                    MainAxisSize.min, // Prevents unnecessary expansion
-                children: [
-                  Text(
-                    AppLocalizations.of(rootContext)!
-                        .translate('psbt_not_finalized'),
-                    style: TextStyle(
-                      color: AppColors.text(context),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: psbt,
-                    readOnly: true,
-                    decoration: CustomTextFieldStyles.textFieldDecoration(
-                      context: context,
-                      labelText:
-                          AppLocalizations.of(rootContext)!.translate('psbt'),
-                    ),
-                    style: TextStyle(
-                      color: AppColors.text(context),
-                    ),
-                  ),
-                ],
+      titleKey: 'psbt_created',
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.4, // Limits height
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min, // Prevents unnecessary expansion
+          children: [
+            Text(
+              AppLocalizations.of(rootContext)!.translate('psbt_not_finalized'),
+              style: TextStyle(
+                color: AppColors.text(context),
               ),
             ),
-          ),
-          actions: <Widget>[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Copy Button
-                InkwellButton(
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: result));
-                    SnackBarHelper.show(
-                      rootContext,
-                      message: AppLocalizations.of(rootContext)!
-                          .translate('psbt_clipboard'),
-                    );
-                  },
-                  label: AppLocalizations.of(rootContext)!.translate('copy'),
-                  backgroundColor: AppColors.text(context),
-                  textColor: AppColors.gradient(context),
-                  icon: Icons.copy,
-                  iconColor: AppColors.gradient(context),
-                ),
-
-                // Share Button
-                InkwellButton(
-                  onTap: () {
-                    Share.share(result);
-                  },
-                  label: AppLocalizations.of(rootContext)!.translate('share'),
-                  backgroundColor: AppColors.text(context),
-                  textColor: AppColors.gradient(context),
-                  icon: Icons.share,
-                  iconColor: AppColors.gradient(context),
-                ),
-              ],
+            const SizedBox(height: 10),
+            TextField(
+              controller: psbt,
+              readOnly: true,
+              decoration: CustomTextFieldStyles.textFieldDecoration(
+                context: context,
+                labelText: AppLocalizations.of(rootContext)!.translate('psbt'),
+              ),
+              style: TextStyle(
+                color: AppColors.text(context),
+              ),
             ),
           ],
-        );
-      },
+        ),
+      ),
+      actions: <Widget>[
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Copy Button
+            InkwellButton(
+              onTap: () {
+                UtilitiesService.copyToClipboard(
+                  context: rootContext,
+                  text: result,
+                  messageKey: 'psbt_clipboard',
+                );
+              },
+              label: AppLocalizations.of(rootContext)!.translate('copy'),
+              backgroundColor: AppColors.text(context),
+              textColor: AppColors.gradient(context),
+              icon: Icons.copy,
+              iconColor: AppColors.gradient(context),
+            ),
+
+            // Share Button
+            InkwellButton(
+              onTap: () {
+                Share.share(result);
+              },
+              label: AppLocalizations.of(rootContext)!.translate('share'),
+              backgroundColor: AppColors.text(context),
+              textColor: AppColors.gradient(context),
+              icon: Icons.share,
+              iconColor: AppColors.gradient(context),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -10,10 +10,10 @@ import 'package:flutter_wallet/utilities/splash_screen.dart';
 import 'package:flutter_wallet/wallet_pages/ca_wallet_page.dart';
 import 'package:flutter_wallet/wallet_pages/create_shared_wallet.dart';
 import 'package:flutter_wallet/wallet_pages/import_shared_wallet.dart';
-import 'package:flutter_wallet/utilities/pin_setup_page.dart';
-import 'package:flutter_wallet/utilities/pin_verification_page.dart';
+import 'package:flutter_wallet/security_pages/pin_setup_page.dart';
+import 'package:flutter_wallet/security_pages/pin_verification_page.dart';
 import 'package:flutter_wallet/settings/settings_page.dart';
-import 'package:flutter_wallet/wallet_pages/shared_wallet_page.dart';
+import 'package:flutter_wallet/wallet_pages/sh_w_creation_menu.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/wallet_pages/tutorial_page.dart';
 import 'package:flutter_wallet/wallet_pages/wallet_page.dart';
@@ -163,7 +163,7 @@ class MyApp extends StatelessWidget {
         '/ca_wallet_page': (context) => const CAWalletPage(),
         '/pin_setup_page': (context) => const PinSetupPage(),
         '/pin_verification_page': (context) => const PinVerificationPage(),
-        '/shared_wallet': (context) => const SharedWalletPage(),
+        '/shared_wallet': (context) => const ShWCreationMenu(),
         '/create_shared': (context) => const CreateSharedWallet(),
         '/import_shared': (context) => const ImportSharedWallet(),
         '/settings': (context) => const SettingsPage(),

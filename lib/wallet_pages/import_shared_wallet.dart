@@ -5,10 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
-import 'package:flutter_wallet/utilities/base_scaffold.dart';
+import 'package:flutter_wallet/services/utilities_service.dart';
+import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
-import 'package:flutter_wallet/utilities/snackbar_helper.dart';
+import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -168,9 +169,10 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
       }
     } catch (e) {
       // print('Error uploading file: $e');
-      SnackBarHelper.show(context,
-          message: AppLocalizations.of(context)!.translate('failed_upload'),
-          color: AppColors.error(context));
+      SnackBarHelper.showError(
+        context,
+        message: AppLocalizations.of(context)!.translate('failed_upload'),
+      );
     }
   }
 
@@ -391,12 +393,10 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                           icon:
                               Icon(Icons.copy, color: AppColors.icon(context)),
                           onPressed: () {
-                            Clipboard.setData(
-                                ClipboardData(text: publicKey ?? ''));
-                            SnackBarHelper.show(
-                              context,
-                              message: AppLocalizations.of(context)!
-                                  .translate('pub_key_clipboard'),
+                            UtilitiesService.copyToClipboard(
+                              context: context,
+                              text: publicKey.toString(),
+                              messageKey: 'pub_key_clipboard',
                             );
                           },
                         ),

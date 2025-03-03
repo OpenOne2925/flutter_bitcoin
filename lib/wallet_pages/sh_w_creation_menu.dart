@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
-import 'package:flutter_wallet/utilities/base_scaffold.dart';
+import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 
-class SharedWalletPage extends StatefulWidget {
-  const SharedWalletPage({super.key});
+class ShWCreationMenu extends StatefulWidget {
+  const ShWCreationMenu({super.key});
 
   @override
-  SharedWalletPageState createState() => SharedWalletPageState();
+  ShWCreationMenuState createState() => ShWCreationMenuState();
 }
 
-class SharedWalletPageState extends State<SharedWalletPage> {
+class ShWCreationMenuState extends State<ShWCreationMenu> {
   @override
   Widget build(BuildContext context) {
     return BaseScaffold(

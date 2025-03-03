@@ -228,16 +228,17 @@ class WalletService extends ChangeNotifier {
 
   /// Fetches and calculates confirmed & pending balance
   Future<Map<String, int>> getBitcoinBalance(String address) async {
+    await syncWallet(wallet);
     try {
       final int confirmedBalance =
           int.parse(wallet.getBalance().spendable.toString());
 
-      // print('confirmedBalance: $confirmedBalance');
+      print('confirmedBalance: $confirmedBalance');
 
       final int pendingBalance =
           int.parse(wallet.getBalance().untrustedPending.toString());
 
-      // print('pendingBalance: $pendingBalance');
+      print('pendingBalance: $pendingBalance');
 
       return {
         "confirmedBalance": confirmedBalance,
@@ -386,7 +387,7 @@ class WalletService extends ChangeNotifier {
         if (jsonData.containsKey('timestamp')) {
           int timestamp = jsonData['timestamp']; // Extract timestamp
 
-          // print(timestamp);
+          // print('timestamp from method: $timestamp');
 
           return DateTime.fromMillisecondsSinceEpoch(timestamp * 1000)
               .add(Duration(hours: -2))
@@ -399,18 +400,18 @@ class WalletService extends ChangeNotifier {
                           .length -
                       7);
         } else {
-          print('Error: "time" field not found in response.');
-          return "";
+          print('Error: "timestamp" field not found in response.');
+          throw Exception('Block API response missing timestamp field.');
         }
       } else {
         // Handle HTTP errors for block details API
         print('HTTP Error (Block API): ${response.statusCode}');
-        throw ('HTTP Error (Block API): ${response.statusCode}');
+        throw Exception('HTTP Error (Block API): ${response.statusCode}');
       }
     } catch (e) {
       // Handle any unexpected exceptions
       print('Exception occurred: $e');
-      return "";
+      throw Exception('Failed to fetch block timestamp: $e');
     }
   }
 
