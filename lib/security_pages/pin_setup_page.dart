@@ -3,6 +3,7 @@ import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
+import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class PinSetupPage extends StatefulWidget {
@@ -79,109 +80,90 @@ class PinSetupPageState extends State<PinSetupPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.translate('set_pin')),
-        backgroundColor: AppColors.primary(context),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.help_outline),
-            onPressed: () {
-              // Tutorial
-            },
-          ),
-        ],
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.accent(context), AppColors.gradient(context)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 20),
-                // Add an icon/illustration
-                Center(
-                  child: Icon(
-                    Icons.lock,
-                    size: 100,
-                    color: AppColors.icon(context),
-                  ),
+    return BaseScaffold(
+      title: Text(AppLocalizations.of(context)!.translate('set_pin')),
+      showDrawer: false,
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 20),
+              // Add an icon/illustration
+              Center(
+                child: Icon(
+                  Icons.lock,
+                  size: 100,
+                  color: AppColors.icon(context),
                 ),
-                const SizedBox(height: 20),
-                // Status Banner
-                _buildStatusBanner(),
-                // PIN Entry Field
-                TextFormField(
-                  controller: _pinController,
-                  decoration: CustomTextFieldStyles.textFieldDecoration(
-                    context: context,
-                    labelText:
-                        AppLocalizations.of(context)!.translate('enter_pin'),
-                    hintText: AppLocalizations.of(context)!
-                        .translate('enter_6_digits_pin'),
-                  ),
-                  keyboardType: TextInputType.number,
-                  obscureText: true,
-                  validator: (value) {
-                    if (value == null || value.length != 6) {
-                      return AppLocalizations.of(context)!
-                          .translate('pin_must_be_six');
-                    }
-                    return null;
-                  },
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
+              ),
+              const SizedBox(height: 20),
+              // Status Banner
+              _buildStatusBanner(),
+              // PIN Entry Field
+              TextFormField(
+                controller: _pinController,
+                decoration: CustomTextFieldStyles.textFieldDecoration(
+                  context: context,
+                  labelText:
+                      AppLocalizations.of(context)!.translate('enter_pin'),
+                  hintText: AppLocalizations.of(context)!
+                      .translate('enter_6_digits_pin'),
                 ),
+                keyboardType: TextInputType.number,
+                obscureText: true,
+                validator: (value) {
+                  if (value == null || value.length != 6) {
+                    return AppLocalizations.of(context)!
+                        .translate('pin_must_be_six');
+                  }
+                  return null;
+                },
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
 
-                const SizedBox(height: 16),
-                // Confirm PIN Entry Field
-                TextFormField(
-                  controller: _confirmPinController,
-                  decoration: CustomTextFieldStyles.textFieldDecoration(
-                    context: context,
-                    labelText:
-                        AppLocalizations.of(context)!.translate('confirm_pin'),
-                    hintText:
-                        AppLocalizations.of(context)!.translate('re_enter_pin'),
-                  ),
-                  keyboardType: TextInputType.number,
-                  obscureText: true,
-                  validator: (value) {
-                    if (value != _pinController.text) {
-                      return AppLocalizations.of(context)!
-                          .translate('pin_mismatch');
-                    }
-                    return null;
-                  },
-                  style: TextStyle(
-                    color: AppColors.text(context),
-                  ),
+              const SizedBox(height: 16),
+              // Confirm PIN Entry Field
+              TextFormField(
+                controller: _confirmPinController,
+                decoration: CustomTextFieldStyles.textFieldDecoration(
+                  context: context,
+                  labelText:
+                      AppLocalizations.of(context)!.translate('confirm_pin'),
+                  hintText:
+                      AppLocalizations.of(context)!.translate('re_enter_pin'),
                 ),
+                keyboardType: TextInputType.number,
+                obscureText: true,
+                validator: (value) {
+                  if (value != _pinController.text) {
+                    return AppLocalizations.of(context)!
+                        .translate('pin_mismatch');
+                  }
+                  return null;
+                },
+                style: TextStyle(
+                  color: AppColors.text(context),
+                ),
+              ),
 
-                const SizedBox(height: 20),
-                // Set PIN Button
-                CustomButton(
-                  onPressed: _validateAndSave,
-                  backgroundColor: AppColors.background(context),
-                  foregroundColor: AppColors.gradient(context),
-                  icon: Icons.pin,
-                  iconColor: AppColors.text(context),
-                  label: AppLocalizations.of(context)!.translate('set_pin'),
-                  padding: 16.0,
-                  iconSize: 28.0,
-                ),
-              ],
-            ),
+              const SizedBox(height: 20),
+              // Set PIN Button
+              CustomButton(
+                onPressed: _validateAndSave,
+                backgroundColor: AppColors.background(context),
+                foregroundColor: AppColors.gradient(context),
+                icon: Icons.pin,
+                iconColor: AppColors.text(context),
+                label: AppLocalizations.of(context)!.translate('set_pin'),
+                padding: 16.0,
+                iconSize: 28.0,
+              ),
+            ],
           ),
         ),
       ),

@@ -7,6 +7,7 @@ import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
+import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_security_helpers.dart';
@@ -16,7 +17,6 @@ import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class WalletUiHelpers {
   static bool isPubKeyVisible = false;
-
   final String address;
   final int avBalance;
   final int ledBalance;
@@ -33,8 +33,8 @@ class WalletUiHelpers {
   final bool isLoading;
   final List<Map<String, dynamic>> transactions;
   final Wallet wallet;
-
   final bool isSingleWallet;
+  final GlobalKey<BaseScaffoldState> baseScaffoldKey;
   final WalletSecurityHelpers securityHelper;
 
   WalletService walletService = WalletService();
@@ -57,6 +57,7 @@ class WalletUiHelpers {
     required this.transactions,
     required this.wallet,
     required this.isSingleWallet,
+    required this.baseScaffoldKey,
     String? descriptor,
     String? descriptorName,
     List<Map<String, String>>? pubKeysAlias,
@@ -112,6 +113,15 @@ class WalletUiHelpers {
                             // Wrap the two icons inside another Row
                             children: [
                               GestureDetector(
+                                onLongPress: () {
+                                  final BaseScaffoldState? baseScaffoldState =
+                                      baseScaffoldKey.currentState;
+
+                                  if (baseScaffoldState != null) {
+                                    baseScaffoldState.updateAssistantMessage(
+                                        context, 'assistant_private_data');
+                                  }
+                                },
                                 onTap: () {
                                   securityHelper.showPinDialog(
                                     'Your Private Data',
@@ -124,9 +134,17 @@ class WalletUiHelpers {
                                   size: 22,
                                 ),
                               ),
-                              SizedBox(
-                                  width: 10), // Add spacing between the icons
+                              SizedBox(width: 10),
                               GestureDetector(
+                                onLongPress: () {
+                                  final BaseScaffoldState? baseScaffoldState =
+                                      baseScaffoldKey.currentState;
+
+                                  if (baseScaffoldState != null) {
+                                    baseScaffoldState.updateAssistantMessage(
+                                        context, 'assistant_pub_key_data');
+                                  }
+                                },
                                 onTap: () {
                                   _showPubKeyDialog();
                                 },
@@ -327,6 +345,7 @@ class WalletUiHelpers {
       context: context,
       currentHeight: currentHeight,
       address: address,
+      baseScaffoldKey: baseScaffoldKey,
     );
 
     return Card(
@@ -393,15 +412,6 @@ class WalletUiHelpers {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            AppLocalizations.of(rootContext)!.translate('saved_pub_key'),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              color: AppColors.text(context),
-            ),
-          ),
-          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(12.0),
             decoration: BoxDecoration(

@@ -5,6 +5,7 @@ import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
+import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:hive/hive.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
@@ -156,67 +157,59 @@ class CAWalletPageState extends State<CAWalletPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(56.0), // Standard AppBar height
-        child: AppBar(
-          title:
-              Text(AppLocalizations.of(context)!.translate('create_restore')),
-          backgroundColor: AppColors.primary(context),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.help_outline),
-              onPressed: () {
-                // Tutorial
-              },
-            ),
-          ],
-        ),
-      ),
+    final GlobalKey<BaseScaffoldState> baseScaffoldKey =
+        GlobalKey<BaseScaffoldState>();
+
+    return BaseScaffold(
+      title: Text(AppLocalizations.of(context)!.translate('create_restore')),
+      key: baseScaffoldKey,
+      showDrawer: false,
       body: Column(
         children: [
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.accent(context),
-                  AppColors.gradient(context)
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Cool Status Indicator with Animation
-                  _buildStatusIndicator(),
-                  const SizedBox(height: 20),
-                  // Mnemonic Input Field
-                  TextFormField(
-                    controller: _mnemonicController,
-                    onChanged: (value) async {
-                      setState(() {
-                        _mnemonic = value;
-                      });
-                    },
-                    decoration: CustomTextFieldStyles.textFieldDecoration(
-                      context: context,
-                      labelText: AppLocalizations.of(context)!
-                          .translate('enter_mnemonic'),
-                      hintText:
-                          AppLocalizations.of(context)!.translate('enter_12'),
-                    ),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Cool Status Indicator with Animation
+                _buildStatusIndicator(),
 
-                  const SizedBox(height: 20),
-                  // Create Wallet Button
-                  CustomButton(
+                const SizedBox(height: 20),
+
+                // Mnemonic Input Field
+                TextFormField(
+                  controller: _mnemonicController,
+                  onChanged: (value) async {
+                    setState(() {
+                      _mnemonic = value;
+                    });
+                  },
+                  decoration: CustomTextFieldStyles.textFieldDecoration(
+                    context: context,
+                    labelText: AppLocalizations.of(context)!
+                        .translate('enter_mnemonic'),
+                    hintText:
+                        AppLocalizations.of(context)!.translate('enter_12'),
+                  ),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // Create Wallet Button
+                GestureDetector(
+                  onLongPress: () {
+                    final BaseScaffoldState? baseScaffoldState =
+                        baseScaffoldKey.currentState;
+
+                    if (baseScaffoldState != null) {
+                      baseScaffoldState.updateAssistantMessage(
+                          context, 'assistant_create_wallet');
+                    }
+                  },
+                  child: CustomButton(
                     onPressed: _isMnemonicEntered ? _createWallet : null,
                     backgroundColor: AppColors.background(context),
                     foregroundColor: AppColors.text(context),
@@ -227,10 +220,22 @@ class CAWalletPageState extends State<CAWalletPage> {
                     padding: 16.0,
                     iconSize: 28.0,
                   ),
+                ),
 
-                  const SizedBox(height: 16),
-                  // Generate Mnemonic Button
-                  CustomButton(
+                const SizedBox(height: 16),
+
+                // Generate Mnemonic Button
+                GestureDetector(
+                  onLongPress: () {
+                    final BaseScaffoldState? baseScaffoldState =
+                        baseScaffoldKey.currentState;
+
+                    if (baseScaffoldState != null) {
+                      baseScaffoldState.updateAssistantMessage(
+                          context, 'assistant_generate_mnemonic');
+                    }
+                  },
+                  child: CustomButton(
                     onPressed: _generateMnemonic,
                     backgroundColor: AppColors.background(context),
                     foregroundColor: AppColors.gradient(context),
@@ -241,8 +246,8 @@ class CAWalletPageState extends State<CAWalletPage> {
                     padding: 16.0,
                     iconSize: 28.0,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],

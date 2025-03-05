@@ -15,6 +15,7 @@ class AppColors {
       isTestnet ? Colors.green[800]! : Colors.deepOrange[900]!;
 
   static Color get unavailableColor => Colors.grey;
+  static Color get unconfirmedColor => Colors.yellow;
 
   static Color primary(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark

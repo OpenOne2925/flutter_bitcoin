@@ -292,4 +292,146 @@ const Map<String, String> localizedStringsIt = {
   'no_connection': '🌐 Nessuna connessione a Internet',
   'connect_internet':
       'Il tuo portafoglio deve sincronizzarsi con la blockchain.\n\nPer favore, connettiti a Internet per continuare.',
+
+  // Messaggi generali dell'assistente
+  'assistant_welcome':
+      'Ciao! Sono Hoshi 🤖, il tuo assistente su SharedHaven. Tocca l’icona di aiuto in alto a destra e tieni premuto su qualsiasi elemento per ottenere informazioni.',
+
+// Configurazione e verifica del PIN
+  'assistant_pin_setup_page':
+      'Imposta un PIN a 6 cifre per criptare i dati del tuo wallet. **Non dimenticarlo**—serve per proteggere i tuoi fondi! 🔐',
+  'assistant_pin_verification_page':
+      'Inserisci il tuo PIN per verificare l’accesso al wallet. Questo garantisce che solo tu possa utilizzarlo.',
+
+// Creazione del wallet e gestione della mnemonica
+  'assistant_ca_wallet_page':
+      'Qui puoi **generare una nuova mnemonica di 12 parole** o **importare un wallet esistente** con la tua mnemonica personale. **Conservala in un posto sicuro!** 🛡️',
+  'assistant_create_wallet':
+      'Tocca qui per **creare un nuovo wallet personale** o **importarne uno esistente con la tua mnemonica**.',
+  'assistant_generate_mnemonic':
+      'Tocca qui per **generare una nuova mnemonica di 12 parole**. **Scrivila e conservala in un posto sicuro!** Senza di essa, non potrai più accedere ai tuoi fondi. 📝🔑',
+
+// Pagina del wallet personale
+  'assistant_wallet_page':
+      'Questa è la tua **dashboard del wallet personale**. Qui puoi controllare il saldo, inviare transazioni e gestire i tuoi fondi. 💰',
+  'assistant_personal_info_box':
+      'Questa sezione contiene le informazioni principali del tuo wallet. **Tieni premuto su un elemento** per scoprire funzionalità extra! ⚡',
+  'assistant_personal_transactions_box':
+      'Visualizza qui le tue **transazioni recenti**. **Tocca una transazione** per vederne tutti i dettagli, le conferme e le commissioni.',
+  'assistant_personal_available_balance':
+      'Questo pulsante calcola il **saldo massimo disponibile** basandosi sulla transazione e sulle commissioni. **Inserisci prima un destinatario** per ottenere un valore preciso! 🏦',
+
+// Chiavi private e pubbliche
+  'assistant_private_data':
+      'I tuoi dati privati sono **protetti dal tuo PIN**. Inseriscilo qui per accedere alle informazioni crittografate del wallet. 🔐',
+  'assistant_pub_key_data':
+      'Tocca qui per visualizzare la tua **chiave pubblica**, necessaria per configurare un wallet condiviso.',
+
+// Pulsanti di transazione
+  'assistant_send_button':
+      'Crea una nuova **transazione Bitcoin** e invia fondi. 💸',
+  'assistant_sign_button':
+      'Firma una **PSBT (Partially Signed Bitcoin Transaction)** per approvare una transazione condivisa.',
+  'assistant_scan_button':
+      'Scansiona un **QR code Bitcoin** per inserire automaticamente un indirizzo destinatario. 📷',
+  'assistant_receive_button':
+      'Visualizza e condividi il **QR code del tuo indirizzo Bitcoin** per ricevere pagamenti.',
+
+// Wallet Condiviso
+  'assistant_shared_wallet':
+      'Benvenuto nel tuo **wallet condiviso**! 🚀 È come un normale wallet, ma con **multisig e regole di spesa avanzate** per una sicurezza extra.',
+  'assistant_shared_spending_path_box':
+      'Questi sono i tuoi **percorsi di spesa**—insiemi di regole che determinano come puoi utilizzare i fondi. Se soddisfi i criteri, puoi spendere l’importo indicato. 💡',
+  'assistant_shared_available_balance':
+      'In un wallet condiviso, questo pulsante calcola il **saldo disponibile basato sul percorso di spesa selezionato**. **Inserisci prima un destinatario** per ottenere un valore corretto! ⚡',
+  'assistant_shared_path_selected':
+      'Nessun problema—**il miglior percorso di spesa viene selezionato automaticamente** per te! 😉',
+  'assistant_shared_path_dropdown':
+      'Preferisci selezionarlo manualmente? **Scegli un percorso di spesa disponibile**. 🔽',
+
+// Invio di transazioni in Wallet Condiviso
+  'assistant_send_sw_dialog1':
+      'Inserisci prima **l’importo**, e vedrai automaticamente disabilitati i percorsi di spesa non disponibili. **Niente confusione, tutto chiaro!** 🎯',
+  'assistant_send_dialog2':
+      '⚠️ **Verifica sempre l’indirizzo del destinatario!** Se invii fondi all’indirizzo sbagliato, la transazione **non può essere annullata**. 🔍',
+
+// PSBT (Partially Signed Bitcoin Transactions)
+  'assistant_psbt_dialog1':
+      'Prima di firmare una **PSBT**, controlla bene tutti i dettagli della transazione. ✅ Il pulsante **Decodifica** mostra solo le informazioni extra—**non firma nulla!**',
+  'assistant_psbt_dialog2':
+      'Questa è la panoramica della tua **PSBT**. **Firma solo le transazioni di cui ti fidi** e non accettare PSBT da fonti sconosciute. 🔐',
+
+// Dettagli delle Transazioni
+  'assistant_transactions_dialog1':
+      'Vuoi più dettagli? **Controlla il Mempool Explorer** per informazioni aggiornate sulla tua transazione. 🌐',
+  'assistant_transactions_dialog2':
+      'Questa è la **commissione di transazione**—una piccola somma pagata ai miner per garantire che la tua transazione venga confermata più rapidamente. 🏗️',
+
+// Generazione Chiavi Pubbliche e Importazione
+  'assistant_generate_pub_key':
+      'Genera la tua **chiave pubblica**, da condividere per impostare un wallet condiviso. 🔑',
+  'assistant_select_file':
+      'Invece di inserire un descriptor manualmente, **carica un file JSON** con i dati del wallet. 📂',
+  'assistant_import_sw_button':
+      'Dopo aver verificato **il descriptor e la chiave pubblica**, tocca qui per **importare il wallet**.',
+
+  // Importazione di un portafoglio condiviso
+  'assistant_import_shared_tip1':
+      'Stai inserendo un descrittore manualmente? Nessun problema—**nomi e alias casuali verranno generati automaticamente**. Potrai modificarli in seguito!',
+  'assistant_import_shared_tip2':
+      'Il tuo **chiave pubblica** può essere condivisa con altri, ma **non condividere mai la tua chiave privata**! Proteggila a tutti i costi. 🔑❌',
+  'assistant_import_shared_tip3':
+      'Fai attenzione agli **errori sopra il campo del descrittore**—forniscono **suggerimenti su cosa non va nel tuo input**! ⚠️',
+
+// Creazione del Wallet Condiviso
+  'assistant_create_shared_tip1':
+      'Vuoi eliminare un alias o una condizione? **Scorri a sinistra o a destra** per rimuoverlo! 🔄',
+
+// Soglia e Multisig
+  'assistant_threshold':
+      'La **soglia** è il numero minimo di firme richieste per approvare una transazione. **Esempio:** in un wallet 2-su-3, servono 2 firme per spendere i fondi. **Non può superare il numero totale di utenti.** 🔐',
+
+// Aggiunta di chiavi pubbliche a un portafoglio condiviso
+  'assistant_add_pub_key_tip1':
+      'Gli alias aiutano a identificare quale **chiave pubblica** appartiene a quale utente—rendendo più facile la gestione delle firme. 🏷️',
+  'assistant_add_pub_key_tip2':
+      'Puoi **modificare gli alias in seguito** se necessario.',
+
+// Timelock (Condizioni Basate sul Tempo)
+  'assistant_add_timelock_tip1':
+      'Il valore **"Older"** indica il numero di **blocchi** che devono passare prima che i fondi diventino spendibili. **Ogni blocco è ~10 minuti.** ⏳',
+  'assistant_add_timelock_tip2':
+      'Un **UTXO (Unspent Transaction Output)** è un saldo Bitcoin confermato. Quando l’UTXO raggiunge il numero di conferme richiesto, diventa spendibile con questa condizione. 🏦',
+  'assistant_add_timelock_tip3':
+      'Puoi anche aggiungere una **soglia dentro una condizione timelock**—significa che **più utenti devono approvare dopo un certo tempo**.',
+
+// Creazione di un Descriptor
+  'assistant_create_descriptor':
+      'Tocca il pulsante qui sotto per **generare un riepilogo della configurazione del tuo wallet condiviso**. 📝✅',
+
+// Configurazione e verifica del PIN (Suggerimenti extra)
+  'assistant_pin_setup_page_tip1':
+      'Imposta il tuo **PIN** per iniziare il tuo viaggio con **SharedHaven**! 🔐',
+  'assistant_pin_setup_page_tip2':
+      'Scegli un **PIN sicuro** e **memorizzalo**—non potrai resettarlo facilmente!',
+  'assistant_pin_verify_page_tip1':
+      'Verifica il tuo **PIN** per continuare. Questo garantisce che solo tu possa accedere al tuo portafoglio. ✅',
+
+// Suggerimenti Generali per il Wallet
+  'assistant_wallet_page_tip1':
+      'Tieni premuto sui pulsanti o tocca le icone **?** per ottenere informazioni extra! 💡',
+  'assistant_wallet_page_tip2':
+      'Ricorda, **hai bisogno di una connessione a internet** per sincronizzare il wallet con la blockchain. 🌍',
+  'assistant_wallet_page_tip3':
+      'Aggiorna periodicamente il tuo wallet per **rimanere allineato con le ultime transazioni**. 🔄',
+
+// Suggerimenti generali e predefiniti
+  'assistant_shared_page': 'Gestisci o crea **wallet condivisi** con facilità!',
+  'assistant_settings': 'Personalizza l’app nelle **Impostazioni**. 🎛️',
+  'assistant_default':
+      'Come posso aiutarti oggi? **Toccami per suggerimenti!** 🤖',
+  'assistant_create_shared':
+      'In questa sezione dell\'app, puoi creare un nuovo **portafoglio condiviso**.',
+  'assistant_import_shared':
+      'In questa sezione dell\'app, puoi **importare un portafoglio condiviso esistente**.',
 };

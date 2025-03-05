@@ -288,6 +288,9 @@ class WalletPageState extends State<WalletPage> {
 
   @override
   Widget build(BuildContext context) {
+    final GlobalKey<BaseScaffoldState> baseScaffoldKey =
+        GlobalKey<BaseScaffoldState>();
+
     if (!isWalletInitialized) {
       return Scaffold(
         body: Center(
@@ -327,6 +330,7 @@ class WalletPageState extends State<WalletPage> {
       transactions: _transactions,
       wallet: wallet,
       isSingleWallet: true,
+      baseScaffoldKey: baseScaffoldKey,
     );
 
     final walletButtonsHelper = WalletButtonsHelper(
@@ -340,6 +344,7 @@ class WalletPageState extends State<WalletPage> {
       currentHeight: _currentHeight,
       mounted: mounted,
       wallet: wallet,
+      baseScaffoldKey: baseScaffoldKey,
     );
 
     return BaseScaffold(
@@ -347,6 +352,7 @@ class WalletPageState extends State<WalletPage> {
         AppLocalizations.of(context)!.translate('personal_wallet'),
         style: TextStyle(fontSize: 18),
       ),
+      key: baseScaffoldKey,
       body: RefreshIndicator(
         key: _refreshIndicatorKey, // Assign the GlobalKey to RefreshIndicator
         onRefresh: () async {
@@ -369,14 +375,36 @@ class WalletPageState extends State<WalletPage> {
               child: ListView(
                 padding: const EdgeInsets.all(8.0),
                 children: [
-                  walletUiHelpers.buildWalletInfoBox(
-                    AppLocalizations.of(context)!.translate('address'),
-                    onTap: () {
-                      _convertCurrency();
+                  GestureDetector(
+                    onLongPress: () {
+                      final BaseScaffoldState? baseScaffoldState =
+                          baseScaffoldKey.currentState;
+
+                      if (baseScaffoldState != null) {
+                        baseScaffoldState.updateAssistantMessage(
+                            context, 'assistant_personal_info_box');
+                      }
                     },
-                    showCopyButton: true,
+                    child: walletUiHelpers.buildWalletInfoBox(
+                      AppLocalizations.of(context)!.translate('address'),
+                      onTap: () {
+                        _convertCurrency();
+                      },
+                      showCopyButton: true,
+                    ),
                   ),
-                  walletUiHelpers.buildTransactionsBox(),
+                  GestureDetector(
+                    onLongPress: () {
+                      final BaseScaffoldState? baseScaffoldState =
+                          baseScaffoldKey.currentState;
+
+                      if (baseScaffoldState != null) {
+                        baseScaffoldState.updateAssistantMessage(
+                            context, 'assistant_personal_transactions_box');
+                      }
+                    },
+                    child: walletUiHelpers.buildTransactionsBox(),
+                  ),
                 ],
               ),
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
+import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:hive/hive.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
@@ -101,71 +102,60 @@ class PinVerificationPageState extends State<PinVerificationPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.translate('verify_pin')),
-        backgroundColor: AppColors.primary(context),
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.accent(context), Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 20),
-                // Lock Animation
-                Center(
-                  child: SizedBox(
-                    height: 150,
-                    child: _buildAnimation(),
-                  ),
+    return BaseScaffold(
+      title: Text(AppLocalizations.of(context)!.translate('verify_pin')),
+      showDrawer: false,
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 20),
+              // Lock Animation
+              Center(
+                child: SizedBox(
+                  height: 150,
+                  child: _buildAnimation(),
                 ),
-                const SizedBox(height: 20),
-                // Status Banner
-                _buildStatusBanner(),
-                // PIN Entry Field
-                TextFormField(
-                  controller: _pinController,
-                  decoration: CustomTextFieldStyles.textFieldDecoration(
-                    context: context,
-                    labelText:
-                        AppLocalizations.of(context)!.translate('enter_pin'),
-                    hintText: AppLocalizations.of(context)!
-                        .translate('enter_6_digits_pin'),
-                  ),
-                  keyboardType: TextInputType.number,
-                  obscureText: true,
-                  style: TextStyle(
-                    color: AppColors.text(context),
-                  ),
+              ),
+              const SizedBox(height: 20),
+              // Status Banner
+              _buildStatusBanner(),
+              // PIN Entry Field
+              TextFormField(
+                controller: _pinController,
+                decoration: CustomTextFieldStyles.textFieldDecoration(
+                  context: context,
+                  labelText:
+                      AppLocalizations.of(context)!.translate('enter_pin'),
+                  hintText: AppLocalizations.of(context)!
+                      .translate('enter_6_digits_pin'),
                 ),
-                const SizedBox(height: 20),
-                // Verify PIN Button
-                CustomButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      _verifyPin();
-                    }
-                  },
-                  backgroundColor: AppColors.primary(context),
-                  foregroundColor: Colors.white,
-                  icon: Icons.check_circle,
-                  iconColor: Colors.white,
-                  label: AppLocalizations.of(context)!.translate('verify_pin'),
-                  padding: 16.0,
-                  iconSize: 28.0,
+                keyboardType: TextInputType.number,
+                obscureText: true,
+                style: TextStyle(
+                  color: AppColors.text(context),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 20),
+              // Verify PIN Button
+              CustomButton(
+                onPressed: () {
+                  if (_formKey.currentState!.validate()) {
+                    _verifyPin();
+                  }
+                },
+                backgroundColor: AppColors.primary(context),
+                foregroundColor: Colors.white,
+                icon: Icons.check_circle,
+                iconColor: Colors.white,
+                label: AppLocalizations.of(context)!.translate('verify_pin'),
+                padding: 16.0,
+                iconSize: 28.0,
+              ),
+            ],
           ),
         ),
       ),

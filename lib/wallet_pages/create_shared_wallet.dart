@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
@@ -60,6 +59,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
   bool _isThresholdMissing = false;
   bool _isYourPubKeyMissing = false;
   bool _arePublicKeysMissing = false;
+
+  final GlobalKey<BaseScaffoldState> baseScaffoldKey =
+      GlobalKey<BaseScaffoldState>();
 
   @override
   void initState() {
@@ -209,7 +211,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
     // Iterate through all keys and check if any key contains the same descriptor name
     for (var key in descriptorBox.keys) {
-      print(key);
+      print('Key: $key');
       if (key.toString().contains(descriptorName.trim())) {
         return true; // Duplicate found
       }
@@ -239,6 +241,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
           fontSize: 18,
         ),
       ),
+      key: baseScaffoldKey,
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Column(
@@ -310,16 +313,28 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   color: AppColors.text(context)),
             ),
             const SizedBox(height: 10),
-            CustomButton(
-              onPressed: _generatePublicKey,
-              backgroundColor: AppColors.background(context),
-              foregroundColor: AppColors.gradient(context),
-              icon: Icons.vpn_key,
-              iconColor: AppColors.text(context),
-              label: AppLocalizations.of(context)!
-                  .translate('generate_public_key'),
-              padding: 16.0,
-              iconSize: 24.0,
+
+            GestureDetector(
+              onLongPress: () {
+                final BaseScaffoldState? baseScaffoldState =
+                    baseScaffoldKey.currentState;
+
+                if (baseScaffoldState != null) {
+                  baseScaffoldState.updateAssistantMessage(
+                      context, 'assistant_generate_pub_key');
+                }
+              },
+              child: CustomButton(
+                onPressed: _generatePublicKey,
+                backgroundColor: AppColors.background(context),
+                foregroundColor: AppColors.gradient(context),
+                icon: Icons.vpn_key,
+                iconColor: AppColors.text(context),
+                label: AppLocalizations.of(context)!
+                    .translate('generate_public_key'),
+                padding: 16.0,
+                iconSize: 24.0,
+              ),
             ),
             if (_publicKey != null) ...[
               const SizedBox(height: 10),
@@ -364,6 +379,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Section Title
+
                 Text(
                   '2. ${AppLocalizations.of(context)!.translate('enter_public_keys_multisig')}',
                   style: GoogleFonts.poppins(
@@ -422,43 +438,63 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 ),
                 const SizedBox(width: 10),
                 if (publicKeysWithAlias.isNotEmpty)
-                  SizedBox(
-                    width: 100, // Set your desired width
-                    child: TextFormField(
-                      onChanged: (value) {
-                        setState(() {
-                          if (int.tryParse(value) != null &&
-                              int.parse(value) > publicKeysWithAlias.length) {
-                            // If the entered value exceeds the max, reset it to the max
-                            _thresholdController.text =
-                                publicKeysWithAlias.length.toString();
-                            _thresholdController.selection =
-                                TextSelection.fromPosition(
-                              TextPosition(
-                                  offset: _thresholdController.text.length),
-                            );
-                            threshold = _thresholdController.text;
-                          } else {
-                            threshold = _thresholdController.text;
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 100, // Set your desired width
+                        child: TextFormField(
+                          onChanged: (value) {
+                            setState(() {
+                              if (int.tryParse(value) != null &&
+                                  int.parse(value) >
+                                      publicKeysWithAlias.length) {
+                                // If the entered value exceeds the max, reset it to the max
+                                _thresholdController.text =
+                                    publicKeysWithAlias.length.toString();
+                                _thresholdController.selection =
+                                    TextSelection.fromPosition(
+                                  TextPosition(
+                                      offset: _thresholdController.text.length),
+                                );
+                                threshold = _thresholdController.text;
+                              } else {
+                                threshold = _thresholdController.text;
+                              }
+                            });
+                          },
+                          controller: _thresholdController,
+                          keyboardType: TextInputType.number,
+                          decoration: CustomTextFieldStyles.textFieldDecoration(
+                            context: context,
+                            labelText: AppLocalizations.of(context)!
+                                .translate('threshold'),
+                            hintText: AppLocalizations.of(context)!
+                                .translate('threshold'),
+                            borderColor: _isThresholdMissing
+                                ? AppColors.error(context)
+                                : AppColors.background(context),
+                          ),
+                          style: TextStyle(
+                            color: AppColors.text(context),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          final BaseScaffoldState? baseScaffoldState =
+                              baseScaffoldKey.currentState;
+
+                          if (baseScaffoldState != null) {
+                            baseScaffoldState.updateAssistantMessage(
+                                context, 'assistant_threshold');
                           }
-                        });
-                      },
-                      controller: _thresholdController,
-                      keyboardType: TextInputType.number,
-                      decoration: CustomTextFieldStyles.textFieldDecoration(
-                        context: context,
-                        labelText: AppLocalizations.of(context)!
-                            .translate('threshold'),
-                        hintText: AppLocalizations.of(context)!
-                            .translate('threshold'),
-                        borderColor: _isThresholdMissing
-                            ? AppColors.error(context)
-                            : AppColors.background(context),
+                        },
+                        icon: Icon(
+                          Icons.help,
+                          color: AppColors.icon(context),
+                        ),
                       ),
-                      style: TextStyle(
-                        color: AppColors.text(context),
-                      ),
-                    ),
+                    ],
                   ),
               ],
             ),
@@ -682,12 +718,31 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    '4. ${AppLocalizations.of(context)!.translate('create_descriptor')}',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                        color: AppColors.text(context)),
+                  Row(
+                    children: [
+                      Text(
+                        '4. ${AppLocalizations.of(context)!.translate('create_descriptor')}',
+                        style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: AppColors.text(context)),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          final BaseScaffoldState? baseScaffoldState =
+                              baseScaffoldKey.currentState;
+
+                          if (baseScaffoldState != null) {
+                            baseScaffoldState.updateAssistantMessage(
+                                context, 'assistant_create_descriptor');
+                          }
+                        },
+                        icon: Icon(
+                          Icons.help,
+                          color: AppColors.icon(context),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   CustomButton(
@@ -727,7 +782,12 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     DialogHelper.buildCustomStatefulDialog(
       context: rootContext,
       titleKey: isUpdating ? 'edit_public_key' : 'add_public_key',
-      contentBuilder: (setDialogState) {
+      showAssistant: true,
+      assistantMessages: [
+        'assistant_add_pub_key_tip1',
+        'assistant_add_pub_key_tip2',
+      ],
+      contentBuilder: (setDialogState, updateAssistantMessage) {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -890,7 +950,13 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     DialogHelper.buildCustomStatefulDialog(
       context: rootContext,
       titleKey: isUpdating ? 'edit_timelock' : 'add_timelock',
-      contentBuilder: (setDialogState) {
+      showAssistant: true,
+      assistantMessages: [
+        'assistant_add_timelock_tip1',
+        'assistant_add_timelock_tip2',
+        'assistant_add_timelock_tip3',
+      ],
+      contentBuilder: (setDialogState, updateAssistantMessage) {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [

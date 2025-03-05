@@ -123,11 +123,22 @@ class WalletSendtxHelpers {
     bool showPSBT = isCreating;
     bool isFirstTap =
         true; // Tracks whether this is the first tap JUST for the signing menu
+    String? lastValidText = ''; // Store the last valid state
+    bool isFull = false;
 
     return DialogHelper.buildCustomStatefulDialog(
       context: rootContext,
       titleKey: isCreating ? 'sending_menu' : 'signing_menu',
-      contentBuilder: (setDialogState) {
+      showAssistant: true,
+      assistantMessages: isSingleWallet
+          ? ['assistant_send_dialog2']
+          : isCreating
+              ? ['assistant_send_sw_dialog1', 'assistant_send_dialog2']
+              : [
+                  'assistant_psbt_dialog1',
+                  'assistant_psbt_dialog2'
+                ], // ✅ Custom messages specific to this dialog
+      contentBuilder: (setDialogState, updateAssistantMessage) {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -138,16 +149,50 @@ class WalletSendtxHelpers {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: psbtController,
+                    readOnly: isFull,
+                    onChanged: (value) {
+                      // Detect paste or clear
+                      if (lastValidText != null &&
+                          (value.length > lastValidText!.length + 1 ||
+                              value.isEmpty)) {
+                        lastValidText = value;
+                        isFull = true;
+                      } else {
+                        // Prevent manual typing
+                        psbtController!.text = lastValidText ?? '';
+                        psbtController!.selection = TextSelection.fromPosition(
+                          TextPosition(offset: psbtController!.text.length),
+                        );
+                      }
+                    },
                     decoration: CustomTextFieldStyles.textFieldDecoration(
                       context: context,
                       labelText:
                           AppLocalizations.of(rootContext)!.translate('psbt'),
                       hintText: AppLocalizations.of(rootContext)!
                           .translate('enter_psbt'),
+                      suffixIcon: (psbtController != null &&
+                              psbtController!.text.isNotEmpty)
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.cancel,
+                                color: AppColors.icon(context),
+                              ),
+                              onPressed: () {
+                                setDialogState(() {
+                                  psbtController
+                                      ?.clear(); // Use null-aware operator to avoid errors
+                                  lastValidText = '';
+                                  showPSBT = false;
+                                  isFirstTap = true;
+                                  signersList?.clear();
+                                  isFull = false;
+                                });
+                              },
+                            )
+                          : null, // Hide button if field is empty
                     ),
-                    style: TextStyle(
-                      color: AppColors.text(context),
-                    ),
+                    style: TextStyle(color: AppColors.text(context)),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -243,77 +288,85 @@ class WalletSendtxHelpers {
             Visibility(
               visible: (!isCreating && showPSBT) || isFromSpendingPath == true,
               child: selectedPath != null
-                  ? Card(
-                      elevation: 3,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      color: AppColors.background(context),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              AppLocalizations.of(rootContext)!
-                                  .translate('spending_path'),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.text(context),
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            RichText(
-                              text: TextSpan(
+                  ? GestureDetector(
+                      onLongPress: () {
+                        updateAssistantMessage(
+                          context,
+                          'assistant_shared_path_selected',
+                        );
+                      },
+                      child: Card(
+                        elevation: 3,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        color: AppColors.background(context),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                AppLocalizations.of(rootContext)!
+                                    .translate('spending_path'),
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
                                   color: AppColors.text(context),
                                 ),
-                                children: [
-                                  TextSpan(
-                                    text:
-                                        "${AppLocalizations.of(rootContext)!.translate('type')}: ",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.text(context),
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: selectedPath!['type']
-                                            .contains('RELATIVETIMELOCK')
-                                        ? "TIMELOCK: ${selectedPath!['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}${selectedPath!['fingerprints'].length > 1 ? ", ${selectedPath!['threshold']} of ${(selectedPath!['fingerprints'] as List).length}" : ""}"
-                                        : "MULTISIG ${selectedPath!['threshold']} of ${(selectedPath!['fingerprints'] as List).length}",
-                                  ),
-                                  TextSpan(text: "\n"), // New line
-                                  TextSpan(
-                                    text:
-                                        "${AppLocalizations.of(rootContext)!.translate('keys')}: ",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.text(context),
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text: selectedPath!['fingerprints']
-                                        .map((fingerprint) {
-                                      final matchedAlias =
-                                          pubKeysAlias!.firstWhere(
-                                        (pubKeyAlias) =>
-                                            pubKeyAlias['publicKey']!
-                                                .contains(fingerprint),
-                                        orElse: () => {
-                                          'alias': fingerprint
-                                        }, // Fallback to fingerprint
-                                      );
-                                      return matchedAlias['alias'] ??
-                                          fingerprint;
-                                    }).join(', '),
-                                  ),
-                                ],
                               ),
-                            ),
-                          ],
+                              SizedBox(height: 8),
+                              RichText(
+                                text: TextSpan(
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: AppColors.text(context),
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text:
+                                          "${AppLocalizations.of(rootContext)!.translate('type')}: ",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.text(context),
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: selectedPath!['type']
+                                              .contains('RELATIVETIMELOCK')
+                                          ? "TIMELOCK: ${selectedPath!['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}${selectedPath!['fingerprints'].length > 1 ? ", ${selectedPath!['threshold']} of ${(selectedPath!['fingerprints'] as List).length}" : ""}"
+                                          : "MULTISIG ${selectedPath!['threshold']} of ${(selectedPath!['fingerprints'] as List).length}",
+                                    ),
+                                    TextSpan(text: "\n"), // New line
+                                    TextSpan(
+                                      text:
+                                          "${AppLocalizations.of(rootContext)!.translate('keys')}: ",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.text(context),
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: selectedPath!['fingerprints']
+                                          .map((fingerprint) {
+                                        final matchedAlias =
+                                            pubKeysAlias!.firstWhere(
+                                          (pubKeyAlias) =>
+                                              pubKeyAlias['publicKey']!
+                                                  .contains(fingerprint),
+                                          orElse: () => {
+                                            'alias': fingerprint
+                                          }, // Fallback to fingerprint
+                                        );
+                                        return matchedAlias['alias'] ??
+                                            fingerprint;
+                                      }).join(', '),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     )
@@ -326,72 +379,17 @@ class WalletSendtxHelpers {
                   isCreating && !isSingleWallet && isFromSpendingPath == false,
               child: Column(
                 children: [
-                  DropdownButtonFormField<Map<String, dynamic>>(
-                    value: selectedPath,
-                    items: extractedData.map((data) {
-                      // Check if the item meets the condition
-                      isSelectable = walletService.checkCondition(
-                        data,
-                        utxos!,
-                        isCreating
-                            ? amountController.text
-                            : signingAmountController!.text,
-                        currentHeight,
+                  GestureDetector(
+                    onLongPress: () {
+                      updateAssistantMessage(
+                        context,
+                        'assistant_shared_path_dropdown',
                       );
-
-                      // print(isSelectable);
-
-                      // Replace fingerprints with aliases
-                      List<String> aliases =
-                          (data['fingerprints'] as List<dynamic>)
-                              .map<String>((fingerprint) {
-                        final matchedAlias = pubKeysAlias!.firstWhere(
-                          (pubKeyAlias) =>
-                              pubKeyAlias['publicKey']!.contains(fingerprint),
-                          orElse: () =>
-                              {'alias': fingerprint}, // Fallback to fingerprint
-                        );
-
-                        return matchedAlias['alias'] ?? fingerprint;
-                      }).toList();
-
-                      return DropdownMenuItem<Map<String, dynamic>>(
-                        value: data,
-                        enabled:
-                            isSelectable, // Disable interaction for unselectable items
-                        child: Text(
-                          "${AppLocalizations.of(rootContext)!.translate('type')}: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK: ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}' : 'MULTISIG'}, "
-                          "${data['threshold'] != null ? '${data['threshold']} of ${aliases.length}, ' : ''} ${AppLocalizations.of(rootContext)!.translate('keys')}: ${aliases.join(', ')}",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isSelectable
-                                ? AppColors.text(context)
-                                : AppColors.unavailableColor,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    onTap: () {
-                      setDialogState(() {
-                        // print('Rebuilding');
-                      });
                     },
-                    onChanged: (Map<String, dynamic>? newValue) {
-                      if (newValue != null) {
-                        setDialogState(() {
-                          selectedPath = newValue; // Update the selected path
-                          selectedIndex = extractedData
-                              .indexOf(newValue); // Update the index
-                        });
-                        print(selectedPath);
-                        print(selectedIndex);
-                      } else {
-                        // Optionally handle the selection of unselectable items
-                        print("This item is unavailable.");
-                      }
-                    },
-                    selectedItemBuilder: (BuildContext context) {
-                      return extractedData.map((data) {
+                    child: DropdownButtonFormField<Map<String, dynamic>>(
+                      value: selectedPath,
+                      items: extractedData.map((data) {
+                        // Check if the item meets the condition
                         isSelectable = walletService.checkCondition(
                           data,
                           utxos!,
@@ -403,38 +401,103 @@ class WalletSendtxHelpers {
 
                         // print(isSelectable);
 
-                        return Text(
-                          "${AppLocalizations.of(rootContext)!.translate('type')}: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}' : 'MULTISIG'}, ...",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isSelectable
-                                ? AppColors.text(context)
-                                : AppColors.unavailableColor,
-                            overflow: TextOverflow.ellipsis,
+                        // Replace fingerprints with aliases
+                        List<String> aliases =
+                            (data['fingerprints'] as List<dynamic>)
+                                .map<String>((fingerprint) {
+                          final matchedAlias = pubKeysAlias!.firstWhere(
+                            (pubKeyAlias) =>
+                                pubKeyAlias['publicKey']!.contains(fingerprint),
+                            orElse: () => {
+                              'alias': fingerprint
+                            }, // Fallback to fingerprint
+                          );
+
+                          return matchedAlias['alias'] ?? fingerprint;
+                        }).toList();
+
+                        return DropdownMenuItem<Map<String, dynamic>>(
+                          value: data,
+                          enabled:
+                              isSelectable, // Disable interaction for unselectable items
+                          child: Text(
+                            "${AppLocalizations.of(rootContext)!.translate('type')}: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK: ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}' : 'MULTISIG'}, "
+                            "${data['threshold'] != null ? '${data['threshold']} of ${aliases.length}, ' : ''} ${AppLocalizations.of(rootContext)!.translate('keys')}: ${aliases.join(', ')}",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isSelectable
+                                  ? AppColors.text(context)
+                                  : AppColors.unavailableColor,
+                            ),
                           ),
                         );
-                      }).toList();
-                    },
-                    decoration: InputDecoration(
-                      labelText: AppLocalizations.of(rootContext)!
-                          .translate('spending_path_required'),
-                      labelStyle: TextStyle(color: AppColors.text(context)),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: AppColors.text(context)),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(
-                          color: AppColors.primary(context),
+                      }).toList(),
+                      onTap: () {
+                        setDialogState(() {
+                          // print('Rebuilding');
+                        });
+                      },
+                      onChanged: (Map<String, dynamic>? newValue) {
+                        if (newValue != null) {
+                          setDialogState(() {
+                            selectedPath = newValue; // Update the selected path
+                            selectedIndex = extractedData
+                                .indexOf(newValue); // Update the index
+                          });
+                          print(selectedPath);
+                          print(selectedIndex);
+                        } else {
+                          // Optionally handle the selection of unselectable items
+                          print("This item is unavailable.");
+                        }
+                      },
+                      selectedItemBuilder: (BuildContext context) {
+                        return extractedData.map((data) {
+                          isSelectable = walletService.checkCondition(
+                            data,
+                            utxos!,
+                            isCreating
+                                ? amountController.text
+                                : signingAmountController!.text,
+                            currentHeight,
+                          );
+
+                          // print(isSelectable);
+
+                          return Text(
+                            "${AppLocalizations.of(rootContext)!.translate('type')}: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}' : 'MULTISIG'}, ...",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isSelectable
+                                  ? AppColors.text(context)
+                                  : AppColors.unavailableColor,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList();
+                      },
+                      decoration: InputDecoration(
+                        labelText: AppLocalizations.of(rootContext)!
+                            .translate('spending_path_required'),
+                        labelStyle: TextStyle(color: AppColors.text(context)),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide:
+                              BorderSide(color: AppColors.text(context)),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        borderRadius: BorderRadius.circular(12),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(
+                            color: AppColors.primary(context),
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                    ),
-                    dropdownColor: AppColors.gradient(context),
-                    style: TextStyle(color: AppColors.text(rootContext)),
-                    icon: Icon(
-                      Icons.arrow_drop_down,
-                      color: AppColors.text(context),
+                      dropdownColor: AppColors.gradient(context),
+                      style: TextStyle(color: AppColors.text(rootContext)),
+                      icon: Icon(
+                        Icons.arrow_drop_down,
+                        color: AppColors.text(context),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -444,89 +507,99 @@ class WalletSendtxHelpers {
 
             Visibility(
               visible: isCreating && isFromSpendingPath == false,
-              child: InkwellButton(
-                onTap: () async {
-                  try {
-                    // Validate recipient address
-                    if (recipientController.text.isEmpty) {
-                      await DialogHelper.showErrorDialog(
-                        context: context,
-                        messageKey: 'recipient_address_required',
-                      );
-
-                      return; // Exit the function early if validation fails
-                    }
-
+              child: GestureDetector(
+                onLongPress: () {
+                  updateAssistantMessage(
+                    context,
+                    isSingleWallet
+                        ? 'assistant_personal_available_balance'
+                        : 'assistant_shared_available_balance',
+                  );
+                },
+                child: InkwellButton(
+                  onTap: () async {
                     try {
-                      walletService.validateAddress(recipientController.text);
-                    } catch (e) {
-                      await DialogHelper.showErrorDialog(
-                        context: context,
-                        messageKey: 'invalid_address',
-                      );
-
-                      return; // Exit the function early if address is invalid
-                    }
-                    if (!isSingleWallet) {
-                      // Validate spending path
-                      if (selectedPath == null) {
+                      // Validate recipient address
+                      if (recipientController.text.isEmpty) {
                         await DialogHelper.showErrorDialog(
-                          context: context,
-                          messageKey: 'spending_path_required',
+                          context: rootContext,
+                          messageKey: 'recipient_address_required',
                         );
 
                         return; // Exit the function early if validation fails
                       }
-                    }
 
-                    await walletService.syncWallet(wallet);
+                      try {
+                        walletService.validateAddress(recipientController.text);
+                      } catch (e) {
+                        await DialogHelper.showErrorDialog(
+                          context: rootContext,
+                          messageKey: 'invalid_address',
+                        );
 
-                    final availableBalance = wallet.getBalance().spendable;
+                        return; // Exit the function early if address is invalid
+                      }
+                      if (!isSingleWallet) {
+                        // Validate spending path
+                        if (selectedPath == null) {
+                          await DialogHelper.showErrorDialog(
+                            context: rootContext,
+                            messageKey: 'spending_path_required',
+                          );
 
-                    final String recipientAddress =
-                        recipientController.text.toString();
-                    print('Selected Index: $selectedIndex');
+                          return; // Exit the function early if validation fails
+                        }
+                      }
 
-                    int sendAllBalance = 0;
+                      await walletService.syncWallet(wallet);
 
-                    if (isSingleWallet) {
-                      sendAllBalance =
-                          await walletService.calculateSendAllBalance(
-                        recipientAddress: recipientAddress,
-                        wallet: wallet,
-                        availableBalance: availableBalance.toInt(),
-                        walletService: walletService,
+                      final availableBalance = wallet.getBalance().spendable;
+
+                      final String recipientAddress =
+                          recipientController.text.toString();
+                      print('Selected Index: $selectedIndex');
+
+                      int sendAllBalance = 0;
+
+                      if (isSingleWallet) {
+                        sendAllBalance =
+                            await walletService.calculateSendAllBalance(
+                          recipientAddress: recipientAddress,
+                          wallet: wallet,
+                          availableBalance: availableBalance.toInt(),
+                          walletService: walletService,
+                        );
+                      } else {
+                        sendAllBalance =
+                            int.parse((await walletService.createPartialTx(
+                          descriptor.toString(),
+                          mnemonic,
+                          recipientAddress,
+                          availableBalance,
+                          selectedIndex,
+                          isSendAllBalance: true,
+                          spendingPaths: spendingPaths,
+                        ))!);
+                      }
+
+                      amountController.text = sendAllBalance.toString();
+                    } catch (e) {
+                      print('Error: $e');
+
+                      await DialogHelper.showErrorDialog(
+                        context: rootContext,
+                        messageKey:
+                            "${AppLocalizations.of(rootContext)!.translate('generic_error')}: ${e.toString()}",
                       );
-                    } else {
-                      sendAllBalance =
-                          int.parse((await walletService.createPartialTx(
-                        descriptor.toString(),
-                        mnemonic,
-                        recipientAddress,
-                        availableBalance,
-                        selectedIndex,
-                        isSendAllBalance: true,
-                        spendingPaths: spendingPaths,
-                      ))!);
                     }
-
-                    amountController.text = sendAllBalance.toString();
-                  } catch (e) {
-                    print('Error: $e');
-
-                    await DialogHelper.showErrorDialog(
-                      context: context,
-                      messageKey:
-                          "${AppLocalizations.of(rootContext)!.translate('generic_error')}: ${e.toString()}",
-                    );
-                  }
-                },
-                label: AppLocalizations.of(rootContext)!
-                    .translate('use_available_balance'),
-                icon: Icons.account_balance_wallet_rounded,
-                backgroundColor: AppColors.background(context),
-                textColor: AppColors.text(context),
-                iconColor: AppColors.gradient(context),
+                  },
+                  label: AppLocalizations.of(rootContext)!
+                      .translate('use_available_balance'),
+                  icon: Icons.account_balance_wallet_rounded,
+                  backgroundColor: AppColors.background(context),
+                  textColor: AppColors.text(context),
+                  iconColor: AppColors.gradient(context),
+                ),
               ),
             ),
           ],
@@ -540,7 +613,7 @@ class WalletSendtxHelpers {
               InkwellButton(
                 onTap: () async {
                   FocusScope.of(context)
-                      .unfocus(); // Remove focus from TextFormField
+                      .requestFocus(FocusNode()); // Remove focus
 
                   bool userConfirmed = false;
                   try {
@@ -675,6 +748,8 @@ class WalletSendtxHelpers {
                             wallet,
                             address,
                           );
+
+                          Navigator.of(rootContext, rootNavigator: true).pop();
                         } else {
                           result = await walletService.createPartialTx(
                             descriptor.toString(),

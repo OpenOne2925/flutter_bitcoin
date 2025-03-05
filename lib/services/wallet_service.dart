@@ -32,7 +32,6 @@ import 'package:english_words/english_words.dart';
 /// - **`getAddress`**: Retrieves the current receiving address from a wallet.
 /// - **`blockchainInit`**: Initializes a connection to the blockchain via an Electrum server.
 /// - **`fetchCurrentBlockHeight`**: Fetches the current block height from the blockchain.
-/// - **`fetchAverageBlockTime`**: Fetches the average block time from the blockchain.
 /// - **`calculateRemainingTimeInSeconds`**: Calculates the remaining time for a specific number of blocks.
 /// - **`formatTime`**: Formats a duration in seconds into a human-readable format.
 /// - **`getUtxos`**: Fetches the unspent transaction outputs (UTXOs) for a given address.
@@ -77,6 +76,8 @@ Network network = Network.testnet; // Default to mainnet
 
 bool get isTestnet =>
     network == Network.testnet; // ✅ Now it always reflects the latest network
+
+const int avgBlockTime = 600;
 
 class WalletService extends ChangeNotifier {
   final WalletStorageService _walletStorageService = WalletStorageService();
@@ -330,13 +331,14 @@ class WalletService extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         final fees = jsonDecode(response.body);
-        return fees['halfHourFe'].toDouble(); // Use mempool.space's fastest fee
+        return fees['halfHourFee']
+            .toDouble(); // Use mempool.space's fastest fee
       }
     } catch (e) {
       print("Mempool API failed, falling back to default");
     }
 
-    return 1.toDouble();
+    return 5.0;
   }
 
   Future<List<Map<String, dynamic>>> getTransactions(String address) async {
@@ -415,16 +417,10 @@ class WalletService extends ChangeNotifier {
     }
   }
 
-  int fetchAverageBlockTime() {
-    return 600;
-  }
-
   Future<int> calculateRemainingTimeInSeconds(int remainingBlocks) async {
-    final avgTime = fetchAverageBlockTime();
-
-    if (avgTime > 0) {
+    if (avgBlockTime > 0) {
       // Calculate remaining time in seconds
-      return remainingBlocks * avgTime;
+      return remainingBlocks * avgBlockTime;
     } else {
       throw Exception('Invalid average block time.');
     }

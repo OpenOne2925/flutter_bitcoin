@@ -6,6 +6,7 @@ import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
+import 'package:flutter_wallet/widget_helpers/assistant_widget.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -19,6 +20,8 @@ class BaseScaffold extends StatefulWidget {
   final Text title;
   final bool isTestnet; // Add a flag to indicate Testnet or Mainnet
   final Future<void> Function()? onRefresh;
+  final bool showAssistantButton;
+  final bool showDrawer;
 
   const BaseScaffold({
     super.key,
@@ -26,6 +29,8 @@ class BaseScaffold extends StatefulWidget {
     required this.body,
     this.isTestnet = true, // Default to Mainnet if not specified
     this.onRefresh,
+    this.showAssistantButton = true,
+    this.showDrawer = true,
   });
 
   @override
@@ -41,6 +46,18 @@ class BaseScaffoldState extends State<BaseScaffold> {
   final walletService = WalletService();
   DescriptorPublicKey? pubKey;
 
+  bool _showAssistant = false;
+
+  String _assistantMessage = "";
+  List<String> _assistantMessages = [];
+
+  int _assistantMessageIndex = 0;
+
+  Offset _assistantPosition = Offset(50, 500);
+
+  final GlobalKey<AssistantWidgetState> _assistantKey =
+      GlobalKey(); // Track assistant widget state
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +65,130 @@ class BaseScaffoldState extends State<BaseScaffold> {
     _descriptorBox = Hive.box<dynamic>('descriptorBox');
     // printDescriptorBoxContents();
     _getVersion();
+    // _updateAssistantMessages();
+  }
+
+  void _toggleAssistant() {
+    setState(() {
+      _showAssistant = !_showAssistant;
+    });
+    String initialMessage = _getAssistantMessageForRoute();
+    _assistantMessages = _getAssistantMessagesForRoute();
+
+    // Show initial message when turning on
+    if (_showAssistant) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (_assistantKey.currentState != null) {
+          _assistantKey.currentState!.updateMessage(initialMessage);
+        }
+      });
+    }
+  }
+
+  void _nextAssistantMessage() {
+    setState(() {
+      _assistantMessageIndex =
+          (_assistantMessageIndex + 1) % _assistantMessages.length;
+    });
+
+    if (_assistantKey.currentState != null) {
+      _assistantKey.currentState!
+          .updateMessage(_assistantMessages[_assistantMessageIndex]);
+    }
+  }
+
+  String _getAssistantMessageForRoute() {
+    String? currentRoute = ModalRoute.of(context)?.settings.name;
+    final localization = AppLocalizations.of(context)!;
+
+    switch (currentRoute) {
+      case '/wallet_page':
+        return localization.translate("assistant_welcome");
+      case '/ca_wallet_page':
+        return localization.translate("assistant_ca_wallet_page");
+      case '/pin_setup_page':
+        return localization.translate("assistant_pin_setup_page");
+      case '/pin_verification_page':
+        return localization.translate("assistant_pin_verification_page");
+      case '/shared_wallet':
+        return localization.translate("assistant_shared_page");
+      case '/create_shared':
+        return localization.translate("assistant_create_shared");
+      case '/import_shared':
+        return localization.translate("assistant_import_shared");
+      case '/settings':
+        return localization.translate("assistant_settings");
+
+      // Default will be used for the ShareWalletPages since they have multiple parameters required and because of that, don't have a route
+      default:
+        return localization.translate(
+            "assistant_shared_wallet"); // "How can I assist you today?"
+    }
+  }
+
+  List<String> _getAssistantMessagesForRoute() {
+    String? currentRoute = ModalRoute.of(context)?.settings.name;
+    final localization = AppLocalizations.of(context)!;
+
+    switch (currentRoute) {
+      case '/wallet_page':
+        return [
+          localization.translate("assistant_wallet_page_tip1"),
+          localization.translate("assistant_wallet_page_tip2"),
+          localization.translate("assistant_wallet_page_tip3"),
+        ];
+      case '/ca_wallet_page':
+        return [
+          localization.translate("assistant_ca_wallet_page_tip1"),
+          localization.translate("assistant_ca_wallet_page_tip2"),
+        ];
+      case '/pin_setup_page':
+        return [
+          localization.translate("assistant_pin_setup_page_tip1"),
+          localization.translate("assistant_pin_setup_page_tip2"),
+        ];
+      case '/pin_verification_page':
+        return [
+          localization.translate("assistant_pin_verify_page_tip1"),
+          // localization.translate("assistant_pin_verify_page_tip2"),
+        ];
+      case '/create_shared':
+        return [
+          localization.translate("assistant_create_shared_tip1"),
+          // localization.translate("assistant_create_shared_tip2"),
+          // localization.translate("assistant_create_shared_tip3"),
+        ];
+      case '/import_shared':
+        return [
+          localization.translate("assistant_import_shared_tip1"),
+          localization.translate("assistant_import_shared_tip2"),
+          localization.translate("assistant_import_shared_tip3"),
+        ];
+      // Default will be used for the ShareWalletPages,
+      // since they have multiple parameters required and because of that, don't have a route
+      default:
+        return [
+          localization.translate("assistant_default_tip1"),
+          localization.translate("assistant_default_tip2"),
+        ];
+    }
+  }
+
+  void updateAssistantMessage(BuildContext context, String message) {
+    setState(() {
+      _assistantMessage = message;
+    });
+
+    // Directly update AssistantWidget state using the GlobalKey
+    if (_assistantKey.currentState != null) {
+      _assistantKey.currentState!.updateMessage(message);
+    }
+  }
+
+  void updateAssistantPosition(Offset newPosition) {
+    setState(() {
+      _assistantPosition = newPosition;
+    });
   }
 
   Future<void> _getVersion() async {
@@ -259,6 +400,11 @@ class BaseScaffoldState extends State<BaseScaffold> {
           ),
         ),
         actions: [
+          if (widget.showAssistantButton)
+            IconButton(
+              icon: Icon(Icons.help_outline, color: AppColors.icon(context)),
+              onPressed: _toggleAssistant,
+            ),
           IconButton(
             icon: Icon(
               settingsProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,
@@ -272,46 +418,68 @@ class BaseScaffoldState extends State<BaseScaffold> {
           ),
         ],
       ),
-      drawer: Drawer(
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.accent(context),
-                AppColors.gradient(context),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildDrawerHeader(context),
-              const SizedBox(height: 10),
-              Expanded(
-                child: ListView(
-                  padding: EdgeInsets.zero,
+      drawer: widget.showDrawer
+          ? Drawer(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.accent(context),
+                      AppColors.gradient(context),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _buildPersonalWalletTile(context),
+                    _buildDrawerHeader(context),
                     const SizedBox(height: 10),
-                    _buildSharedWalletTiles(context),
-                    const SizedBox(height: 10),
-                    _buildCreateSharedWalletTile(context),
+                    Expanded(
+                      child: ListView(
+                        padding: EdgeInsets.zero,
+                        children: [
+                          _buildPersonalWalletTile(context),
+                          const SizedBox(height: 10),
+                          _buildSharedWalletTiles(context),
+                          const SizedBox(height: 10),
+                          _buildCreateSharedWalletTile(context),
+                        ],
+                      ),
+                    ),
+                    _buildSettingsTile(context),
                   ],
                 ),
               ),
-              _buildSettingsTile(context),
-            ],
-          ),
-        ),
-      ),
-      body: widget.onRefresh != null
-          ? RefreshIndicator(
-              onRefresh: widget.onRefresh!, // Call onRefresh if provided
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Container(
+            )
+          : null,
+      body: Stack(
+        children: [
+          widget.onRefresh != null
+              ? RefreshIndicator(
+                  onRefresh: widget.onRefresh!, // Call onRefresh if provided
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppColors.accent(context),
+                            AppColors.gradient(context)
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: widget.body,
+                      ),
+                    ),
+                  ),
+                )
+              : Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -327,24 +495,29 @@ class BaseScaffoldState extends State<BaseScaffold> {
                     child: widget.body,
                   ),
                 ),
-              ),
-            )
-          : Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.accent(context),
-                    AppColors.gradient(context)
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: widget.body,
+
+          // ✅ Assistant is properly positioned inside Stack
+          if (_showAssistant)
+            Positioned(
+              left: _assistantPosition.dx,
+              top: _assistantPosition.dy,
+              child: StatefulBuilder(
+                // ✅ Allow dynamic updates
+                builder: (context, setState) {
+                  return AssistantWidget(
+                    key:
+                        _assistantKey, // Assign GlobalKey to track widget state
+                    initialMessage: _assistantMessage,
+                    context: context,
+                    onClose: _toggleAssistant,
+                    onNextMessage: _nextAssistantMessage,
+                    onDragEnd: updateAssistantPosition,
+                  );
+                },
               ),
             ),
+        ],
+      ),
     );
   }
 

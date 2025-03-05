@@ -147,7 +147,6 @@ class SharedWalletState extends State<SharedWallet> {
 
   // Blockchain Data
   int _currentHeight = 0;
-  int avgBlockTime = 0;
   String _timeStamp = "";
 
   // Storage
@@ -428,7 +427,7 @@ class SharedWalletState extends State<SharedWallet> {
       String blockTimestamp =
           await walletService.fetchBlockTimestamp(currentHeight);
 
-      print('blockTimestamp: $blockTimestamp');
+      // print('blockTimestamp: $blockTimestamp');
 
       setState(() {
         _currentHeight = currentHeight;
@@ -523,14 +522,10 @@ class SharedWalletState extends State<SharedWallet> {
       _transactions = transactions;
     });
 
-    // Fetch the average block time
-    final averageBlockTime = walletService.fetchAverageBlockTime();
-
     // Fetch all transactions for the wallet
     final walletUtxos = await walletService.getUtxos(address);
 
     setState(() {
-      avgBlockTime = averageBlockTime;
       utxos = walletUtxos;
     });
   }
@@ -566,6 +561,9 @@ class SharedWalletState extends State<SharedWallet> {
 
   @override
   Widget build(BuildContext context) {
+    final GlobalKey<BaseScaffoldState> baseScaffoldKey =
+        GlobalKey<BaseScaffoldState>();
+
     if (!isWalletInitialized) {
       return Scaffold(
         body: Center(
@@ -587,30 +585,30 @@ class SharedWalletState extends State<SharedWallet> {
       );
     }
 
-    print('avBalance: $avBalance');
-    print('ledBalance: $ledBalance');
+    // print('avBalance: $avBalance');
+    // print('ledBalance: $ledBalance');
 
     final walletUiHelpers = WalletUiHelpers(
-      address: address,
-      avBalance: avBalance,
-      ledBalance: ledBalance,
-      showInSatoshis: showInSatoshis,
-      avCurrencyBalance: avCurrencyBalance,
-      ledCurrencyBalance: ledCurrencyBalance,
-      currentHeight: _currentHeight,
-      timeStamp: _timeStamp,
-      isInitialized: isInitialized,
-      pubKeyController: _pubKeyController,
-      settingsProvider: settingsProvider,
-      lastRefreshed: _lastRefreshed,
-      context: context,
-      isLoading: _isLoading,
-      transactions: _transactions,
-      wallet: wallet,
-      isSingleWallet: false,
-      descriptor: _descriptor,
-      descriptorName: _descriptorName,
-    );
+        address: address,
+        avBalance: avBalance,
+        ledBalance: ledBalance,
+        showInSatoshis: showInSatoshis,
+        avCurrencyBalance: avCurrencyBalance,
+        ledCurrencyBalance: ledCurrencyBalance,
+        currentHeight: _currentHeight,
+        timeStamp: _timeStamp,
+        isInitialized: isInitialized,
+        pubKeyController: _pubKeyController,
+        settingsProvider: settingsProvider,
+        lastRefreshed: _lastRefreshed,
+        context: context,
+        isLoading: _isLoading,
+        transactions: _transactions,
+        wallet: wallet,
+        isSingleWallet: false,
+        descriptor: _descriptor,
+        descriptorName: _descriptorName,
+        baseScaffoldKey: baseScaffoldKey);
 
     final spendingHelper = WalletSpendingPathHelpers(
       pubKeysAlias: widget.pubKeysAlias,
@@ -618,7 +616,6 @@ class SharedWalletState extends State<SharedWallet> {
       spendingPaths: spendingPaths,
       utxos: utxos,
       currentHeight: _currentHeight,
-      avgBlockTime: avgBlockTime,
       walletService: walletService,
       myAlias: myAlias,
       context: context,
@@ -655,12 +652,13 @@ class SharedWalletState extends State<SharedWallet> {
       mounted: mounted,
       signersList: signersList,
       wallet: wallet,
-      avgBlockTime: avgBlockTime,
       myAlias: myAlias,
+      baseScaffoldKey: baseScaffoldKey,
     );
 
     return BaseScaffold(
       title: Text(_descriptorName),
+      key: baseScaffoldKey,
       body: RefreshIndicator(
         key: _refreshIndicatorKey, // Assign the GlobalKey to RefreshIndicator
         onRefresh: () async {
@@ -685,21 +683,54 @@ class SharedWalletState extends State<SharedWallet> {
                 padding: const EdgeInsets.all(8.0),
                 children: [
                   // WalletInfo Box
-                  walletUiHelpers.buildWalletInfoBox(
-                    AppLocalizations.of(context)!.translate('address'),
-                    onTap: () {
-                      _convertCurrency();
+                  GestureDetector(
+                    onLongPress: () {
+                      final BaseScaffoldState? baseScaffoldState =
+                          baseScaffoldKey.currentState;
+
+                      if (baseScaffoldState != null) {
+                        baseScaffoldState.updateAssistantMessage(
+                            context, 'assistant_personal_info_box');
+                      }
                     },
-                    showCopyButton: true,
+                    child: walletUiHelpers.buildWalletInfoBox(
+                      AppLocalizations.of(context)!.translate('address'),
+                      onTap: () {
+                        _convertCurrency();
+                      },
+                      showCopyButton: true,
+                    ),
                   ),
 
                   // Dynamic Spending Paths Box
-                  spendingHelper.buildDynamicSpendingPaths(
-                    isInitialized,
+                  GestureDetector(
+                    onLongPress: () {
+                      final BaseScaffoldState? baseScaffoldState =
+                          baseScaffoldKey.currentState;
+
+                      if (baseScaffoldState != null) {
+                        baseScaffoldState.updateAssistantMessage(
+                            context, 'assistant_shared_spending_path_box');
+                      }
+                    },
+                    child: spendingHelper.buildDynamicSpendingPaths(
+                      isInitialized,
+                    ),
                   ),
 
                   // Transactions Box
-                  walletUiHelpers.buildTransactionsBox(),
+                  GestureDetector(
+                    onLongPress: () {
+                      final BaseScaffoldState? baseScaffoldState =
+                          baseScaffoldKey.currentState;
+
+                      if (baseScaffoldState != null) {
+                        baseScaffoldState.updateAssistantMessage(
+                            context, 'assistant_personal_transactions_box');
+                      }
+                    },
+                    child: walletUiHelpers.buildTransactionsBox(),
+                  ),
 
                   const SizedBox(height: 8),
 

@@ -48,6 +48,9 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
 
   bool _isDescriptorValid = true;
 
+  final GlobalKey<BaseScaffoldState> baseScaffoldKey =
+      GlobalKey<BaseScaffoldState>();
+
   @override
   void initState() {
     super.initState();
@@ -323,6 +326,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
   Widget build(BuildContext context) {
     return BaseScaffold(
       title: Text(AppLocalizations.of(context)!.translate('import_wallet')),
+      key: baseScaffoldKey,
       body: SingleChildScrollView(
         child: ConstrainedBox(
           constraints: BoxConstraints(
@@ -407,51 +411,85 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                 const SizedBox(height: 16),
 
                 // Generate Public Key Button
-                CustomButton(
-                  onPressed: _generatePublicKey,
-                  backgroundColor: AppColors.background(context),
-                  foregroundColor: AppColors.text(context),
-                  icon: Icons.generating_tokens,
-                  iconColor: AppColors.gradient(context),
-                  label: AppLocalizations.of(context)!
-                      .translate('generate_public_key'),
+                GestureDetector(
+                  onLongPress: () {
+                    final BaseScaffoldState? baseScaffoldState =
+                        baseScaffoldKey.currentState;
+
+                    if (baseScaffoldState != null) {
+                      baseScaffoldState.updateAssistantMessage(
+                          context, 'assistant_generate_pub_key');
+                    }
+                  },
+                  child: CustomButton(
+                    onPressed: _generatePublicKey,
+                    backgroundColor: AppColors.background(context),
+                    foregroundColor: AppColors.text(context),
+                    icon: Icons.generating_tokens,
+                    iconColor: AppColors.gradient(context),
+                    label: AppLocalizations.of(context)!
+                        .translate('generate_public_key'),
+                  ),
                 ),
 
                 const SizedBox(height: 16),
 
                 // Select File Button
-                CustomButton(
-                  onPressed: _uploadFile,
-                  backgroundColor: AppColors.background(context),
-                  foregroundColor: AppColors.gradient(context),
-                  icon: Icons.file_upload,
-                  iconColor: AppColors.text(context),
-                  label: AppLocalizations.of(context)!.translate('select_file'),
+                GestureDetector(
+                  onLongPress: () {
+                    final BaseScaffoldState? baseScaffoldState =
+                        baseScaffoldKey.currentState;
+
+                    if (baseScaffoldState != null) {
+                      baseScaffoldState.updateAssistantMessage(
+                          context, 'assistant_select_file');
+                    }
+                  },
+                  child: CustomButton(
+                    onPressed: _uploadFile,
+                    backgroundColor: AppColors.background(context),
+                    foregroundColor: AppColors.gradient(context),
+                    icon: Icons.file_upload,
+                    iconColor: AppColors.text(context),
+                    label:
+                        AppLocalizations.of(context)!.translate('select_file'),
+                  ),
                 ),
 
                 const SizedBox(height: 16),
 
                 // Import Shared Wallet Button
-                CustomButton(
-                  onPressed: () async {
-                    if (_formKey.currentState!.validate() ||
-                        (_status.contains('Success') ||
-                            _status.startsWith('Descriptor is valid'))) {
-                      await Future.delayed(const Duration(milliseconds: 500));
+                GestureDetector(
+                  onLongPress: () {
+                    final BaseScaffoldState? baseScaffoldState =
+                        baseScaffoldKey.currentState;
 
-                      _navigateToSharedWallet();
-                    } else {
-                      setState(() {
-                        _status = 'Please enter a valid descriptor';
-                      });
+                    if (baseScaffoldState != null) {
+                      baseScaffoldState.updateAssistantMessage(
+                          context, 'assistant_import_sw_button');
                     }
                   },
-                  backgroundColor: AppColors.background(context),
-                  foregroundColor: AppColors.text(context),
-                  icon: Icons.account_balance_wallet,
-                  iconColor: AppColors.gradient(context),
-                  label:
-                      AppLocalizations.of(context)!.translate('import_wallet'),
+                  child: CustomButton(
+                    onPressed: () async {
+                      if (_formKey.currentState!.validate() ||
+                          (_status.contains('Success') ||
+                              _status.startsWith('Descriptor is valid'))) {
+                        await Future.delayed(const Duration(milliseconds: 500));
+
+                        _navigateToSharedWallet();
+                      } else {
+                        setState(() {
+                          _status = 'Please enter a valid descriptor';
+                        });
+                      }
+                    },
+                    backgroundColor: AppColors.background(context),
+                    foregroundColor: AppColors.text(context),
+                    icon: Icons.account_balance_wallet,
+                    iconColor: AppColors.gradient(context),
+                    label: AppLocalizations.of(context)!
+                        .translate('import_wallet'),
+                  ),
                 ),
 
                 const SizedBox(height: 16),

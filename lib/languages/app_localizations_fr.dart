@@ -298,4 +298,148 @@ const Map<String, String> localizedStringsFr = {
   'no_connection': '🌐 Pas de connexion Internet',
   'connect_internet':
       'Votre portefeuille doit se synchroniser avec la blockchain.\n\nVeuillez vous connecter à Internet pour continuer.',
+
+// Messages généraux de l'assistant
+  'assistant_welcome':
+      'Bonjour ! Je suis Hoshi 🤖, ton assistant sur SharedHaven. Appuie sur l’icône d’aide en haut à droite et maintiens un élément pour obtenir des infos.',
+
+// Configuration et vérification du code PIN
+  'assistant_pin_setup_page':
+      'Crée un code PIN à 6 chiffres pour chiffrer les données de ton portefeuille. **Ne l’oublie pas**—il protège tes fonds. 🔐',
+  'assistant_pin_verification_page':
+      'Entre ton code PIN pour vérifier l’accès à ton portefeuille. Ta sécurité avant tout !',
+
+// Création et gestion du portefeuille
+  'assistant_ca_wallet_page':
+      'Ici, tu peux **générer une nouvelle phrase mnémonique de 12 mots** ou **importer un portefeuille existant**. **Conserve-la en lieu sûr !** 🛡️',
+  'assistant_create_wallet':
+      'Appuie ici pour **créer un portefeuille personnel** ou **importer un portefeuille existant avec ta mnémonique**.',
+  'assistant_generate_mnemonic':
+      'Appuie ici pour **générer une phrase mnémonique**. **Note-la et conserve-la précieusement !** 📝🔑',
+
+// Page du portefeuille personnel
+  'assistant_wallet_page':
+      'Bienvenue sur votre **tableau de bord du portefeuille personnel**. Ici, vous pouvez consulter vos soldes, envoyer des transactions et gérer vos fonds. 💰',
+  'assistant_personal_info_box':
+      'Cette boîte contient les informations clés de votre portefeuille. **Appuyez longuement sur un élément** pour découvrir des fonctionnalités supplémentaires ! ⚡',
+  'assistant_personal_transactions_box':
+      'Consultez vos **dernières transactions** ici. **Appuyez sur une transaction** pour voir tous les détails, les confirmations et la répartition des frais.',
+  'assistant_personal_available_balance':
+      'Ce bouton calcule votre **solde maximal disponible** en fonction du destinataire et des frais de transaction. **Saisissez d\'abord un destinataire** pour garantir l\'exactitude ! 🏦',
+
+// Gestion des clés publiques et privées
+  'assistant_private_data':
+      'Vos données privées sont **protégées par votre code PIN**. Saisissez-le ici pour accéder aux détails chiffrés de votre portefeuille. 🔐',
+  'assistant_pub_key_data':
+      'Appuyez ici pour récupérer votre **clé publique**—vous en aurez besoin plus tard pour configurer un portefeuille partagé.',
+
+// Boutons de transaction
+  'assistant_send_button':
+      'Créez une **nouvelle transaction Bitcoin** et envoyez des fonds à un destinataire. 💸',
+  'assistant_sign_button':
+      'Signez une **PSBT (Transaction Bitcoin Partiellement Signée)** pour autoriser une transaction de portefeuille partagé.',
+  'assistant_scan_button':
+      'Scannez un **QR code Bitcoin** pour entrer rapidement une adresse de destinataire et envoyer des fonds. 📷',
+  'assistant_receive_button':
+      'Affichez et partagez votre **QR code d\'adresse Bitcoin** pour recevoir des paiements.',
+
+// Fonctionnalités du portefeuille partagé
+  'assistant_shared_wallet':
+      'Bienvenue dans votre **portefeuille partagé** ! 🚀 Pensez-y comme à un **portefeuille Bitcoin amélioré**, avec des transactions multisig, des règles de dépenses et une sécurité renforcée en équipe.',
+  'assistant_shared_spending_path_box':
+      'Voici vos **chemins de dépenses disponibles**—des règles définissant comment les fonds peuvent être dépensés. Remplissez les conditions et vous pourrez accéder au montant indiqué. 💡',
+  'assistant_shared_available_balance':
+      'Dans un portefeuille partagé, ce bouton calcule le **solde disponible en fonction du chemin de dépenses sélectionné**. **Ajoutez un destinataire en premier** pour obtenir un montant précis ! ⚡',
+  'assistant_shared_path_selected':
+      'Pas besoin de choisir un chemin manuellement—**le meilleur est automatiquement sélectionné pour vous** ! 😉',
+  'assistant_shared_path_dropdown':
+      'Vous préférez sélectionner un chemin de dépenses manuellement ? **Choisissez-en un parmi vos options disponibles**. 🔽',
+
+// Envoi de transactions dans un portefeuille partagé
+  'assistant_send_sw_dialog1':
+      'Saisissez d\'abord le **montant**, et les **chemins de dépenses non disponibles seront automatiquement désactivés**. **Plus de confusion, juste de la clarté !** 🎯',
+  'assistant_send_dialog2':
+      '⚠️ **Vérifiez toujours les adresses des destinataires !** Envoyer des fonds à une mauvaise adresse entraîne **une perte définitive**—les transactions Bitcoin sont irréversibles. 🔍',
+
+// PSBT (Transactions Bitcoin Partiellement Signées)
+  'assistant_psbt_dialog1':
+      'Avant de signer une **PSBT**, **vérifiez soigneusement** tous les détails de la transaction. ✅ Le bouton **Décoder** vous permet de voir plus d\'informations—il ne signera rien !',
+  'assistant_psbt_dialog2':
+      'Cette section fournit un aperçu de votre **PSBT**. **Ne signez que les transactions de sources fiables**—ne signez jamais une PSBT provenant d\'une source inconnue. 🔐',
+
+// Détails des transactions
+  'assistant_transactions_dialog1':
+      'Besoin de plus de détails ? **Consultez l\'explorateur Mempool** pour voir les données de transaction en temps réel, y compris les confirmations et les frais. 🌐',
+  'assistant_transactions_dialog2':
+      'Voici les **frais de transaction**—une petite somme payée aux mineurs pour **prioriser votre transaction** sur la blockchain. 🏗️',
+
+// Clés publiques et importation de descripteurs
+  'assistant_generate_pub_key':
+      'Générez votre **clé publique**, que vous pouvez partager avec d\'autres pour configurer un portefeuille partagé. 🔑',
+  'assistant_select_file':
+      'Au lieu de saisir un descripteur manuellement, **importez un fichier JSON** contenant toutes les données nécessaires pour votre portefeuille partagé. 📂',
+  'assistant_import_sw_button':
+      'Après avoir vérifié votre **descripteur et votre clé publique**, appuyez ici pour **importer et accéder à votre portefeuille partagé**.',
+
+// Importation d'un portefeuille partagé
+  'assistant_import_shared_tip1':
+      'Vous saisissez un descripteur manuellement ? Pas de souci—**des noms et alias aléatoires seront générés automatiquement**. Vous pourrez les modifier plus tard !',
+  'assistant_import_shared_tip2':
+      'Votre **clé publique** peut être partagée avec d\'autres, mais **ne partagez jamais votre clé privée** ! Gardez-la en sécurité à tout prix. 🔑❌',
+  'assistant_import_shared_tip3':
+      'Faites attention aux **erreurs affichées au-dessus du champ du descripteur**—elles fournissent **des indices sur ce qui ne va pas dans votre saisie** ! ⚠️',
+
+// Création d'un portefeuille partagé
+  'assistant_create_shared_tip1':
+      'Vous souhaitez supprimer un alias ou un bloc de condition ? **Balayez vers la gauche ou la droite** pour le retirer ! 🔄',
+
+// Seuil & règles multisignatures
+  'assistant_threshold':
+      'Le **seuil** représente le nombre de signatures requises parmi les utilisateurs du portefeuille partagé. **Exemple :** Un portefeuille 2-sur-3 nécessite **2 approbations** avant d’autoriser une dépense. Il **ne peut pas dépasser le nombre total d’utilisateurs**. 🔐',
+
+// Ajout de clés publiques à un portefeuille partagé
+  'assistant_add_pub_key_tip1':
+      'Les alias permettent d’identifier plus facilement **quelle clé publique appartient à quel utilisateur**—pratique pour gérer les signatures. 🏷️',
+  'assistant_add_pub_key_tip2':
+      'Vous pouvez **modifier les alias plus tard** si nécessaire.',
+
+// Timelock (Conditions de dépense basées sur le temps)
+  'assistant_add_timelock_tip1':
+      'La valeur **"Older"** représente le nombre de **blocs** devant être validés avant que les fonds ne deviennent disponibles. **Chaque bloc prend environ 10 minutes.** ⏳',
+  'assistant_add_timelock_tip2':
+      'Un **UTXO (Unspent Transaction Output)** correspond à une quantité de Bitcoin confirmée. Une fois que son **nombre de confirmations atteint la valeur "Older"**, il devient accessible selon la règle définie. 🏦',
+  'assistant_add_timelock_tip3':
+      'Vous pouvez également ajouter un **seuil à l’intérieur d’une condition timelock**—ce qui signifie que **plusieurs utilisateurs doivent approuver la dépense après un certain temps**.',
+
+// Création d’un descripteur
+  'assistant_create_descriptor':
+      'Appuyez sur le bouton ci-dessous pour **générer un récapitulatif de la configuration de votre portefeuille partagé**. 📝✅',
+
+// Configuration & vérification du PIN (Conseils supplémentaires)
+  'assistant_pin_setup_page_tip1':
+      'Définissez votre **code PIN** pour commencer votre aventure avec **SharedHaven** ! 🔐',
+  'assistant_pin_setup_page_tip2':
+      'Choisissez un **PIN sécurisé** et **mémorisez-le bien**—il ne pourra pas être réinitialisé facilement !',
+  'assistant_pin_verify_page_tip1':
+      'Vérifiez votre **PIN** pour continuer. Cela garantit que vous seul avez accès à votre portefeuille. ✅',
+
+// Conseils généraux sur la page du portefeuille
+  'assistant_wallet_page_tip1':
+      'Maintenez enfoncé sur les boutons ou appuyez sur les **icônes "?"** pour afficher des infos et des astuces supplémentaires ! 💡',
+  'assistant_wallet_page_tip2':
+      'N’oubliez pas, **une connexion Internet est nécessaire** pour synchroniser votre portefeuille avec la blockchain. 🌍',
+  'assistant_wallet_page_tip3':
+      'Pensez à rafraîchir votre portefeuille régulièrement pour **être à jour avec les dernières transactions**. 🔄',
+
+// Conseils généraux & valeurs par défaut
+  'assistant_shared_page':
+      'Gérez ou créez des **portefeuilles partagés** en toute simplicité !',
+  'assistant_settings':
+      'Personnalisez votre expérience dans **les paramètres** ! 🎛️',
+  'assistant_default':
+      'Comment puis-je vous aider aujourd’hui ? **Appuyez sur moi pour des conseils !** 🤖',
+  'assistant_create_shared':
+      'Dans cette section, vous pouvez **créer un nouveau portefeuille partagé**.',
+  'assistant_import_shared':
+      'Dans cette section, vous pouvez **importer un portefeuille partagé existant**.',
 };

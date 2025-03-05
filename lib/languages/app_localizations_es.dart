@@ -297,4 +297,147 @@ const Map<String, String> localizedStringsEs = {
   'no_connection': '🌐 Sin conexión a Internet',
   'connect_internet':
       'Tu monedero necesita sincronizarse con la blockchain.\n\nPor favor, conéctate a Internet para continuar.',
+
+  // Mensajes generales del asistente
+  'assistant_welcome':
+      '¡Hola! Soy Hoshi 🤖 y estoy aquí para ayudarte en SharedHaven. Toca el icono de ayuda en la esquina superior derecha y mantén presionado cualquier elemento para obtener información.',
+
+// Configuración y verificación del PIN
+  'assistant_pin_setup_page':
+      'Configura un PIN de 6 dígitos para cifrar los datos de tu billetera. **No lo olvides**—es la clave para proteger tus fondos. 🔐',
+  'assistant_pin_verification_page':
+      'Introduce tu PIN para verificar el acceso a tu billetera. ¡Tu seguridad es lo primero!',
+
+// Creación de billetera y gestión de la mnemónica
+  'assistant_ca_wallet_page':
+      'Aquí puedes **generar una nueva frase mnemónica de 12 palabras** o **importar una billetera existente** con tu propia mnemónica. ¡Guárdala en un lugar seguro! 🛡️',
+  'assistant_create_wallet':
+      'Toca aquí para **crear una nueva billetera personal** o **importar una existente usando tu mnemónica**.',
+  'assistant_generate_mnemonic':
+      'Toca aquí para **generar una nueva frase mnemónica de 12 palabras**. **Escríbela y guárdala en un lugar seguro**. Sin ella, no podrás recuperar tu billetera. 📝🔑',
+
+// Página de la billetera personal
+  'assistant_wallet_page':
+      'Esta es tu **billetera personal**. Aquí puedes ver tu saldo, enviar transacciones y administrar tus fondos. 💰',
+  'assistant_personal_info_box':
+      'Esta sección muestra información clave sobre tu billetera. **Mantén presionado un elemento** para descubrir funciones adicionales. ⚡',
+  'assistant_personal_transactions_box':
+      'Aquí puedes ver tus **últimas transacciones**. **Toca una transacción** para obtener más detalles sobre confirmaciones y tarifas.',
+  'assistant_personal_available_balance':
+      'Este botón calcula el **saldo máximo disponible** que puedes gastar. **Ingresa primero un destinatario** para calcular la tarifa con precisión. 🏦',
+
+// Claves privadas y públicas
+  'assistant_private_data':
+      'Tu información privada está **protegida por tu PIN**. Ingresa tu PIN aquí para acceder a datos cifrados de tu billetera. 🔐',
+  'assistant_pub_key_data':
+      'Toca aquí para ver tu **clave pública**. La necesitarás para configurar una billetera compartida.',
+
+// Botones de transacción
+  'assistant_send_button':
+      'Crea una nueva **transacción de Bitcoin** y envía fondos. 💸',
+  'assistant_sign_button':
+      'Firma una **PSBT (Transacción Parcialmente Firmada de Bitcoin)**.',
+  'assistant_scan_button':
+      'Escanea un **código QR de Bitcoin** para ingresar una dirección de destinatario automáticamente. 📷',
+  'assistant_receive_button':
+      'Muestra y comparte tu **código QR de dirección de Bitcoin** para recibir pagos.',
+
+// Billetera compartida
+  'assistant_shared_wallet':
+      '¡Bienvenido a tu **billetera compartida**! 🚀 Es una billetera mejorada con **multifirma y reglas de gasto personalizadas**.',
+  'assistant_shared_spending_path_box':
+      'Estos son tus **caminos de gasto**—reglas que determinan cómo puedes usar tus fondos. Cumple con los requisitos y podrás gastar la cantidad indicada. 💡',
+  'assistant_shared_available_balance':
+      'En una billetera compartida, este botón calcula el **saldo disponible según el camino de gasto seleccionado**. **Ingresa primero un destinatario** para obtener un cálculo preciso. ⚡',
+  'assistant_shared_path_selected':
+      'No te preocupes—**el mejor camino de gasto se selecciona automáticamente por ti**. 😉',
+  'assistant_shared_path_dropdown':
+      '¿Prefieres elegirlo manualmente? **Selecciona un camino de gasto de la lista**. 🔽',
+
+// Envío de transacciones en billeteras compartidas
+  'assistant_send_sw_dialog1':
+      'Introduce primero el **monto**, y cualquier **ruta de gasto no disponible se desactivará automáticamente**. **Sin confusión, solo claridad.** 🎯',
+  'assistant_send_dialog2':
+      '⚠️ **¡Siempre verifica las direcciones del destinatario!** Si envías fondos a la dirección equivocada, significa **pérdida permanente**—las transacciones de Bitcoin no se pueden deshacer. 🔍',
+
+// PSBT (Transacciones Parcialmente Firmadas de Bitcoin)
+  'assistant_psbt_dialog1':
+      'Antes de firmar una **PSBT**, revisa todos los detalles de la transacción. ✅ El botón **Decodificar** solo muestra información extra, **no firma nada**.',
+  'assistant_psbt_dialog2':
+      'Este es el desglose de tu **PSBT**. **Solo firma transacciones en las que confíes** y evita firmar PSBTs de remitentes desconocidos. 🔐',
+
+// Detalles de transacciones
+  'assistant_transactions_dialog1':
+      '¿Quieres más detalles? **Consulta el Explorador de Mempool** para ver información en tiempo real sobre tu transacción. 🌐',
+  'assistant_transactions_dialog2':
+      'Esta es la **tarifa de transacción**—una pequeña cantidad pagada a los mineros para incluir tu transacción en el blockchain. 🏗️',
+
+// Claves públicas e importaciones
+  'assistant_generate_pub_key':
+      'Genera tu **clave pública**, que puedes compartir para configurar una billetera compartida. 🔑',
+  'assistant_select_file':
+      'En lugar de ingresar un descriptor manualmente, **sube un archivo JSON** con los datos de la billetera. 📂',
+  'assistant_import_sw_button':
+      'Después de verificar el **descriptor y la clave pública**, toca aquí para **importar la billetera**.',
+
+// Importación de una billetera compartida
+  'assistant_import_shared_tip1':
+      '¿Vas a ingresar un descriptor manualmente? No te preocupes—**se generarán nombres y alias aleatorios automáticamente**. ¡Podrás cambiarlos más tarde!',
+  'assistant_import_shared_tip2':
+      'Tu **clave pública** se puede compartir con otros, pero **nunca compartas tu clave privada**. ¡Mantenla segura a toda costa! 🔑❌',
+  'assistant_import_shared_tip3':
+      'Revisa los **errores encima del campo del descriptor**—te darán **pistas sobre qué está mal** en tu entrada. ⚠️',
+
+// Creación de una billetera compartida
+  'assistant_create_shared_tip1':
+      '¿Quieres eliminar un alias o una condición? **Desliza hacia la izquierda o la derecha** para eliminarlo. 🔄',
+
+// Umbral y reglas multisig
+  'assistant_threshold':
+      'El **umbral** es la cantidad de firmas necesarias entre los usuarios de la billetera compartida. **Ejemplo:** Una billetera 2-de-3 necesita **2 aprobaciones** antes de gastar los fondos. **No puede ser mayor que el número total de usuarios.** 🔐',
+
+// Agregar claves públicas a una billetera compartida
+  'assistant_add_pub_key_tip1':
+      'Los alias ayudan a identificar qué **clave pública** pertenece a cada usuario—haciendo que la gestión de firmas sea más sencilla. 🏷️',
+  'assistant_add_pub_key_tip2':
+      'Si lo necesitas, puedes **cambiar los alias más tarde**.',
+
+// Timelock (Condiciones de gasto basadas en el tiempo)
+  'assistant_add_timelock_tip1':
+      'El valor **"Older"** representa el número de **bloques** que deben pasar antes de que los fondos puedan gastarse. **Cada bloque toma aproximadamente 10 minutos.** ⏳',
+  'assistant_add_timelock_tip2':
+      'Un **UTXO (Unspent Transaction Output)** es una cantidad de Bitcoin confirmada. Cuando el **número de confirmaciones del UTXO alcanza tu valor "Older"**, los fondos estarán disponibles según la condición definida. 🏦',
+  'assistant_add_timelock_tip3':
+      'También puedes agregar un **umbral dentro de una condición timelock**, lo que significa que **varios usuarios deben aprobar la transacción después de un tiempo determinado**.',
+
+// Creación de un Descriptor
+  'assistant_create_descriptor':
+      'Toca el botón de abajo para **generar un resumen de la configuración de tu Billetera Compartida**. 📝✅',
+
+// Configuración y verificación del PIN (Consejos adicionales)
+  'assistant_pin_setup_page_tip1':
+      'Configura tu **PIN** para comenzar tu viaje con **SharedHaven**. 🔐',
+  'assistant_pin_setup_page_tip2':
+      'Elige un **PIN seguro** y **memorízalo bien**—no será fácil de restablecer.',
+  'assistant_pin_verify_page_tip1':
+      'Verifica tu **PIN** para continuar. Esto garantiza que solo tú tengas acceso a tu billetera. ✅',
+
+// Consejos generales en la página de la billetera
+  'assistant_wallet_page_tip1':
+      'Mantén presionados los botones o toca los **íconos "?"** para obtener información y consejos adicionales. 💡',
+  'assistant_wallet_page_tip2':
+      'Recuerda que **necesitas una conexión a Internet** para sincronizar tu billetera con la blockchain. 🌍',
+  'assistant_wallet_page_tip3':
+      'Actualiza tu billetera periódicamente para estar **al día con las últimas transacciones**. 🔄',
+
+// Consejos generales y configuración predeterminada
+  'assistant_shared_page':
+      'Administra o crea **billeteras compartidas** con facilidad.',
+  'assistant_settings': 'Personaliza tu experiencia en **Configuración**. 🎛️',
+  'assistant_default':
+      '¿Cómo puedo ayudarte hoy? **¡Tócame para obtener consejos!** 🤖',
+  'assistant_create_shared':
+      'En esta sección de la aplicación, podrás **crear una nueva billetera compartida**.',
+  'assistant_import_shared':
+      'En esta sección de la aplicación, podrás **importar una billetera compartida existente**.',
 };

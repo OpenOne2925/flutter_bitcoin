@@ -20,7 +20,7 @@ class AppLocalizations {
 
   late Map<String, String> _localizedStrings;
 
-  Future<void> load() async {
+  Future<bool> load() async {
     switch (locale.languageCode) {
       case 'es':
         _localizedStrings = localizedStringsEs;
@@ -37,6 +37,7 @@ class AppLocalizations {
       default:
         _localizedStrings = localizedStringsEn;
     }
+    return true; // ✅ Ensures that loading is complete before use
   }
 
   String translate(String key) {

@@ -8,6 +8,7 @@ import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
+import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 
 class WalletSpendingPathHelpers {
   final List<Map<String, String>> pubKeysAlias;
@@ -15,7 +16,6 @@ class WalletSpendingPathHelpers {
   final List<Map<String, dynamic>> spendingPaths;
   final List<dynamic> utxos;
   final int currentHeight;
-  final int avgBlockTime;
   final WalletService walletService;
   final String myAlias;
   final BuildContext context;
@@ -39,7 +39,6 @@ class WalletSpendingPathHelpers {
     required this.spendingPaths,
     required this.utxos,
     required this.currentHeight,
-    required this.avgBlockTime,
     required this.walletService,
     required this.myAlias,
     required this.context,
@@ -367,15 +366,15 @@ class WalletSpendingPathHelpers {
                       ),
                     ),
 
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 10),
 
                     Icon(
-                      Icons.vpn_key,
+                      totalSpendable > 0 ? Icons.lock_open : Icons.lock_clock,
                       color: AppColors.icon(context),
                       size: 20,
                     ),
 
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 10),
 
                     // Show all available paths
 
@@ -390,12 +389,20 @@ class WalletSpendingPathHelpers {
                       ),
                     ),
 
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 10),
 
                     // Send available balance from spending path
                     GestureDetector(
                       onTap: () async {
                         final rootContext = context;
+
+                        if (totalSpendable == 0) {
+                          // Show SnackBar if totalSpendable is 0
+                          SnackBarHelper.showError(context,
+                              message: AppLocalizations.of(rootContext)!
+                                  .translate('error_insufficient_funds'));
+                          return; // Stop execution since no funds are available
+                        }
 
                         bool recipientEntered = (await DialogHelper
                                 .buildCustomDialog<bool>(
@@ -469,7 +476,9 @@ class WalletSpendingPathHelpers {
                       },
                       child: Icon(
                         Icons.send,
-                        color: AppColors.icon(context),
+                        color: totalSpendable == 0
+                            ? AppColors.unavailableColor
+                            : AppColors.icon(context),
                         size: 22,
                       ),
                     ),
@@ -642,7 +651,7 @@ class WalletSpendingPathHelpers {
             // Calculate time remaining if not spendable
             if (!isSpendable) {
               // print('Calculating time remaining...');
-              print('Average block time: $avgBlockTime seconds');
+              // print('Average block time: $avgBlockTime seconds');
               final totalSeconds = remainingBlocks * avgBlockTime;
               timeRemaining =
                   walletService.formatTime(totalSeconds, rootContext);

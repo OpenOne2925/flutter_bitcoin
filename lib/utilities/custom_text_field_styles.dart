@@ -7,6 +7,7 @@ class CustomTextFieldStyles {
     required String labelText,
     String? hintText,
     Color? borderColor, // Optional custom border color
+    Widget? suffixIcon, // ✅ Added suffixIcon support
   }) {
     final defaultBorderColor = AppColors.text(context);
     final focusedBorderColor = borderColor ?? AppColors.primary(context);
@@ -61,6 +62,7 @@ class CustomTextFieldStyles {
         vertical: 18.0,
         horizontal: 16.0,
       ),
+      suffixIcon: suffixIcon, // ✅ Now supports suffix icons
     );
   }
 }

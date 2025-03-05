@@ -6,6 +6,7 @@ import 'package:flutter_wallet/wallet_pages/qr_scanner_page.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_receive_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 
 class WalletButtonsHelper {
   final BuildContext context;
@@ -13,11 +14,13 @@ class WalletButtonsHelper {
   final bool isSingleWallet;
   final WalletSendtxHelpers sendTxHelper;
   final WalletReceiveHelpers receiveHelper;
+  final GlobalKey<BaseScaffoldState> baseScaffoldKey;
 
   WalletButtonsHelper({
     required this.context,
     required this.address,
     required this.isSingleWallet,
+    required this.baseScaffoldKey,
 
     // Common Variables
     required TextEditingController recipientController,
@@ -31,7 +34,6 @@ class WalletButtonsHelper {
     // SharedWallet Variables
     TextEditingController? psbtController,
     TextEditingController? signingAmountController,
-    int? avgBlockTime,
     String? descriptor,
     String? descriptorName,
     List<Map<String, String>>? pubKeysAlias,
@@ -113,53 +115,97 @@ class WalletButtonsHelper {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         // Send Button
-        CustomButton(
-          onPressed: () => sendTxHelper.sendTx(true),
-          backgroundColor: AppColors.background(context),
-          foregroundColor: AppColors.text(context),
-          icon: Icons.arrow_upward,
-          iconColor: AppColors.gradient(context),
+        GestureDetector(
+          onLongPress: () {
+            final BaseScaffoldState? baseScaffoldState =
+                baseScaffoldKey.currentState;
+
+            if (baseScaffoldState != null) {
+              baseScaffoldState.updateAssistantMessage(
+                  context, 'assistant_send_button');
+            }
+          },
+          child: CustomButton(
+            onPressed: () => sendTxHelper.sendTx(true),
+            backgroundColor: AppColors.background(context),
+            foregroundColor: AppColors.text(context),
+            icon: Icons.arrow_upward,
+            iconColor: AppColors.gradient(context),
+          ),
         ),
 
         // Sign PSBT Button
         if (!isSingleWallet)
-          CustomButton(
-            onPressed: () => sendTxHelper.sendTx(false),
-            backgroundColor: AppColors.background(context),
-            foregroundColor: AppColors.gradient(context),
-            icon: Icons.draw,
-            iconColor: AppColors.text(context),
+          GestureDetector(
+            onLongPress: () {
+              final BaseScaffoldState? baseScaffoldState =
+                  baseScaffoldKey.currentState;
+
+              if (baseScaffoldState != null) {
+                baseScaffoldState.updateAssistantMessage(
+                    context, 'assistant_sign_button');
+              }
+            },
+            child: CustomButton(
+              onPressed: () => sendTxHelper.sendTx(false),
+              backgroundColor: AppColors.background(context),
+              foregroundColor: AppColors.gradient(context),
+              icon: Icons.draw,
+              iconColor: AppColors.text(context),
+            ),
           ),
 
         // Scan To Send Button
-        CustomButton(
-          onPressed: () async {
-            final recipientAddressStr = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const QRScannerPage()),
-            );
+        GestureDetector(
+          onLongPress: () {
+            final BaseScaffoldState? baseScaffoldState =
+                baseScaffoldKey.currentState;
 
-            // If a valid Bitcoin address was scanned, show the transaction dialog
-            if (recipientAddressStr != null) {
-              sendTxHelper.sendTx(
-                true,
-                recipientAddressQr: recipientAddressStr,
-              );
+            if (baseScaffoldState != null) {
+              baseScaffoldState.updateAssistantMessage(
+                  context, 'assistant_scan_button');
             }
           },
-          backgroundColor: AppColors.background(context),
-          foregroundColor: AppColors.gradient(context),
-          icon: Icons.qr_code,
-          iconColor: AppColors.text(context),
+          child: CustomButton(
+            onPressed: () async {
+              final recipientAddressStr = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const QRScannerPage()),
+              );
+
+              // If a valid Bitcoin address was scanned, show the transaction dialog
+              if (recipientAddressStr != null) {
+                sendTxHelper.sendTx(
+                  true,
+                  recipientAddressQr: recipientAddressStr,
+                );
+              }
+            },
+            backgroundColor: AppColors.background(context),
+            foregroundColor: AppColors.gradient(context),
+            icon: Icons.qr_code,
+            iconColor: AppColors.text(context),
+          ),
         ),
 
         // Receive Button
-        CustomButton(
-          onPressed: () => receiveHelper.showQRCodeDialog(address),
-          backgroundColor: AppColors.background(context),
-          foregroundColor: AppColors.text(context),
-          icon: Icons.arrow_downward,
-          iconColor: AppColors.gradient(context),
+        GestureDetector(
+          onLongPress: () {
+            final BaseScaffoldState? baseScaffoldState =
+                baseScaffoldKey.currentState;
+
+            if (baseScaffoldState != null) {
+              baseScaffoldState.updateAssistantMessage(
+                  context, 'assistant_receive_button');
+            }
+          },
+          child: CustomButton(
+            onPressed: () => receiveHelper.showQRCodeDialog(address),
+            backgroundColor: AppColors.background(context),
+            foregroundColor: AppColors.text(context),
+            icon: Icons.arrow_downward,
+            iconColor: AppColors.gradient(context),
+          ),
         ),
       ],
     );
