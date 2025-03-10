@@ -555,7 +555,7 @@ class WalletSpendingPathHelpers {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              '${index + 1} of $length',
+              '${index + 1} / $length',
               style: TextStyle(
                 color: AppColors.gradient(context),
                 fontSize: 12,

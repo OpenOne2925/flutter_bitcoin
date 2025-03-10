@@ -719,6 +719,33 @@ class WalletService extends ChangeNotifier {
     return newTransactions;
   }
 
+  Future<DescriptorPublicKey?> getpubkey(
+    Map<String, Future<DescriptorPublicKey?>> pubKeyFutures,
+    String mnemonic,
+  ) {
+    if (!pubKeyFutures.containsKey(mnemonic)) {
+      pubKeyFutures[mnemonic] = fetchPubKey(mnemonic);
+    }
+    return pubKeyFutures[mnemonic]!;
+  }
+
+  Future<DescriptorPublicKey?> fetchPubKey(String mnemonic) async {
+    final trueMnemonic = await Mnemonic.fromString(mnemonic);
+
+    final hardenedDerivationPath =
+        await DerivationPath.create(path: "m/84h/1h/0h");
+
+    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+
+    final (receivingSecretKey, receivingPublicKey) = await deriveDescriptorKeys(
+      hardenedDerivationPath,
+      receivingDerivationPath,
+      trueMnemonic,
+    );
+
+    return receivingPublicKey;
+  }
+
   ///
   ///
   ///
@@ -1855,6 +1882,8 @@ class WalletService extends ChangeNotifier {
             receivingPublicKey.toString(),
             receivingSecretKey.toString(),
           );
+
+    printInChunks('Sending descriptor: $descriptor');
 
     wallet = await Wallet.create(
       descriptor: await Descriptor.create(

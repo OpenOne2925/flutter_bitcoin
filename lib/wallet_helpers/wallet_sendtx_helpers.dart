@@ -84,6 +84,11 @@ class WalletSendtxHelpers {
       selectedIndex = index ?? 0;
     }
 
+    print('selectedPath: $selectedPath');
+    print('selectedIndex: $selectedIndex');
+
+    print('index: $index');
+
     if (isFromSpendingPath == true) {
       int sendAllBalance = 0;
       try {
@@ -642,6 +647,8 @@ class WalletSendtxHelpers {
                             extractedData,
                           );
 
+                          selectedIndex = extractedData.indexOf(selectedPath!);
+
                           final outputs = result.output();
                           signers = walletService.extractSignersFromPsbt(psbt);
                           final signersAliases =
@@ -761,6 +768,10 @@ class WalletSendtxHelpers {
                           );
                         }
                       } else {
+                        print('selectedPath: $selectedPath');
+                        print('selectedIndex: $selectedIndex');
+
+                        print('index: $index');
                         result = await walletService.signBroadcastTx(
                           psbtController!.text,
                           descriptor.toString(),

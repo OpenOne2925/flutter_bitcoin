@@ -44,6 +44,7 @@ class WalletPageState extends State<WalletPage> {
   bool _isLoading = true;
   bool isInitialized = false;
   bool isWalletInitialized = false;
+  bool _isRefreshing = false;
 
   // Wallet and Transaction Data
   String address = '';
@@ -331,6 +332,7 @@ class WalletPageState extends State<WalletPage> {
       wallet: wallet,
       isSingleWallet: true,
       baseScaffoldKey: baseScaffoldKey,
+      isRefreshing: _isRefreshing,
     );
 
     final walletButtonsHelper = WalletButtonsHelper(
@@ -353,73 +355,89 @@ class WalletPageState extends State<WalletPage> {
         style: TextStyle(fontSize: 18),
       ),
       key: baseScaffoldKey,
-      body: RefreshIndicator(
-        key: _refreshIndicatorKey, // Assign the GlobalKey to RefreshIndicator
-        onRefresh: () async {
-          final List<ConnectivityResult> connectivityResult =
-              await (Connectivity().checkConnectivity());
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            key:
+                _refreshIndicatorKey, // Assign the GlobalKey to RefreshIndicator
+            onRefresh: () async {
+              final List<ConnectivityResult> connectivityResult =
+                  await (Connectivity().checkConnectivity());
 
-          try {
-            walletUiHelpers.handleRefresh(
-              _syncWallet,
-              connectivityResult,
-              context,
-            );
-          } catch (e) {
-            SnackBarHelper.showError(context, message: 'syncing_error');
-          }
-        },
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(8.0),
-                children: [
-                  GestureDetector(
-                    onLongPress: () {
-                      final BaseScaffoldState? baseScaffoldState =
-                          baseScaffoldKey.currentState;
+              setState(() {
+                _isRefreshing = true;
+              });
 
-                      if (baseScaffoldState != null) {
-                        baseScaffoldState.updateAssistantMessage(
-                            context, 'assistant_personal_info_box');
-                      }
-                    },
-                    child: walletUiHelpers.buildWalletInfoBox(
-                      AppLocalizations.of(context)!.translate('address'),
-                      onTap: () {
-                        _convertCurrency();
-                      },
-                      showCopyButton: true,
+              try {
+                await walletUiHelpers.handleRefresh(
+                  _syncWallet,
+                  connectivityResult,
+                  context,
+                );
+              } catch (e) {
+                SnackBarHelper.showError(context, message: 'syncing_error');
+              } finally {
+                // Ensure animation is visible for at least 500ms
+                await Future.delayed(Duration(milliseconds: 500));
+
+                setState(() {
+                  _isRefreshing = false;
+                });
+              }
+            },
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(8.0),
+                    children: [
+                      GestureDetector(
+                        onLongPress: () {
+                          final BaseScaffoldState? baseScaffoldState =
+                              baseScaffoldKey.currentState;
+
+                          if (baseScaffoldState != null) {
+                            baseScaffoldState.updateAssistantMessage(
+                                context, 'assistant_personal_info_box');
+                          }
+                        },
+                        child: walletUiHelpers.buildWalletInfoBox(
+                          AppLocalizations.of(context)!.translate('address'),
+                          onTap: () {
+                            _convertCurrency();
+                          },
+                          showCopyButton: true,
+                        ),
+                      ),
+                      GestureDetector(
+                        onLongPress: () {
+                          final BaseScaffoldState? baseScaffoldState =
+                              baseScaffoldKey.currentState;
+
+                          if (baseScaffoldState != null) {
+                            baseScaffoldState.updateAssistantMessage(
+                                context, 'assistant_personal_transactions_box');
+                          }
+                        },
+                        child: walletUiHelpers.buildTransactionsBox(),
+                      ),
+                    ],
+                  ),
+                ),
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      children: [
+                        walletButtonsHelper.buildButtons(),
+                      ],
                     ),
                   ),
-                  GestureDetector(
-                    onLongPress: () {
-                      final BaseScaffoldState? baseScaffoldState =
-                          baseScaffoldKey.currentState;
-
-                      if (baseScaffoldState != null) {
-                        baseScaffoldState.updateAssistantMessage(
-                            context, 'assistant_personal_transactions_box');
-                      }
-                    },
-                    child: walletUiHelpers.buildTransactionsBox(),
-                  ),
-                ],
-              ),
-            ),
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  children: [
-                    walletButtonsHelper.buildButtons(),
-                  ],
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

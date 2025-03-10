@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:lottie/lottie.dart';
 
 class AssistantWidget extends StatefulWidget {
   final String initialMessage;
@@ -170,10 +172,14 @@ class AssistantWidgetState extends State<AssistantWidget>
           child: CircleAvatar(
             radius: 30,
             backgroundColor: AppColors.dialog(context),
-            child: Icon(
-              Icons.assistant,
-              color: AppColors.icon(context),
-              size: 32,
+            child: Lottie.asset(
+              isTestnet
+                  ? 'assets/animations/assistant_testnet.json'
+                  : 'assets/animations/assistant_mainnet.json',
+              width: 60, // Adjust animation size inside the CircleAvatar
+              height: 60,
+              fit: BoxFit.cover,
+              repeat: true, // Make sure animation loops
             ),
           ),
         ),

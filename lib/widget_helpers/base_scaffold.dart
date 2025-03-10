@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
@@ -18,7 +19,6 @@ import 'package:flutter_wallet/utilities/app_colors.dart';
 class BaseScaffold extends StatefulWidget {
   final Widget body;
   final Text title;
-  final bool isTestnet; // Add a flag to indicate Testnet or Mainnet
   final Future<void> Function()? onRefresh;
   final bool showAssistantButton;
   final bool showDrawer;
@@ -27,7 +27,6 @@ class BaseScaffold extends StatefulWidget {
     super.key,
     required this.title,
     required this.body,
-    this.isTestnet = true, // Default to Mainnet if not specified
     this.onRefresh,
     this.showAssistantButton = true,
     this.showDrawer = true,
@@ -58,22 +57,23 @@ class BaseScaffoldState extends State<BaseScaffold> {
   final GlobalKey<AssistantWidgetState> _assistantKey =
       GlobalKey(); // Track assistant widget state
 
+  final utilitiesService = UtilitiesService();
+
   @override
   void initState() {
     super.initState();
 
     _descriptorBox = Hive.box<dynamic>('descriptorBox');
-    // printDescriptorBoxContents();
     _getVersion();
-    // _updateAssistantMessages();
   }
 
   void _toggleAssistant() {
     setState(() {
       _showAssistant = !_showAssistant;
     });
-    String initialMessage = _getAssistantMessageForRoute();
-    _assistantMessages = _getAssistantMessagesForRoute();
+    String initialMessage =
+        utilitiesService.getAssistantGreetingForRoute(context);
+    _assistantMessages = utilitiesService.getAssistantTipsForRoute(context);
 
     // Show initial message when turning on
     if (_showAssistant) {
@@ -94,83 +94,6 @@ class BaseScaffoldState extends State<BaseScaffold> {
     if (_assistantKey.currentState != null) {
       _assistantKey.currentState!
           .updateMessage(_assistantMessages[_assistantMessageIndex]);
-    }
-  }
-
-  String _getAssistantMessageForRoute() {
-    String? currentRoute = ModalRoute.of(context)?.settings.name;
-    final localization = AppLocalizations.of(context)!;
-
-    switch (currentRoute) {
-      case '/wallet_page':
-        return localization.translate("assistant_welcome");
-      case '/ca_wallet_page':
-        return localization.translate("assistant_ca_wallet_page");
-      case '/pin_setup_page':
-        return localization.translate("assistant_pin_setup_page");
-      case '/pin_verification_page':
-        return localization.translate("assistant_pin_verification_page");
-      case '/shared_wallet':
-        return localization.translate("assistant_shared_page");
-      case '/create_shared':
-        return localization.translate("assistant_create_shared");
-      case '/import_shared':
-        return localization.translate("assistant_import_shared");
-      case '/settings':
-        return localization.translate("assistant_settings");
-
-      // Default will be used for the ShareWalletPages since they have multiple parameters required and because of that, don't have a route
-      default:
-        return localization.translate(
-            "assistant_shared_wallet"); // "How can I assist you today?"
-    }
-  }
-
-  List<String> _getAssistantMessagesForRoute() {
-    String? currentRoute = ModalRoute.of(context)?.settings.name;
-    final localization = AppLocalizations.of(context)!;
-
-    switch (currentRoute) {
-      case '/wallet_page':
-        return [
-          localization.translate("assistant_wallet_page_tip1"),
-          localization.translate("assistant_wallet_page_tip2"),
-          localization.translate("assistant_wallet_page_tip3"),
-        ];
-      case '/ca_wallet_page':
-        return [
-          localization.translate("assistant_ca_wallet_page_tip1"),
-          localization.translate("assistant_ca_wallet_page_tip2"),
-        ];
-      case '/pin_setup_page':
-        return [
-          localization.translate("assistant_pin_setup_page_tip1"),
-          localization.translate("assistant_pin_setup_page_tip2"),
-        ];
-      case '/pin_verification_page':
-        return [
-          localization.translate("assistant_pin_verify_page_tip1"),
-          // localization.translate("assistant_pin_verify_page_tip2"),
-        ];
-      case '/create_shared':
-        return [
-          localization.translate("assistant_create_shared_tip1"),
-          // localization.translate("assistant_create_shared_tip2"),
-          // localization.translate("assistant_create_shared_tip3"),
-        ];
-      case '/import_shared':
-        return [
-          localization.translate("assistant_import_shared_tip1"),
-          localization.translate("assistant_import_shared_tip2"),
-          localization.translate("assistant_import_shared_tip3"),
-        ];
-      // Default will be used for the ShareWalletPages,
-      // since they have multiple parameters required and because of that, don't have a route
-      default:
-        return [
-          localization.translate("assistant_default_tip1"),
-          localization.translate("assistant_default_tip2"),
-        ];
     }
   }
 
@@ -198,51 +121,12 @@ class BaseScaffoldState extends State<BaseScaffold> {
     });
   }
 
-  // void printDescriptorBoxContents() {
-  //   if (_descriptorBox != null) {
-  //     print('--- Descriptor Box Contents ---');
-  //     for (var i = 0; i < _descriptorBox!.length; i++) {
-  //       final key = _descriptorBox!.keyAt(i); // Get the key
-  //       final value = _descriptorBox!.getAt(i); // Get the value
-  //       print('Key: $key');
-  //       walletService.printInChunks('Value: $value');
-  //     }
-  //     print('--- End of Descriptor Box ---');
-  //   } else {
-  //     print('Descriptor Box is null or not initialized.');
-  //   }
-  // }
-
-  Future<DescriptorPublicKey?> getpubkey(String mnemonic) {
-    if (!pubKeyFutures.containsKey(mnemonic)) {
-      pubKeyFutures[mnemonic] = _fetchPubKey(mnemonic);
-    }
-    return pubKeyFutures[mnemonic]!;
-  }
-
-  Future<DescriptorPublicKey?> _fetchPubKey(String mnemonic) async {
-    final trueMnemonic = await Mnemonic.fromString(mnemonic);
-
-    final hardenedDerivationPath =
-        await DerivationPath.create(path: "m/84h/1h/0h");
-
-    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
-
-    final (receivingSecretKey, receivingPublicKey) =
-        await walletService.deriveDescriptorKeys(
-      hardenedDerivationPath,
-      receivingDerivationPath,
-      trueMnemonic,
-    );
-
-    return receivingPublicKey;
-  }
-
-  Future<bool?> showEditAliasDialog(
+  Future<EditAliasResult?> showEditAliasDialog(
     BuildContext context,
     List<Map<String, dynamic>> pubKeysAlias,
     Box<dynamic> box,
     String compositeKey,
+    String descriptorName,
   ) async {
     // Create a map of alias controllers
 
@@ -251,13 +135,64 @@ class BaseScaffoldState extends State<BaseScaffold> {
         entry['publicKey']!: TextEditingController(text: entry['alias']),
     };
 
+    TextEditingController descriptorNameController =
+        TextEditingController(text: descriptorName);
+
+    String updatedDescriptorName = '';
+
+    // print('CompositeKey: $compositeKey');
+
     final localizationContext = Navigator.of(context).context;
 
-    return (await DialogHelper.buildCustomDialog<bool>(
-          context: context,
-          titleKey: 'edit_alias',
-          showCloseButton: false,
-          content: Column(
+    return (await DialogHelper.buildCustomDialog<EditAliasResult>(
+      context: context, // TODO:
+      titleKey: 'edit_sw_info',
+      showCloseButton: false,
+      content: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 12.0),
+            padding: EdgeInsets.all(12.0),
+            decoration: BoxDecoration(
+              color: AppColors.gradient(context),
+              borderRadius: BorderRadius.circular(12.0),
+              border: Border.all(color: AppColors.primary(context)),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  AppLocalizations.of(localizationContext)!
+                      .translate('descriptor_name'),
+                  style: TextStyle(
+                    color: AppColors.text(context),
+                  ),
+                ),
+                TextField(
+                  controller: descriptorNameController,
+                  style: TextStyle(
+                    color: AppColors.text(context),
+                  ),
+                  decoration: InputDecoration(
+                    hintStyle: const TextStyle(color: Colors.grey),
+                    filled: true,
+                    fillColor: AppColors.container(context),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      updatedDescriptorName =
+                          descriptorNameController.text.trim();
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Column(
             children: pubKeysAlias.map((entry) {
               return Container(
                 margin: const EdgeInsets.only(bottom: 12.0),
@@ -299,59 +234,115 @@ class BaseScaffoldState extends State<BaseScaffold> {
               );
             }).toList(),
           ),
-          actions: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                InkwellButton(
-                  onTap: () {
-                    Navigator.of(context, rootNavigator: true).pop(false);
-                  },
-                  label: AppLocalizations.of(localizationContext)!
-                      .translate('cancel'),
-                  backgroundColor: AppColors.gradient(context),
-                  textColor: AppColors.text(context),
-                  icon: Icons.cancel_rounded,
-                  iconColor: AppColors.error(context),
-                ),
-                InkwellButton(
-                  onTap: () {
-                    // Update all aliases in pubKeysAlias
-                    for (var entry in pubKeysAlias) {
-                      entry['alias'] =
-                          aliasControllers[entry['publicKey']]!.text;
+        ],
+      ),
+      actions: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            InkwellButton(
+              onTap: () {
+                Navigator.of(context, rootNavigator: true).pop(null);
+              },
+              label:
+                  AppLocalizations.of(localizationContext)!.translate('cancel'),
+              backgroundColor: AppColors.gradient(context),
+              textColor: AppColors.text(context),
+              icon: Icons.cancel_rounded,
+              iconColor: AppColors.error(context),
+            ),
+            InkwellButton(
+              onTap: () async {
+                // Update all aliases in pubKeysAlias
+                for (var entry in pubKeysAlias) {
+                  entry['alias'] = aliasControllers[entry['publicKey']]!.text;
+                }
+
+                // Extract descriptor name from composite key
+                List<String> keyParts = compositeKey.split('_descriptor_');
+                if (keyParts.length != 2) {
+                  print("Error: Invalid composite key format");
+                  return;
+                }
+
+                if (updatedDescriptorName.isEmpty) {
+                  print("Error: Descriptor name cannot be empty");
+                  return;
+                }
+
+                // Create the new composite key
+                String newCompositeKey =
+                    "${keyParts[0]}_descriptor_$updatedDescriptorName";
+
+                // Store the old composite key BEFORE modifying it
+                String oldCompositeKey = compositeKey;
+
+                // Retrieve existing data from the old key
+                var rawValue = box.get(oldCompositeKey);
+                if (rawValue != null) {
+                  try {
+                    // Parse JSON
+                    Map<String, dynamic> parsedValue = jsonDecode(rawValue);
+
+                    // Update pubKeysAlias
+                    parsedValue['pubKeysAlias'] = pubKeysAlias;
+
+                    // print('OldKey: $compositeKey');
+                    // print('NewKey: $newCompositeKey');
+
+                    // Store data with the new key
+                    box.put(newCompositeKey, jsonEncode(parsedValue));
+
+                    // Confirm it's saved
+                    var savedData = box.get(newCompositeKey);
+                    if (savedData != null) {
+                      // print("Successfully saved to new key: $newCompositeKey");
+                    } else {
+                      print("Error: Data did not save correctly to new key.");
                     }
 
-                    // Save the updated data back into the Hive Box
-                    var rawValue = box.get(compositeKey);
-                    if (rawValue != null) {
-                      try {
-                        Map<String, dynamic> parsedValue = jsonDecode(rawValue);
-                        parsedValue['pubKeysAlias'] = pubKeysAlias;
-
-                        // Store the updated data in Hive
-                        box.put(compositeKey, jsonEncode(parsedValue));
-
-                        Navigator.of(context, rootNavigator: true).pop(true);
-
-                        SnackBarHelper.show(context, message: 'alias_updated');
-                      } catch (e) {
-                        print("Error updating Hive box: $e");
-                      }
+                    // Check if old key exists before deleting
+                    if (box.containsKey(oldCompositeKey)) {
+                      print("Deleting old key: $oldCompositeKey");
+                      box.delete(oldCompositeKey);
+                    } else {
+                      print("Old key not found, skipping deletion.");
                     }
-                  },
-                  label: AppLocalizations.of(localizationContext)!
-                      .translate('save'),
-                  backgroundColor: AppColors.gradient(context),
-                  textColor: AppColors.text(context),
-                  icon: Icons.cancel_rounded,
-                  iconColor: AppColors.icon(context),
-                ),
-              ],
+
+                    // Force Hive to commit changes
+                    await box.compact();
+                    await box.flush();
+
+                    // Close the dialog
+                    Navigator.of(context, rootNavigator: true).pop(
+                      EditAliasResult(
+                        success: true,
+                        descriptorName: updatedDescriptorName,
+                      ),
+                    );
+
+                    // print('updatedDescriptorName: $updatedDescriptorName');
+
+// TODO:
+                    SnackBarHelper.show(context, message: 'sw_info_updated');
+                  } catch (e) {
+                    print("Error updating Hive box: $e");
+                  }
+                } else {
+                  print("Error: Original composite key not found in Hive.");
+                }
+              },
+              label:
+                  AppLocalizations.of(localizationContext)!.translate('save'),
+              backgroundColor: AppColors.gradient(context),
+              textColor: AppColors.text(context),
+              icon: Icons.save_rounded,
+              iconColor: AppColors.icon(context),
             ),
           ],
-        )) ??
-        false;
+        ),
+      ],
+    ));
   }
 
   @override
@@ -372,7 +363,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
                       .withAlpha((0.8 * 255).toInt()),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: Colors.redAccent,
+                    color: AppColors.error(context),
                     width: 1,
                   ),
                 ),
@@ -381,7 +372,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
                   style: TextStyle(
                     fontSize: 16, // Bigger font
                     fontWeight: FontWeight.bold,
-                    color: Colors.redAccent, // High contrast color
+                    color: AppColors.error(context), // High contrast color
                   ),
                 ),
               ),
@@ -629,9 +620,11 @@ class BaseScaffoldState extends State<BaseScaffold> {
           final keyParts = compositeKey.split('_descriptor');
           final mnemonic =
               keyParts.isNotEmpty ? keyParts[0] : 'Unknown Mnemonic';
-          final descriptorName = keyParts.length > 1
+          String descriptorName = keyParts.length > 1
               ? keyParts[1].replaceFirst('_', '')
               : 'Unnamed Descriptor';
+
+          // print('descriptorName: $compositeKey');
 
           // Parse the raw value (JSON) into a Map
           Map<String, dynamic>? parsedValue;
@@ -652,7 +645,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
           sharedWalletCards.add(
             FutureBuilder<DescriptorPublicKey?>(
-              future: getpubkey(mnemonic),
+              future: walletService.getpubkey(pubKeyFutures, mnemonic),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const CircularProgressIndicator(); // Show a loader while waiting
@@ -709,26 +702,36 @@ class BaseScaffoldState extends State<BaseScaffold> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     onLongPress: () async {
-                      final bool? aliasUpdated = await showEditAliasDialog(
+                      final EditAliasResult? result = await showEditAliasDialog(
                         context,
                         pubKeysAlias,
                         box,
                         compositeKey,
+                        descriptorName,
                       );
 
                       // Wait until the user dismisses the dialog
-                      if (aliasUpdated == true) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => SharedWallet(
-                              descriptor: descriptor,
-                              mnemonic: mnemonic,
-                              pubKeysAlias: pubKeysAlias,
-                              descriptorName: descriptorName,
+                      if (result != null) {
+                        setState(() {
+                          descriptorName = result.descriptorName;
+                        });
+
+                        // print('descriptorNameAfterChanging: $descriptorName');
+                        if (result.success) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SharedWallet(
+                                descriptor: descriptor,
+                                mnemonic: mnemonic,
+                                pubKeysAlias: pubKeysAlias,
+                                descriptorName: descriptorName,
+                              ),
                             ),
-                          ),
-                        );
+                          );
+                        }
+                      } else {
+                        print("Dialog dismissed without changes.");
                       }
                     },
                     onTap: () {
@@ -810,4 +813,11 @@ class BaseScaffoldState extends State<BaseScaffold> {
       ),
     );
   }
+}
+
+class EditAliasResult {
+  final bool success;
+  final String descriptorName;
+
+  EditAliasResult({required this.success, required this.descriptorName});
 }

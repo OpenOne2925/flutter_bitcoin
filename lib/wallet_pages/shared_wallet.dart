@@ -130,6 +130,7 @@ class SharedWalletState extends State<SharedWallet> {
   bool isInitialized = false;
   bool isWalletInitialized = false;
   bool showInSatoshis = true; // Toggle display state
+  bool _isRefreshing = false;
 
   // Wallet and Transaction Data
   String address = '';
@@ -589,26 +590,28 @@ class SharedWalletState extends State<SharedWallet> {
     // print('ledBalance: $ledBalance');
 
     final walletUiHelpers = WalletUiHelpers(
-        address: address,
-        avBalance: avBalance,
-        ledBalance: ledBalance,
-        showInSatoshis: showInSatoshis,
-        avCurrencyBalance: avCurrencyBalance,
-        ledCurrencyBalance: ledCurrencyBalance,
-        currentHeight: _currentHeight,
-        timeStamp: _timeStamp,
-        isInitialized: isInitialized,
-        pubKeyController: _pubKeyController,
-        settingsProvider: settingsProvider,
-        lastRefreshed: _lastRefreshed,
-        context: context,
-        isLoading: _isLoading,
-        transactions: _transactions,
-        wallet: wallet,
-        isSingleWallet: false,
-        descriptor: _descriptor,
-        descriptorName: _descriptorName,
-        baseScaffoldKey: baseScaffoldKey);
+      address: address,
+      avBalance: avBalance,
+      ledBalance: ledBalance,
+      showInSatoshis: showInSatoshis,
+      avCurrencyBalance: avCurrencyBalance,
+      ledCurrencyBalance: ledCurrencyBalance,
+      currentHeight: _currentHeight,
+      timeStamp: _timeStamp,
+      isInitialized: isInitialized,
+      pubKeyController: _pubKeyController,
+      settingsProvider: settingsProvider,
+      lastRefreshed: _lastRefreshed,
+      context: context,
+      isLoading: _isLoading,
+      transactions: _transactions,
+      wallet: wallet,
+      isSingleWallet: false,
+      descriptor: _descriptor,
+      descriptorName: _descriptorName,
+      baseScaffoldKey: baseScaffoldKey,
+      isRefreshing: _isRefreshing,
+    );
 
     final spendingHelper = WalletSpendingPathHelpers(
       pubKeysAlias: widget.pubKeysAlias,
@@ -659,109 +662,124 @@ class SharedWalletState extends State<SharedWallet> {
     return BaseScaffold(
       title: Text(_descriptorName),
       key: baseScaffoldKey,
-      body: RefreshIndicator(
-        key: _refreshIndicatorKey, // Assign the GlobalKey to RefreshIndicator
-        onRefresh: () async {
-          // print('TimeStamp: $_timeStamp');
-          final List<ConnectivityResult> connectivityResult =
-              await (Connectivity().checkConnectivity());
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            key:
+                _refreshIndicatorKey, // Assign the GlobalKey to RefreshIndicator
+            onRefresh: () async {
+              final List<ConnectivityResult> connectivityResult =
+                  await (Connectivity().checkConnectivity());
 
-          try {
-            walletUiHelpers.handleRefresh(
-              _syncWallet,
-              connectivityResult,
-              context,
-            );
-          } catch (e) {
-            SnackBarHelper.showError(context, message: 'syncing_error');
-          }
-        },
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(8.0),
-                children: [
-                  // WalletInfo Box
-                  GestureDetector(
-                    onLongPress: () {
-                      final BaseScaffoldState? baseScaffoldState =
-                          baseScaffoldKey.currentState;
+              setState(() {
+                _isRefreshing = true;
+              });
 
-                      if (baseScaffoldState != null) {
-                        baseScaffoldState.updateAssistantMessage(
-                            context, 'assistant_personal_info_box');
-                      }
-                    },
-                    child: walletUiHelpers.buildWalletInfoBox(
-                      AppLocalizations.of(context)!.translate('address'),
-                      onTap: () {
-                        _convertCurrency();
-                      },
-                      showCopyButton: true,
-                    ),
+              try {
+                await walletUiHelpers.handleRefresh(
+                  _syncWallet,
+                  connectivityResult,
+                  context,
+                );
+              } catch (e) {
+                SnackBarHelper.showError(context, message: 'syncing_error');
+              } finally {
+                // Ensure animation is visible for at least 500ms
+                await Future.delayed(Duration(milliseconds: 500));
+
+                setState(() {
+                  _isRefreshing = false;
+                });
+              }
+            },
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(8.0),
+                    children: [
+                      // WalletInfo Box
+                      GestureDetector(
+                        onLongPress: () {
+                          final BaseScaffoldState? baseScaffoldState =
+                              baseScaffoldKey.currentState;
+
+                          if (baseScaffoldState != null) {
+                            baseScaffoldState.updateAssistantMessage(
+                                context, 'assistant_personal_info_box');
+                          }
+                        },
+                        child: walletUiHelpers.buildWalletInfoBox(
+                          AppLocalizations.of(context)!.translate('address'),
+                          onTap: () {
+                            _convertCurrency();
+                          },
+                          showCopyButton: true,
+                        ),
+                      ),
+
+                      // Dynamic Spending Paths Box
+                      GestureDetector(
+                        onLongPress: () {
+                          final BaseScaffoldState? baseScaffoldState =
+                              baseScaffoldKey.currentState;
+
+                          if (baseScaffoldState != null) {
+                            baseScaffoldState.updateAssistantMessage(
+                                context, 'assistant_shared_spending_path_box');
+                          }
+                        },
+                        child: spendingHelper.buildDynamicSpendingPaths(
+                          isInitialized,
+                        ),
+                      ),
+
+                      // Transactions Box
+                      GestureDetector(
+                        onLongPress: () {
+                          final BaseScaffoldState? baseScaffoldState =
+                              baseScaffoldKey.currentState;
+
+                          if (baseScaffoldState != null) {
+                            baseScaffoldState.updateAssistantMessage(
+                                context, 'assistant_personal_transactions_box');
+                          }
+                        },
+                        child: walletUiHelpers.buildTransactionsBox(),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // // Multisig Box
+                      // walletUiHelpers.buildInfoBoxMultisig(
+                      //   AppLocalizations.of(context)!.translate('multisig_tx'),
+                      //   _txToSend != null
+                      //       ? _txToSend.toString()
+                      //       : AppLocalizations.of(context)!
+                      //           .translate('no_transactions_to_sign'),
+                      //   onTap: () {
+                      //     sendTxHelper.sendTx(false);
+                      //   },
+                      //   showCopyButton: true,
+                      // ),
+                    ],
                   ),
-
-                  // Dynamic Spending Paths Box
-                  GestureDetector(
-                    onLongPress: () {
-                      final BaseScaffoldState? baseScaffoldState =
-                          baseScaffoldKey.currentState;
-
-                      if (baseScaffoldState != null) {
-                        baseScaffoldState.updateAssistantMessage(
-                            context, 'assistant_shared_spending_path_box');
-                      }
-                    },
-                    child: spendingHelper.buildDynamicSpendingPaths(
-                      isInitialized,
-                    ),
-                  ),
-
-                  // Transactions Box
-                  GestureDetector(
-                    onLongPress: () {
-                      final BaseScaffoldState? baseScaffoldState =
-                          baseScaffoldKey.currentState;
-
-                      if (baseScaffoldState != null) {
-                        baseScaffoldState.updateAssistantMessage(
-                            context, 'assistant_personal_transactions_box');
-                      }
-                    },
-                    child: walletUiHelpers.buildTransactionsBox(),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // // Multisig Box
-                  // walletUiHelpers.buildInfoBoxMultisig(
-                  //   AppLocalizations.of(context)!.translate('multisig_tx'),
-                  //   _txToSend != null
-                  //       ? _txToSend.toString()
-                  //       : AppLocalizations.of(context)!
-                  //           .translate('no_transactions_to_sign'),
-                  //   onTap: () {
-                  //     sendTxHelper.sendTx(false);
-                  //   },
-                  //   showCopyButton: true,
-                  // ),
-                ],
-              ),
-            ),
-            // Buttons section pinned at the bottom
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  children: [
-                    walletButtonsHelper.buildButtons(),
-                  ],
                 ),
-              ),
+                // Buttons section pinned at the bottom
+                SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      children: [
+                        walletButtonsHelper.buildButtons(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

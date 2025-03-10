@@ -7,7 +7,7 @@ class SnackBarHelper {
     required String message,
     Color? color,
     Color? textColor,
-    Duration duration = const Duration(seconds: 1),
+    Duration duration = const Duration(seconds: 4),
   }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -26,7 +26,7 @@ class SnackBarHelper {
     required String message,
     Color? color,
     Color? textColor,
-    Duration duration = const Duration(seconds: 3),
+    Duration duration = const Duration(seconds: 6),
   }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
