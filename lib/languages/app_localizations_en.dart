@@ -76,6 +76,7 @@ const Map<String, String> localizedStringsEn = {
   'confirmation_details': 'Confirmation Details',
   'status': 'Status',
   'confirmed_block': 'Confirmed at block',
+  'confirmed': 'Confirmed',
   'mempool': 'Visit the Mempool',
 
 // Errors & Warnings
@@ -139,7 +140,7 @@ const Map<String, String> localizedStringsEn = {
   'file_uploaded': 'File uploaded successfully',
   'failed_upload': 'Failed to upload file',
 
-  // Scaffold Messenger
+  // SnackBar Messenger
   'copy_to_clipboard': 'Copy to Clipboard',
   'mnemonic_clipboard': 'Mnemonic Copied to Clipboard',
   'pub_key_clipboard': 'Public Key Copied to Clipboard',
@@ -154,6 +155,7 @@ const Map<String, String> localizedStringsEn = {
   'multisig_updated': 'Multisig updated successfully',
   'timelock_updated': 'Timelock condition updated successfully',
   'alias_updated': 'Alias updated successfully',
+  'sw_info_updated': 'Shared Wallet Details updated successfully',
 
   // Private Data
   'private_data': 'Private Data',
@@ -161,6 +163,7 @@ const Map<String, String> localizedStringsEn = {
   'saved_descriptor': 'Here is your saved descriptor',
   'saved_pub_key': 'Here is your saved public key',
   'download_descriptor': 'Download Descriptor',
+  'wallet_data': 'Wallet_Data',
 
   // Buttons
   'close': 'Close',
@@ -250,6 +253,7 @@ const Map<String, String> localizedStringsEn = {
   'descriptor_created': 'Descriptor {x} Created',
   'conditions': 'Conditions',
   'aliases': 'Aliases',
+  'edit_sw_info': 'Edit Shared Wallet Details',
 
   // Create Import Single Wallet
   'create_restore': 'Create or Restore Wallet',
@@ -287,6 +291,7 @@ const Map<String, String> localizedStringsEn = {
   'no_connection': '🌐 No Internet Connection',
   'connect_internet':
       'Your wallet needs to sync with the blockchain.\n\nPlease connect to the internet to proceed.',
+  'refreshing': 'Refreshing...',
 
 // General Assistant Messages
   'assistant_welcome':

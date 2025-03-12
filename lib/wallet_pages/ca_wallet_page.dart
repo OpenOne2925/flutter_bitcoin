@@ -1,6 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
@@ -9,6 +12,9 @@ import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:hive/hive.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:ndef/ndef.dart' as ndef;
+import 'package:http/http.dart' as http;
+import 'package:convert/convert.dart';
 
 class CAWalletPage extends StatefulWidget {
   const CAWalletPage({super.key});
@@ -39,6 +45,51 @@ class CAWalletPageState extends State<CAWalletPage> {
         _validateMnemonic(_mnemonic.toString());
       }
     });
+  }
+
+  Future<void> _requestAuthenticationChallenge() async {
+    setState(() {
+      _status = 'Requesting Authentication Challenge...';
+    });
+
+    try {
+      NFCTag tag = await FlutterNfcKit.poll(
+        timeout: Duration(seconds: 10),
+        iosMultipleTagMessage: "Multiple tags found!",
+        iosAlertMessage: "Scan your Portal Key",
+      );
+
+      print("🔍 NFC Tag Details: ${jsonEncode(tag)}");
+
+      if (tag.mifareInfo?.type == "ultralight_c") {
+        print(
+            "📡 Detected Mifare Ultralight C, requesting authentication challenge...");
+
+        // Hypothetical Authentication Request Command (ISO 14443-3)
+        List<int> challengeCommand = [
+          0x1B,
+          0x00,
+          0x00,
+          0x00
+        ]; // Adjust this based on known protocols
+
+        List<int> response = await FlutterNfcKit.transceive(
+            Uint8List.fromList(challengeCommand));
+
+        print(
+            "🔑 Challenge Response: ${response.map((b) => b.toRadixString(16)).join(' ')}");
+
+        _status = "Challenge Received!";
+      } else {
+        print("🚫 This NFC tag is not Mifare Ultralight C.");
+        _status = "Invalid NFC Type!";
+      }
+    } catch (e) {
+      print("❌ Challenge Request Error: $e");
+      _status = "Challenge Request Failed!";
+    } finally {
+      await FlutterNfcKit.finish();
+    }
   }
 
   Future<void> _createWallet() async {
@@ -243,6 +294,31 @@ class CAWalletPageState extends State<CAWalletPage> {
                     iconColor: AppColors.text(context),
                     label: AppLocalizations.of(context)!
                         .translate('generate_mnemonic'),
+                    padding: 16.0,
+                    iconSize: 28.0,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // NFC Button
+                GestureDetector(
+                  onLongPress: () {
+                    final BaseScaffoldState? baseScaffoldState =
+                        baseScaffoldKey.currentState;
+
+                    if (baseScaffoldState != null) {
+                      baseScaffoldState.updateAssistantMessage(
+                          context, 'assistant_nfc_button'); // TODO: Add trans
+                    }
+                  },
+                  child: CustomButton(
+                    onPressed: _requestAuthenticationChallenge,
+                    backgroundColor: AppColors.background(context),
+                    foregroundColor: AppColors.text(context),
+                    icon: Icons.nfc,
+                    iconColor: AppColors.gradient(context),
+                    label: "Tap NFC to Load Wallet",
                     padding: 16.0,
                     iconSize: 28.0,
                   ),

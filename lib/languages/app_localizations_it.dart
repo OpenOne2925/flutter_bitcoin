@@ -78,6 +78,7 @@ const Map<String, String> localizedStringsIt = {
   'confirmation_details': 'Dettagli di conferma',
   'status': 'Stato',
   'confirmed_block': 'Confermato al blocco',
+  'confirmed': 'Confermato',
   'mempool': 'Visita il Mempool',
 
 // Errori e Avvisi
@@ -157,6 +158,8 @@ const Map<String, String> localizedStringsIt = {
   'multisig_updated': 'Multisig aggiornato con successo',
   'timelock_updated': 'Condizione di blocco temporale aggiornata con successo',
   'alias_updated': 'Alias aggiornato con successo',
+  'sw_info_updated':
+      'Dettagli del Portafoglio Condiviso aggiornati con successo',
 
 // Private Data (Dati Privati)
   'private_data': 'Dati privati',
@@ -164,6 +167,7 @@ const Map<String, String> localizedStringsIt = {
   'saved_descriptor': 'Ecco il tuo descrittore salvato',
   'saved_pub_key': 'Ecco la tua chiave pubblica salvata',
   'download_descriptor': 'Scarica descrittore',
+  'wallet_data': 'Dati Portafoglio',
 
 // Buttons (Pulsanti)
   'close': 'Chiudi',
@@ -255,6 +259,7 @@ const Map<String, String> localizedStringsIt = {
   'descriptor_created': 'Descrittore {x} Creato',
   'conditions': 'Condizioni',
   'aliases': 'Alias',
+  'edit_sw_info': 'Modifica Dettagli Portafoglio Condiviso',
 
 // Creare o Ripristinare Portafoglio Singolo
   'create_restore': 'Crea o Ripristina Portafoglio',
@@ -292,6 +297,7 @@ const Map<String, String> localizedStringsIt = {
   'no_connection': '🌐 Nessuna connessione a Internet',
   'connect_internet':
       'Il tuo portafoglio deve sincronizzarsi con la blockchain.\n\nPer favore, connettiti a Internet per continuare.',
+  'refreshing': 'Aggiornamento...',
 
   // Messaggi generali dell'assistente
   'assistant_welcome':

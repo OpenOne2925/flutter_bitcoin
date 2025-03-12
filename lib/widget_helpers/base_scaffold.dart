@@ -145,7 +145,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
     final localizationContext = Navigator.of(context).context;
 
     return (await DialogHelper.buildCustomDialog<EditAliasResult>(
-      context: context, // TODO:
+      context: context,
       titleKey: 'edit_sw_info',
       showCloseButton: false,
       content: Column(
@@ -323,7 +323,6 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
                     // print('updatedDescriptorName: $updatedDescriptorName');
 
-// TODO:
                     SnackBarHelper.show(context, message: 'sw_info_updated');
                   } catch (e) {
                     print("Error updating Hive box: $e");

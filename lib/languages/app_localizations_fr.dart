@@ -79,6 +79,7 @@ const Map<String, String> localizedStringsFr = {
   'confirmation_details': 'Détails de confirmation',
   'status': 'Statut',
   'confirmed_block': 'Confirmé au bloc',
+  'confirmed': 'Confirmé',
   'mempool': 'Visiter le Mempool',
 
 // Erreurs et Avertissements
@@ -161,6 +162,7 @@ const Map<String, String> localizedStringsFr = {
   'timelock_updated':
       'Condition de verrouillage temporel mise à jour avec succès',
   'alias_updated': 'Alias mis à jour avec succès',
+  'sw_info_updated': 'Détails du portefeuille partagé mis à jour avec succès',
 
 // Private Data (Données Privées)
   'private_data': 'Données privées',
@@ -168,6 +170,7 @@ const Map<String, String> localizedStringsFr = {
   'saved_descriptor': 'Voici votre descripteur enregistré',
   'saved_pub_key': 'Voici votre clé publique enregistrée',
   'download_descriptor': 'Télécharger le descripteur',
+  'wallet_data': 'Données Portefeuille',
 
 // Buttons (Boutons)
   'close': 'Fermer',
@@ -260,6 +263,7 @@ const Map<String, String> localizedStringsFr = {
   'descriptor_created': 'Descripteur {x} Créé',
   'conditions': 'Conditions',
   'aliases': 'Alias',
+  'edit_sw_info': 'Modifier les détails du portefeuille partagé',
 
 // Créer ou Restaurer un Portefeuille Unique
   'create_restore': 'Créer ou Restaurer un Portefeuille',
@@ -298,6 +302,7 @@ const Map<String, String> localizedStringsFr = {
   'no_connection': '🌐 Pas de connexion Internet',
   'connect_internet':
       'Votre portefeuille doit se synchroniser avec la blockchain.\n\nVeuillez vous connecter à Internet pour continuer.',
+  'refreshing': 'Actualisation...',
 
 // Messages généraux de l'assistant
   'assistant_welcome':

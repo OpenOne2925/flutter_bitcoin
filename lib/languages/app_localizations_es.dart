@@ -80,6 +80,7 @@ const Map<String, String> localizedStringsEs = {
   'confirmation_details': 'Detalles de confirmación',
   'status': 'Estado',
   'confirmed_block': 'Confirmado en el bloque',
+  'confirmed': 'Confirmado',
   'mempool': 'Visitar el Mempool',
 
 // Errores y Advertencias
@@ -162,6 +163,7 @@ const Map<String, String> localizedStringsEs = {
   'multisig_updated': 'Multisig actualizado con éxito',
   'timelock_updated': 'Condición de bloqueo de tiempo actualizada con éxito',
   'alias_updated': 'Alias actualizado con éxito',
+  'sw_info_updated': 'Detalles de la cartera compartida actualizados con éxito',
 
 // Private Data (Datos privados)
   'private_data': 'Datos privados',
@@ -169,6 +171,7 @@ const Map<String, String> localizedStringsEs = {
   'saved_descriptor': 'Aquí está tu descriptor guardado',
   'saved_pub_key': 'Aquí está tu clave pública guardada',
   'download_descriptor': 'Descargar descriptor',
+  'wallet_data': 'Datos Cartera',
 
 // Buttons (Botones)
   'close': 'Cerrar',
@@ -260,6 +263,7 @@ const Map<String, String> localizedStringsEs = {
   'descriptor_created': 'Descriptor {x} Creado',
   'conditions': 'Condiciones',
   'aliases': 'Alias',
+  'edit_sw_info': 'Editar detalles de la cartera compartida',
 
   // Crear o Restaurar Billetera Única
   'create_restore': 'Crear o Restaurar Billetera',
@@ -297,6 +301,7 @@ const Map<String, String> localizedStringsEs = {
   'no_connection': '🌐 Sin conexión a Internet',
   'connect_internet':
       'Tu monedero necesita sincronizarse con la blockchain.\n\nPor favor, conéctate a Internet para continuar.',
+  'refreshing': 'Actualizando...',
 
   // Mensajes generales del asistente
   'assistant_welcome':

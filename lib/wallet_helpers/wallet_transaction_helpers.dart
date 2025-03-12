@@ -350,11 +350,22 @@ class WalletTransactionHelpers {
   }
 
   Widget buildTransactionItem(Map<String, dynamic> tx) {
-    // Extract confirmation status
+    // Extract confirmation details
     final blockHeight = tx['status']?['block_height'];
-    final confirmations =
-        blockHeight != null ? currentHeight - blockHeight : -1;
-    final isConfirmed = confirmations >= 0;
+    final isConfirmed = blockHeight != null;
+    final unformattedBlockTime = tx['status']['block_time'] ?? 0;
+
+    final blockTime = isConfirmed
+        ? DateTime.fromMillisecondsSinceEpoch(
+            unformattedBlockTime * 1000,
+          ).add(Duration(hours: -2)).toString().substring(
+            0,
+            DateTime.fromMillisecondsSinceEpoch(unformattedBlockTime * 1000)
+                    .add(Duration(hours: -2))
+                    .toString()
+                    .length -
+                7)
+        : 'Unconfirmed';
 
     // Transaction fee
     final fee = tx['fee'] ?? 0;
@@ -499,12 +510,22 @@ class WalletTransactionHelpers {
                 style: TextStyle(
                   fontSize: 14,
                   color: AppColors.text(context),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             const SizedBox(height: 4),
             if (isSent && !isInternal)
               Text(
                 '${AppLocalizations.of(context)!.translate('fee')}: $fee sats',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.text(context),
+                ),
+              ),
+            const SizedBox(height: 4),
+            if (isConfirmed)
+              Text(
+                "${AppLocalizations.of(context)!.translate('confirmed')}: $blockTime",
                 style: TextStyle(
                   fontSize: 14,
                   color: AppColors.text(context),

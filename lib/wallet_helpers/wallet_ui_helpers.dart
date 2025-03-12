@@ -308,17 +308,35 @@ class WalletUiHelpers {
                       // BlockHeight and TimeStamp
 
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text(
-                            '${AppLocalizations.of(context)!.translate('current_height')}: $currentHeight \n${AppLocalizations.of(context)!.translate('timestamp')}: $timeStamp',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.text(context),
+                          Expanded(
+                            child: Text(
+                              '${AppLocalizations.of(context)!.translate('current_height')}: $currentHeight\n'
+                              '${AppLocalizations.of(context)!.translate('timestamp')}: $timeStamp',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.text(context),
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          // Show Refresh Animation if Refreshing
-                          if (isRefreshing) buildMiniRefreshingIndicator(),
+                          if (isRefreshing) ...[
+                            Column(
+                              children: [
+                                buildMiniRefreshingIndicator(),
+                                const SizedBox(height: 4),
+                                Text(
+                                  AppLocalizations.of(context)!
+                                      .translate('refreshing'),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.text(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 10),
+                          ],
                         ],
                       ),
 
@@ -424,7 +442,6 @@ class WalletUiHelpers {
 
     DialogHelper.buildCustomDialog(
       context: rootContext,
-      // TODO: add to transl
       titleKey: 'wallet_data',
       content: Column(
         mainAxisSize: MainAxisSize.min,

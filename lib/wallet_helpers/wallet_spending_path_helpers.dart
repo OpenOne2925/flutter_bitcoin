@@ -545,25 +545,26 @@ class WalletSpendingPathHelpers {
         ),
 
         // 🔹 **Index Badge (Top-Right Corner)**
-        Positioned(
-          top: 13,
-          right: 13,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppColors.cardTitle(context),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '${index + 1} / $length',
-              style: TextStyle(
-                color: AppColors.gradient(context),
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+        if (path['threshold'] != null)
+          Positioned(
+            top: 13,
+            right: 13,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.cardTitle(context),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${path['threshold']} of ${pathAliases.length}',
+                style: TextStyle(
+                  color: AppColors.gradient(context),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }
