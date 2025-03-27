@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
+import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
@@ -17,6 +18,7 @@ import 'package:hive/hive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:provider/provider.dart';
 
 class ImportSharedWallet extends StatefulWidget {
   const ImportSharedWallet({super.key});
@@ -41,7 +43,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
 
   final TextEditingController _descriptorController = TextEditingController();
 
-  final WalletService _walletService = WalletService();
+  late final WalletService _walletService;
 
   List<Map<String, String>> _pubKeysAlias = [];
   String _descriptorName = "";
@@ -54,6 +56,11 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
   @override
   void initState() {
     super.initState();
+
+    _walletService =
+        WalletService(Provider.of<SettingsProvider>(context, listen: false));
+
+    print(Provider.of<SettingsProvider>(context, listen: false).network);
 
     // Add a listner to the TextEditingController
     _descriptorController.addListener(() {
@@ -211,6 +218,11 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
       }
 
       // print('_pubKeysAlias: $_pubKeysAlias');
+
+      // print('descriptor: $_descriptor');
+      // print('mnemonic: $_mnemonic');
+      // print('pubKeysAlias: $_pubKeysAlias');
+      // print('descriptorName: $_descriptorName');
 
       Navigator.push(
         context,

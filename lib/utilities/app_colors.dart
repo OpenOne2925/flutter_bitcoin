@@ -1,54 +1,67 @@
+import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_wallet/services/wallet_service.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_wallet/settings/settings_provider.dart';
 
 class AppColors {
-  // ✅ Define Primary Colors Based on Testnet/Mainnet
-  static Color get primaryColor => isTestnet ? Colors.green : Colors.orange;
-  static Color get lightPrimaryColor =>
-      isTestnet ? Colors.green : Colors.orangeAccent[400]!;
-  static Color get darkPrimaryColor =>
-      isTestnet ? Colors.green[600]! : Colors.deepOrange[700]!;
+  static Network _network(BuildContext context) =>
+      Provider.of<SettingsProvider>(context, listen: false).network;
 
-  static Color get lightSecondaryColor =>
-      isTestnet ? Colors.green[300]! : Colors.orange[400]!;
-  static Color get darkSecondaryColor =>
-      isTestnet ? Colors.green[800]! : Colors.deepOrange[900]!;
+  static bool _isTestnet(BuildContext context) =>
+      _network(context) == Network.testnet;
 
-  static Color get unavailableColor => Colors.grey;
-  static Color get unconfirmedColor => Colors.yellow;
+  static bool _isRegtest(BuildContext context) =>
+      _network(context) == Network.regtest;
 
   static Color primary(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? darkPrimaryColor
-        : primaryColor;
+    if (_isRegtest(context)) return Colors.blue;
+    if (_isTestnet(context)) return Colors.green;
+    return Colors.orange;
   }
 
-  static Color accent(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? darkPrimaryColor
-        : lightPrimaryColor;
+  static Color lightPrimary(BuildContext context) {
+    if (_isRegtest(context)) return Colors.lightBlueAccent;
+    if (_isTestnet(context)) return Colors.green;
+    return Colors.orangeAccent[400]!;
   }
 
-  static Color error(BuildContext context) {
-    return Colors.red;
+  static Color darkPrimary(BuildContext context) {
+    if (_isRegtest(context)) return Colors.blue[700]!;
+    if (_isTestnet(context)) return Colors.green[600]!;
+    return Colors.deepOrange[700]!;
   }
+
+  static Color lightSecondary(BuildContext context) {
+    if (_isRegtest(context)) return Colors.blue[300]!;
+    if (_isTestnet(context)) return Colors.green[300]!;
+    return Colors.orange[400]!;
+  }
+
+  static Color darkSecondary(BuildContext context) {
+    if (_isRegtest(context)) return Colors.blue[900]!;
+    if (_isTestnet(context)) return Colors.green[800]!;
+    return Colors.deepOrange[900]!;
+  }
+
+  static Color unavailableColor = Colors.grey;
+  static Color unconfirmedColor = Colors.yellow;
 
   static Color background(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
-        ? darkPrimaryColor
-        : lightPrimaryColor;
+        ? darkPrimary(context)
+        : lightPrimary(context);
   }
 
   static Color cardTitle(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
-        ? lightPrimaryColor
-        : darkPrimaryColor;
+        ? lightPrimary(context)
+        : darkPrimary(context);
   }
 
   static Color icon(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
-        ? lightSecondaryColor
-        : darkSecondaryColor;
+        ? lightSecondary(context)
+        : darkSecondary(context);
   }
 
   static Color dialog(BuildContext context) {
@@ -73,5 +86,15 @@ class AppColors {
     return Theme.of(context).brightness == Brightness.dark
         ? Colors.black87
         : Colors.white;
+  }
+
+  static Color error(BuildContext context) {
+    return Colors.red;
+  }
+
+  static Color accent(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkPrimary(context)
+        : lightPrimary(context);
   }
 }

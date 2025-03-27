@@ -42,10 +42,13 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
   String _version = '';
 
-  final walletService = WalletService();
+  late WalletService walletService;
+
   DescriptorPublicKey? pubKey;
 
   bool _showAssistant = false;
+
+  bool _isDuplicate = false;
 
   String _assistantMessage = "";
   List<String> _assistantMessages = [];
@@ -62,6 +65,9 @@ class BaseScaffoldState extends State<BaseScaffold> {
   @override
   void initState() {
     super.initState();
+
+    walletService =
+        WalletService(Provider.of<SettingsProvider>(context, listen: false));
 
     _descriptorBox = Hive.box<dynamic>('descriptorBox');
     _getVersion();
@@ -121,6 +127,20 @@ class BaseScaffoldState extends State<BaseScaffold> {
     });
   }
 
+  bool _isDuplicateDescriptorName(String firstName, String descriptorName) {
+    final descriptorBox = Hive.box('descriptorBox');
+
+    // Iterate through all keys and check if any key contains the same descriptor name
+    for (var key in descriptorBox.keys) {
+      // print('Key: $key');
+      if (key.toString().contains(descriptorName.trim()) &&
+          !(key.toString().contains(firstName.trim()))) {
+        return true; // Duplicate found
+      }
+    }
+    return false; // No duplicate found
+  }
+
   Future<EditAliasResult?> showEditAliasDialog(
     BuildContext context,
     List<Map<String, dynamic>> pubKeysAlias,
@@ -135,6 +155,17 @@ class BaseScaffoldState extends State<BaseScaffold> {
         entry['publicKey']!: TextEditingController(text: entry['alias']),
     };
 
+    bool hasDuplicateAliases() {
+      final aliasValues = aliasControllers.values
+          .map((controller) => controller.text.trim())
+          .where((alias) => alias.isNotEmpty)
+          .toList();
+
+      final uniqueAliases = aliasValues.toSet();
+
+      return uniqueAliases.length != aliasValues.length;
+    }
+
     TextEditingController descriptorNameController =
         TextEditingController(text: descriptorName);
 
@@ -144,203 +175,237 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
     final localizationContext = Navigator.of(context).context;
 
-    return (await DialogHelper.buildCustomDialog<EditAliasResult>(
+    return (await DialogHelper.buildCustomStatefulDialog<EditAliasResult>(
       context: context,
       titleKey: 'edit_sw_info',
       showCloseButton: false,
-      content: Column(
-        children: [
-          Container(
-            margin: const EdgeInsets.only(bottom: 12.0),
-            padding: EdgeInsets.all(12.0),
-            decoration: BoxDecoration(
-              color: AppColors.gradient(context),
-              borderRadius: BorderRadius.circular(12.0),
-              border: Border.all(color: AppColors.primary(context)),
-            ),
-            child: Column(
-              children: [
-                Text(
-                  AppLocalizations.of(localizationContext)!
-                      .translate('descriptor_name'),
-                  style: TextStyle(
-                    color: AppColors.text(context),
-                  ),
-                ),
-                TextField(
-                  controller: descriptorNameController,
-                  style: TextStyle(
-                    color: AppColors.text(context),
-                  ),
-                  decoration: InputDecoration(
-                    hintStyle: const TextStyle(color: Colors.grey),
-                    filled: true,
-                    fillColor: AppColors.container(context),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                      borderSide: BorderSide.none,
+      contentBuilder: (setDialogState, updateAssistantMessage) {
+        return Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: 12.0),
+              padding: EdgeInsets.all(12.0),
+              decoration: BoxDecoration(
+                color: AppColors.gradient(context),
+                borderRadius: BorderRadius.circular(12.0),
+                border: Border.all(color: AppColors.primary(context)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    AppLocalizations.of(localizationContext)!
+                        .translate('descriptor_name'),
+                    style: TextStyle(
+                      color: AppColors.text(context),
                     ),
                   ),
-                  onChanged: (value) {
-                    setState(() {
-                      updatedDescriptorName =
-                          descriptorNameController.text.trim();
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          Column(
-            children: pubKeysAlias.map((entry) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12.0),
-                padding: EdgeInsets.all(12.0),
-                decoration: BoxDecoration(
-                  color: AppColors.gradient(context),
-                  borderRadius: BorderRadius.circular(12.0),
-                  border: Border.all(color: AppColors.primary(context)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "${AppLocalizations.of(localizationContext)!.translate('pub_key')}: ${entry['publicKey']}",
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.text(context),
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                  TextField(
+                    controller: descriptorNameController,
+                    style: TextStyle(
+                      color: AppColors.text(context),
                     ),
-                    const SizedBox(width: 10),
-                    TextField(
-                      controller: aliasControllers[entry['publicKey']],
-                      style: TextStyle(
-                        color: AppColors.text(context),
+                    decoration: InputDecoration(
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      filled: true,
+                      fillColor: AppColors.container(context),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10.0),
+                        borderSide: BorderSide.none,
                       ),
-                      decoration: InputDecoration(
-                        hintStyle: const TextStyle(color: Colors.grey),
-                        filled: true,
-                        fillColor: AppColors.container(context),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.0),
-                          borderSide: BorderSide.none,
+                      errorText: _isDuplicate
+                          ? AppLocalizations.of(context)!
+                              .translate('descriptor_name_exists')
+                          : null,
+                    ),
+                    onChanged: (value) {
+                      final descName = value.trim();
+
+                      // print(descName);
+                      // print(descriptorName);
+
+                      setDialogState(() {
+                        _isDuplicate = _isDuplicateDescriptorName(
+                            descriptorName, descName);
+
+                        // print(_isDuplicate);
+
+                        if (!_isDuplicate) {
+                          updatedDescriptorName = descName;
+                        }
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Column(
+              children: pubKeysAlias.map((entry) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12.0),
+                  padding: EdgeInsets.all(12.0),
+                  decoration: BoxDecoration(
+                    color: AppColors.gradient(context),
+                    borderRadius: BorderRadius.circular(12.0),
+                    border: Border.all(color: AppColors.primary(context)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "${AppLocalizations.of(localizationContext)!.translate('pub_key')}: ${entry['publicKey']}",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.text(context),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(width: 10),
+                      TextField(
+                        controller: aliasControllers[entry['publicKey']],
+                        style: TextStyle(
+                          color: AppColors.text(context),
+                        ),
+                        decoration: InputDecoration(
+                          hintStyle: const TextStyle(color: Colors.grey),
+                          filled: true,
+                          fillColor: AppColors.container(context),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10.0),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-      actions: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            InkwellButton(
-              onTap: () {
-                Navigator.of(context, rootNavigator: true).pop(null);
-              },
-              label:
-                  AppLocalizations.of(localizationContext)!.translate('cancel'),
-              backgroundColor: AppColors.gradient(context),
-              textColor: AppColors.text(context),
-              icon: Icons.cancel_rounded,
-              iconColor: AppColors.error(context),
-            ),
-            InkwellButton(
-              onTap: () async {
-                // Update all aliases in pubKeysAlias
-                for (var entry in pubKeysAlias) {
-                  entry['alias'] = aliasControllers[entry['publicKey']]!.text;
-                }
-
-                // Extract descriptor name from composite key
-                List<String> keyParts = compositeKey.split('_descriptor_');
-                if (keyParts.length != 2) {
-                  print("Error: Invalid composite key format");
-                  return;
-                }
-
-                if (updatedDescriptorName.isEmpty) {
-                  print("Error: Descriptor name cannot be empty");
-                  return;
-                }
-
-                // Create the new composite key
-                String newCompositeKey =
-                    "${keyParts[0]}_descriptor_$updatedDescriptorName";
-
-                // Store the old composite key BEFORE modifying it
-                String oldCompositeKey = compositeKey;
-
-                // Retrieve existing data from the old key
-                var rawValue = box.get(oldCompositeKey);
-                if (rawValue != null) {
-                  try {
-                    // Parse JSON
-                    Map<String, dynamic> parsedValue = jsonDecode(rawValue);
-
-                    // Update pubKeysAlias
-                    parsedValue['pubKeysAlias'] = pubKeysAlias;
-
-                    // print('OldKey: $compositeKey');
-                    // print('NewKey: $newCompositeKey');
-
-                    // Store data with the new key
-                    box.put(newCompositeKey, jsonEncode(parsedValue));
-
-                    // Confirm it's saved
-                    var savedData = box.get(newCompositeKey);
-                    if (savedData != null) {
-                      // print("Successfully saved to new key: $newCompositeKey");
-                    } else {
-                      print("Error: Data did not save correctly to new key.");
-                    }
-
-                    // Check if old key exists before deleting
-                    if (box.containsKey(oldCompositeKey)) {
-                      print("Deleting old key: $oldCompositeKey");
-                      box.delete(oldCompositeKey);
-                    } else {
-                      print("Old key not found, skipping deletion.");
-                    }
-
-                    // Force Hive to commit changes
-                    await box.compact();
-                    await box.flush();
-
-                    // Close the dialog
-                    Navigator.of(context, rootNavigator: true).pop(
-                      EditAliasResult(
-                        success: true,
-                        descriptorName: updatedDescriptorName,
-                      ),
-                    );
-
-                    // print('updatedDescriptorName: $updatedDescriptorName');
-
-                    SnackBarHelper.show(context, message: 'sw_info_updated');
-                  } catch (e) {
-                    print("Error updating Hive box: $e");
-                  }
-                } else {
-                  print("Error: Original composite key not found in Hive.");
-                }
-              },
-              label:
-                  AppLocalizations.of(localizationContext)!.translate('save'),
-              backgroundColor: AppColors.gradient(context),
-              textColor: AppColors.text(context),
-              icon: Icons.save_rounded,
-              iconColor: AppColors.icon(context),
+                    ],
+                  ),
+                );
+              }).toList(),
             ),
           ],
-        ),
-      ],
+        );
+      },
+      actionsBuilder: (setDialogState) {
+        return [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              InkwellButton(
+                onTap: () {
+                  Navigator.of(context, rootNavigator: true).pop(null);
+                },
+                label: AppLocalizations.of(localizationContext)!
+                    .translate('cancel'),
+                backgroundColor: AppColors.gradient(context),
+                textColor: AppColors.text(context),
+                icon: Icons.cancel_rounded,
+                iconColor: AppColors.error(context),
+              ),
+              InkwellButton(
+                onTap: _isDuplicate
+                    ? null
+                    : () async {
+                        if (hasDuplicateAliases()) {
+                          DialogHelper.showErrorDialog(
+                              context: context,
+                              messageKey: 'duplicate_aliases_error');
+                          return;
+                        }
+
+                        // Update all aliases in pubKeysAlias
+                        for (var entry in pubKeysAlias) {
+                          entry['alias'] =
+                              aliasControllers[entry['publicKey']]!.text;
+                        }
+
+                        // Extract descriptor name from composite key
+                        List<String> keyParts =
+                            compositeKey.split('_descriptor_');
+                        if (keyParts.length != 2) {
+                          print("Error: Invalid composite key format");
+                          return;
+                        }
+
+                        if (updatedDescriptorName.isEmpty) {
+                          print("Error: Descriptor name cannot be empty");
+                          return;
+                        }
+
+                        // Create the new composite key
+                        String newCompositeKey =
+                            "${keyParts[0]}_descriptor_$updatedDescriptorName";
+
+                        // Store the old composite key BEFORE modifying it
+                        String oldCompositeKey = compositeKey;
+
+                        // Retrieve existing data from the old key
+                        var rawValue = box.get(oldCompositeKey);
+                        if (rawValue != null) {
+                          try {
+                            // Parse JSON
+                            Map<String, dynamic> parsedValue =
+                                jsonDecode(rawValue);
+
+                            // Update pubKeysAlias
+                            parsedValue['pubKeysAlias'] = pubKeysAlias;
+
+                            // print('OldKey: $compositeKey');
+                            // print('NewKey: $newCompositeKey');
+
+                            // Store data with the new key
+                            box.put(newCompositeKey, jsonEncode(parsedValue));
+
+                            // Confirm it's saved
+                            var savedData = box.get(newCompositeKey);
+                            if (savedData != null) {
+                              // print("Successfully saved to new key: $newCompositeKey");
+                            } else {
+                              print(
+                                  "Error: Data did not save correctly to new key.");
+                            }
+
+                            // Check if old key exists before deleting
+                            if (box.containsKey(oldCompositeKey)) {
+                              print("Deleting old key: $oldCompositeKey");
+                              box.delete(oldCompositeKey);
+                            } else {
+                              print("Old key not found, skipping deletion.");
+                            }
+
+                            // Force Hive to commit changes
+                            await box.compact();
+                            await box.flush();
+
+                            // Close the dialog
+                            Navigator.of(context, rootNavigator: true).pop(
+                              EditAliasResult(
+                                success: true,
+                                descriptorName: updatedDescriptorName,
+                              ),
+                            );
+
+                            // print('updatedDescriptorName: $updatedDescriptorName');
+
+                            SnackBarHelper.show(context,
+                                message: 'sw_info_updated');
+                          } catch (e) {
+                            print("Error updating Hive box: $e");
+                          }
+                        } else {
+                          print(
+                              "Error: Original composite key not found in Hive.");
+                        }
+                      },
+                label:
+                    AppLocalizations.of(localizationContext)!.translate('save'),
+                backgroundColor: AppColors.gradient(context),
+                textColor: AppColors.text(context),
+                icon: Icons.save_rounded,
+                iconColor: AppColors.icon(context),
+              ),
+            ],
+          ),
+        ];
+      },
     ));
   }
 
@@ -354,7 +419,9 @@ class BaseScaffoldState extends State<BaseScaffold> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             widget.title,
-            if (isTestnet) // Show the Testnet banner if `isTestnet` is true
+            if (settingsProvider.isTestnet ||
+                settingsProvider
+                    .isRegtest) // Show the Testnet banner if `isTestnet` is true
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(

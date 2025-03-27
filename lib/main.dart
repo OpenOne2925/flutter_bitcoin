@@ -6,9 +6,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
-import 'package:flutter_wallet/utilities/splash_screen.dart';
+import 'package:flutter_wallet/loading_screens/splash_screen.dart';
 import 'package:flutter_wallet/wallet_pages/ca_wallet_page.dart';
 import 'package:flutter_wallet/wallet_pages/create_shared_wallet.dart';
+import 'package:flutter_wallet/wallet_pages/example_nfc.dart';
 import 'package:flutter_wallet/wallet_pages/import_shared_wallet.dart';
 import 'package:flutter_wallet/security_pages/pin_setup_page.dart';
 import 'package:flutter_wallet/security_pages/pin_verification_page.dart';
@@ -56,7 +57,9 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (context) => SettingsProvider()),
-        ChangeNotifierProvider(create: (_) => WalletService()),
+        ChangeNotifierProvider(
+            create: (context) => WalletService(
+                Provider.of<SettingsProvider>(context, listen: false))),
       ],
       child: const MyAppWrapper(),
     ),
@@ -156,7 +159,7 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      initialRoute: _determineInitialRoute(),
+      initialRoute: '/example_nfc', // _determineInitialRoute(),
       routes: {
         '/wallet_page': (context) => const WalletPage(),
         '/ca_wallet_page': (context) => const CAWalletPage(),
@@ -166,6 +169,7 @@ class MyApp extends StatelessWidget {
         '/create_shared': (context) => const CreateSharedWallet(),
         '/import_shared': (context) => const ImportSharedWallet(),
         '/settings': (context) => const SettingsPage(),
+        '/example_nfc': (context) => const ExampleNfc(),
       },
     );
   }
@@ -175,7 +179,7 @@ class MyApp extends StatelessWidget {
 
     if (!walletBox.containsKey('userPin')) {
       // If the user hasn't set a PIN yet
-      return '/pin_setup_page';
+      return '/settings';
       // return '/tutorial';
     } else if (walletBox.containsKey('walletMnemonic')) {
       // If the wallet mnemonic exists, navigate to PIN verification

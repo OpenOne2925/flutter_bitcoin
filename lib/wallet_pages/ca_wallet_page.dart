@@ -1,20 +1,19 @@
-import 'dart:convert';
-import 'dart:typed_data';
+import 'dart:async';
+
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
+import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:hive/hive.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
-import 'package:ndef/ndef.dart' as ndef;
-import 'package:http/http.dart' as http;
-import 'package:convert/convert.dart';
+import 'package:provider/provider.dart';
+import 'package:sdk_flutter/sdk_flutter.dart';
 
 class CAWalletPage extends StatefulWidget {
   const CAWalletPage({super.key});
@@ -27,69 +26,43 @@ class CAWalletPageState extends State<CAWalletPage> {
   String? _mnemonic;
   String _status = 'Idle';
 
+  final sdkFlutterPlugin = SdkFlutter();
+
   Wallet? _wallet;
 
   final TextEditingController _mnemonicController = TextEditingController();
 
-  final WalletService _walletService = WalletService();
+  late final WalletService _walletService;
 
   bool _isMnemonicEntered = false;
+
+  final FocusNode _mnemonicFocusNode = FocusNode();
+  Timer? _debounceTimer;
+
+  static Network _network(BuildContext context) =>
+      Provider.of<SettingsProvider>(context, listen: false).network;
 
   @override
   void initState() {
     super.initState();
 
+    _walletService =
+        WalletService(Provider.of<SettingsProvider>(context, listen: false));
+
+    sdkFlutterPlugin.initialize(true);
+
     _mnemonicController.addListener(() {
-      if (_mnemonicController.text.isNotEmpty) {
-        _mnemonic = _mnemonicController.text;
-        _validateMnemonic(_mnemonic.toString());
-      }
+      _mnemonic = _mnemonicController.text;
+      _validateMnemonic(_mnemonic.toString());
     });
   }
 
-  Future<void> _requestAuthenticationChallenge() async {
-    setState(() {
-      _status = 'Requesting Authentication Challenge...';
-    });
-
-    try {
-      NFCTag tag = await FlutterNfcKit.poll(
-        timeout: Duration(seconds: 10),
-        iosMultipleTagMessage: "Multiple tags found!",
-        iosAlertMessage: "Scan your Portal Key",
-      );
-
-      print("🔍 NFC Tag Details: ${jsonEncode(tag)}");
-
-      if (tag.mifareInfo?.type == "ultralight_c") {
-        print(
-            "📡 Detected Mifare Ultralight C, requesting authentication challenge...");
-
-        // Hypothetical Authentication Request Command (ISO 14443-3)
-        List<int> challengeCommand = [
-          0x1B,
-          0x00,
-          0x00,
-          0x00
-        ]; // Adjust this based on known protocols
-
-        List<int> response = await FlutterNfcKit.transceive(
-            Uint8List.fromList(challengeCommand));
-
-        print(
-            "🔑 Challenge Response: ${response.map((b) => b.toRadixString(16)).join(' ')}");
-
-        _status = "Challenge Received!";
-      } else {
-        print("🚫 This NFC tag is not Mifare Ultralight C.");
-        _status = "Invalid NFC Type!";
-      }
-    } catch (e) {
-      print("❌ Challenge Request Error: $e");
-      _status = "Challenge Request Failed!";
-    } finally {
-      await FlutterNfcKit.finish();
-    }
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _mnemonicController.dispose();
+    _mnemonicFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _createWallet() async {
@@ -117,7 +90,7 @@ class CAWalletPageState extends State<CAWalletPage> {
 
     var walletBox = Hive.box('walletBox');
     walletBox.put('walletMnemonic', _mnemonic);
-    walletBox.put('walletNetwork', network.toString());
+    walletBox.put('walletNetwork', _network.toString());
 
     await Future.delayed(const Duration(seconds: 1));
 
@@ -150,12 +123,24 @@ class CAWalletPageState extends State<CAWalletPage> {
     }
   }
 
-  void _validateMnemonic(String value) async {
-    final isValid =
-        value.trim().isNotEmpty && await _walletService.checkMnemonic(value);
+  void _validateMnemonic(String value) {
+    // Cancel previous debounce timer
+    _debounceTimer?.cancel();
 
-    setState(() {
-      _isMnemonicEntered = isValid;
+    // Start a new one
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      final isValid =
+          value.trim().isNotEmpty && await _walletService.checkMnemonic(value);
+
+      // print('Value: $value');
+
+      if (_isMnemonicEntered != isValid) {
+        if (mounted) {
+          setState(() {
+            _isMnemonicEntered = isValid;
+          });
+        }
+      }
     });
   }
 
@@ -215,118 +200,93 @@ class CAWalletPageState extends State<CAWalletPage> {
       title: Text(AppLocalizations.of(context)!.translate('create_restore')),
       key: baseScaffoldKey,
       showDrawer: false,
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Cool Status Indicator with Animation
-                _buildStatusIndicator(),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Cool Status Indicator with Animation
+                  _buildStatusIndicator(),
 
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                // Mnemonic Input Field
-                TextFormField(
-                  controller: _mnemonicController,
-                  onChanged: (value) async {
-                    setState(() {
-                      _mnemonic = value;
-                    });
-                  },
-                  decoration: CustomTextFieldStyles.textFieldDecoration(
-                    context: context,
-                    labelText: AppLocalizations.of(context)!
-                        .translate('enter_mnemonic'),
-                    hintText:
-                        AppLocalizations.of(context)!.translate('enter_12'),
+                  // Mnemonic Input Field
+                  TextFormField(
+                    focusNode: _mnemonicFocusNode,
+                    controller: _mnemonicController,
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText: AppLocalizations.of(context)!
+                          .translate('enter_mnemonic'),
+                      hintText:
+                          AppLocalizations.of(context)!.translate('enter_12'),
+                    ),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
+
+                  const SizedBox(height: 20),
+
+                  // Create Wallet Button
+                  GestureDetector(
+                    onLongPress: () {
+                      final BaseScaffoldState? baseScaffoldState =
+                          baseScaffoldKey.currentState;
+
+                      if (baseScaffoldState != null) {
+                        baseScaffoldState.updateAssistantMessage(
+                            context, 'assistant_create_wallet');
+                      }
+                    },
+                    child: CustomButton(
+                      onPressed: _isMnemonicEntered ? _createWallet : null,
+                      backgroundColor: AppColors.background(context),
+                      foregroundColor: AppColors.text(context),
+                      icon: Icons.wallet,
+                      iconColor: AppColors.gradient(context),
+                      label: AppLocalizations.of(context)!
+                          .translate('create_wallet'),
+                      padding: 16.0,
+                      iconSize: 28.0,
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                // Create Wallet Button
-                GestureDetector(
-                  onLongPress: () {
-                    final BaseScaffoldState? baseScaffoldState =
-                        baseScaffoldKey.currentState;
+                  // Generate Mnemonic Button
+                  GestureDetector(
+                    onLongPress: () {
+                      final BaseScaffoldState? baseScaffoldState =
+                          baseScaffoldKey.currentState;
 
-                    if (baseScaffoldState != null) {
-                      baseScaffoldState.updateAssistantMessage(
-                          context, 'assistant_create_wallet');
-                    }
-                  },
-                  child: CustomButton(
-                    onPressed: _isMnemonicEntered ? _createWallet : null,
-                    backgroundColor: AppColors.background(context),
-                    foregroundColor: AppColors.text(context),
-                    icon: Icons.wallet,
-                    iconColor: AppColors.gradient(context),
-                    label: AppLocalizations.of(context)!
-                        .translate('create_wallet'),
-                    padding: 16.0,
-                    iconSize: 28.0,
+                      if (baseScaffoldState != null) {
+                        baseScaffoldState.updateAssistantMessage(
+                            context, 'assistant_generate_mnemonic');
+                      }
+                    },
+                    child: CustomButton(
+                      onPressed: _generateMnemonic,
+                      backgroundColor: AppColors.background(context),
+                      foregroundColor: AppColors.gradient(context),
+                      icon: Icons.create,
+                      iconColor: AppColors.text(context),
+                      label: AppLocalizations.of(context)!
+                          .translate('generate_mnemonic'),
+                      padding: 16.0,
+                      iconSize: 28.0,
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 16),
-
-                // Generate Mnemonic Button
-                GestureDetector(
-                  onLongPress: () {
-                    final BaseScaffoldState? baseScaffoldState =
-                        baseScaffoldKey.currentState;
-
-                    if (baseScaffoldState != null) {
-                      baseScaffoldState.updateAssistantMessage(
-                          context, 'assistant_generate_mnemonic');
-                    }
-                  },
-                  child: CustomButton(
-                    onPressed: _generateMnemonic,
-                    backgroundColor: AppColors.background(context),
-                    foregroundColor: AppColors.gradient(context),
-                    icon: Icons.create,
-                    iconColor: AppColors.text(context),
-                    label: AppLocalizations.of(context)!
-                        .translate('generate_mnemonic'),
-                    padding: 16.0,
-                    iconSize: 28.0,
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // NFC Button
-                GestureDetector(
-                  onLongPress: () {
-                    final BaseScaffoldState? baseScaffoldState =
-                        baseScaffoldKey.currentState;
-
-                    if (baseScaffoldState != null) {
-                      baseScaffoldState.updateAssistantMessage(
-                          context, 'assistant_nfc_button'); // TODO: Add trans
-                    }
-                  },
-                  child: CustomButton(
-                    onPressed: _requestAuthenticationChallenge,
-                    backgroundColor: AppColors.background(context),
-                    foregroundColor: AppColors.text(context),
-                    icon: Icons.nfc,
-                    iconColor: AppColors.gradient(context),
-                    label: "Tap NFC to Load Wallet",
-                    padding: 16.0,
-                    iconSize: 28.0,
-                  ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

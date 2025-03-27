@@ -6,6 +6,7 @@ import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
+import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
@@ -17,6 +18,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hive/hive.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:provider/provider.dart';
 
 class CreateSharedWallet extends StatefulWidget {
   const CreateSharedWallet({super.key});
@@ -26,7 +28,7 @@ class CreateSharedWallet extends StatefulWidget {
 }
 
 class CreateSharedWalletState extends State<CreateSharedWallet> {
-  final WalletService _walletService = WalletService();
+  late final WalletService _walletService;
 
   final TextEditingController _thresholdController = TextEditingController();
   List<TextEditingController> additionalPublicKeyControllers = [
@@ -37,6 +39,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
   String? threshold;
   List<Map<String, String>> publicKeysWithAlias = [];
+  List<Map<String, String>> publicKeysWithAliasMultisig = [];
+
   List<Map<String, dynamic>> timelockConditions = [];
 
   // List<String> publicKeys = [];
@@ -75,6 +79,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     //   }
     // });
 
+    _walletService =
+        WalletService(Provider.of<SettingsProvider>(context, listen: false));
+
     _generatePublicKey(isGenerating: false);
   }
 
@@ -105,6 +112,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
       // print('Mnemonic: $savedMnemonic');
 
+      // TODO: "m/84h/1h/0h/0"
+
       final hardenedDerivationPath =
           await DerivationPath.create(path: "m/84h/1h/0h");
       final receivingDerivationPath = await DerivationPath.create(path: "m/0");
@@ -114,6 +123,10 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
         receivingDerivationPath,
         mnemonic,
       );
+
+      print(receivingPublicKey
+          .toString()
+          .substring(0, receivingPublicKey.toString().length - 2));
 
       setState(() {
         if (isGenerating) {
@@ -138,7 +151,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
         context,
       );
 
-      // print(result.toString());
+      print(result.toString());
 
       setState(() {
         _isDescriptorValid = result.isValid;
@@ -158,6 +171,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
   void _navigateToSharedWallet() async {
     bool isValid = await _validateDescriptor(_finalDescriptor);
+    print(isValid);
     setState(() {
       _status = 'Loading';
     });
@@ -167,7 +181,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
         _status = 'Success';
       });
 
-      // _walletService.printInChunks(_descriptor.toString());
+      _walletService.printInChunks(_finalDescriptor.toString());
 
       Navigator.push(
         context,
@@ -211,7 +225,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
     // Iterate through all keys and check if any key contains the same descriptor name
     for (var key in descriptorBox.keys) {
-      print('Key: $key');
+      // print('Key: $key');
       if (key.toString().contains(descriptorName.trim())) {
         return true; // Duplicate found
       }
@@ -233,6 +247,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
   @override
   Widget build(BuildContext context) {
+    List<Map<String, String>> selectedPubKeys = [];
+
     return BaseScaffold(
       title: Text(
         AppLocalizations.of(context)!.translate('create_shared_wallet'),
@@ -447,10 +463,11 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                             setState(() {
                               if (int.tryParse(value) != null &&
                                   int.parse(value) >
-                                      publicKeysWithAlias.length) {
+                                      publicKeysWithAliasMultisig.length) {
                                 // If the entered value exceeds the max, reset it to the max
                                 _thresholdController.text =
-                                    publicKeysWithAlias.length.toString();
+                                    publicKeysWithAliasMultisig.length
+                                        .toString();
                                 _thresholdController.selection =
                                     TextSelection.fromPosition(
                                   TextPosition(
@@ -504,10 +521,15 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                 spacing: 8.0,
                 runSpacing: 8.0,
                 children: publicKeysWithAlias.map((key) {
+                  selectedPubKeys = publicKeysWithAliasMultisig;
+
+                  bool isSelected = selectedPubKeys.any((selectedKey) =>
+                      selectedKey['publicKey'] == key['publicKey']);
+
                   return Dismissible(
                     key: ValueKey(key['publicKey']), // Unique key for each item
                     direction: DismissDirection
-                        .horizontal, // Allow swipe to the left and right
+                        .horizontal, // Allow swipe to the left and righty
                     onDismissed: (direction) {
                       setState(() {
                         // print(key['publicKey']);
@@ -545,13 +567,51 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     ),
                     child: GestureDetector(
                       onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            selectedPubKeys.removeWhere((selectedKey) =>
+                                selectedKey['publicKey'] == key['publicKey']);
+
+                            // Also remove from the multisig list
+                            publicKeysWithAliasMultisig.removeWhere((item) =>
+                                item['publicKey'] == key['publicKey']);
+                          } else {
+                            if (!selectedPubKeys.any((selectedKey) =>
+                                selectedKey['publicKey'] == key['publicKey'])) {
+                              selectedPubKeys.add({
+                                'publicKey': key['publicKey']!,
+                                'alias': key['alias']!,
+                              });
+                            }
+
+                            if (!publicKeysWithAliasMultisig.any((item) =>
+                                item['publicKey'] == key['publicKey'])) {
+                              publicKeysWithAliasMultisig.add({
+                                'publicKey': key['publicKey']!,
+                                'alias': key['alias']!,
+                              });
+                            }
+                          }
+                        });
+                        // print(isSelected);
+
+                        print('publicKeysWithAlias: $publicKeysWithAlias');
+
+                        print(
+                            'publicKeysWithAliasMultisig: $publicKeysWithAliasMultisig');
+                        print('selectedPubKeys: $selectedPubKeys');
+                      },
+                      onLongPress: () {
                         _showAddPublicKeyDialog(key: key, isUpdating: true);
                       },
                       child: Container(
                         padding: const EdgeInsets.all(8.0),
                         decoration: BoxDecoration(
-                          color: AppColors.primary(context)
-                              .withAlpha((0.2 * 255).toInt()),
+                          color: isSelected
+                              ? AppColors.background(context)
+                                  .withAlpha((0.8 * 255).toInt())
+                              : AppColors.background(context)
+                                  .withAlpha((0.2 * 255).toInt()),
                           borderRadius: BorderRadius.circular(8.0),
                           border: Border.all(color: AppColors.primary(context)),
                         ),
@@ -1212,7 +1272,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     }
 
     // Extract only the public keys from the list of public keys with alias
-    List<String> extractedPublicKeys = publicKeysWithAlias
+    List<String> extractedPublicKeys = publicKeysWithAliasMultisig
         .map((entry) => entry['publicKey']!)
         .toList()
       ..sort(); // Sort alphabetically
@@ -1258,7 +1318,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       finalDescriptor = 'wsh($multi)';
     }
 
-    _walletService.printInChunks(finalDescriptor);
+    // _walletService.printInChunks(finalDescriptor);
 
     setState(() {
       _finalDescriptor = finalDescriptor.replaceAll(' ', '');

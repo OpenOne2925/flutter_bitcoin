@@ -1,5 +1,7 @@
+import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
@@ -8,9 +10,35 @@ import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 
 import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
+
+  @override
+  State<StatefulWidget> createState() => SettingsPageState();
+}
+
+class SettingsPageState extends State<SettingsPage> {
+  bool isFirstTime = false;
+
+  @override
+  void initState() {
+    super.initState();
+    checkFirstTime();
+  }
+
+  Future<void> checkFirstTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool openedBefore = prefs.getBool('opened_settings') ?? false;
+
+    if (!openedBefore) {
+      setState(() {
+        isFirstTime = true;
+      });
+      await prefs.setBool('opened_settings', true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +86,7 @@ class SettingsPage extends StatelessWidget {
 
     return BaseScaffold(
       title: Text(AppLocalizations.of(context)!.translate('settings')),
+      showDrawer: false,
       body: Stack(
         children: [
           Padding(
@@ -66,7 +95,6 @@ class SettingsPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 20),
                   // Header icon or illustration
                   Center(
                     child: SizedBox(
@@ -81,7 +109,11 @@ class SettingsPage extends StatelessWidget {
                   const SizedBox(height: 20),
                   // Description
                   Text(
-                    AppLocalizations.of(context)!.translate('settings_message'),
+                    isFirstTime
+                        ? AppLocalizations.of(context)!
+                            .translate('settings_first_message')
+                        : AppLocalizations.of(context)!
+                            .translate('settings_message'),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
@@ -190,6 +222,82 @@ class SettingsPage extends StatelessWidget {
                     menuMaxHeight:
                         250, // Limit the dropdown's height to fit 5 items
                   ),
+
+                  if (isFirstTime) ...[
+                    const SizedBox(height: 20),
+
+                    // Network Selection
+                    Text(
+                      AppLocalizations.of(context)!.translate('network'),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.cardTitle(context),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    DropdownButtonFormField<Network>(
+                      value: settingsProvider.network,
+                      items: Network.values.where((network) {
+                        if (isTest) {
+                          return network == Network.testnet ||
+                              network == Network.regtest;
+                        } else {
+                          return network == Network.bitcoin;
+                        }
+                      }).map((network) {
+                        return DropdownMenuItem(
+                          value: network,
+                          child: Text(network.name),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          settingsProvider.setNetwork(value);
+                        }
+                      },
+                      decoration: InputDecoration(
+                        enabledBorder: OutlineInputBorder(
+                          borderSide:
+                              BorderSide(color: AppColors.background(context)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide:
+                              BorderSide(color: AppColors.primary(context)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                          horizontal: 12,
+                        ),
+                      ),
+                      dropdownColor: AppColors.gradient(context),
+                      isExpanded: true,
+                      menuMaxHeight: 250,
+                    ),
+
+                    const SizedBox(height: 40),
+                    CustomButton(
+                      onPressed: () {
+                        Navigator.pushReplacementNamed(
+                            context, '/pin_setup_page');
+                      },
+                      backgroundColor: AppColors.background(context),
+                      foregroundColor: AppColors.text(context),
+                      icon: Icons.star,
+                      iconColor: AppColors.gradient(context),
+                      label: AppLocalizations.of(context)!
+                          .translate('begin_journey'),
+                      padding: 10.0,
+                      iconSize: 28.0,
+                    ),
+                  ],
 
                   const SizedBox(height: 40),
 

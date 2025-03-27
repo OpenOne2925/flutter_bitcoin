@@ -15,12 +15,14 @@ class WalletButtonsHelper {
   final WalletSendtxHelpers sendTxHelper;
   final WalletReceiveHelpers receiveHelper;
   final GlobalKey<BaseScaffoldState> baseScaffoldKey;
+  final BigInt avBalance;
 
   WalletButtonsHelper({
     required this.context,
     required this.address,
     required this.isSingleWallet,
     required this.baseScaffoldKey,
+    required this.avBalance,
 
     // Common Variables
     required TextEditingController recipientController,
@@ -60,6 +62,7 @@ class WalletButtonsHelper {
           descriptor: descriptor ?? '',
           mnemonic: mnemonic,
           mounted: mounted,
+          avBalance: avBalance,
           signersList: signersList ?? [],
           address: address,
           pubKeysAlias: pubKeysAlias ?? [],

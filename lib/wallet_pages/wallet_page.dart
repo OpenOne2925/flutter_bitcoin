@@ -15,6 +15,7 @@ import 'package:flutter_wallet/wallet_helpers/wallet_ui_helpers.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:hive/hive.dart';
+import 'package:provider/provider.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -78,8 +79,9 @@ class WalletPageState extends State<WalletPage> {
     });
 
     // Initialize WalletService
-    walletService = WalletService();
-    settingsProvider = SettingsProvider();
+    settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
+
+    walletService = WalletService(settingsProvider);
 
     // Load wallet data and fetch the block height only once when the widget is initialized
     _loadWalletFromHive().then((_) {
@@ -190,7 +192,6 @@ class WalletPageState extends State<WalletPage> {
     DialogHelper.buildCustomDialog(
       context: context,
       titleKey: 'no_connection',
-      showCloseButton: false,
       content: Text(
         AppLocalizations.of(rootContext)!.translate('connect_internet'),
         style: TextStyle(
@@ -262,7 +263,7 @@ class WalletPageState extends State<WalletPage> {
       String blockTimestamp =
           await walletService.fetchBlockTimestamp(currentHeight);
 
-      print('blockTimestamp: $blockTimestamp');
+      // print('blockTimestamp: $blockTimestamp');
 
       setState(() {
         _currentHeight = currentHeight;
@@ -336,18 +337,18 @@ class WalletPageState extends State<WalletPage> {
     );
 
     final walletButtonsHelper = WalletButtonsHelper(
-      context: context,
-      address: address,
-      mnemonic: myMnemonic,
-      isSingleWallet: true,
-      recipientController: _recipientController,
-      amountController: _amountController,
-      walletService: walletService,
-      currentHeight: _currentHeight,
-      mounted: mounted,
-      wallet: wallet,
-      baseScaffoldKey: baseScaffoldKey,
-    );
+        context: context,
+        address: address,
+        mnemonic: myMnemonic,
+        isSingleWallet: true,
+        recipientController: _recipientController,
+        amountController: _amountController,
+        walletService: walletService,
+        currentHeight: _currentHeight,
+        mounted: mounted,
+        wallet: wallet,
+        baseScaffoldKey: baseScaffoldKey,
+        avBalance: BigInt.from(avBalance));
 
     return BaseScaffold(
       title: Text(

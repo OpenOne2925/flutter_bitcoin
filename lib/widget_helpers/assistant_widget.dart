@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
-import 'package:flutter_wallet/services/wallet_service.dart';
+import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:lottie/lottie.dart';
+import 'package:provider/provider.dart';
 
 class AssistantWidget extends StatefulWidget {
   final String initialMessage;
@@ -29,6 +30,8 @@ class AssistantWidgetState extends State<AssistantWidget>
   String _message = ""; // Store the message inside state
   bool _showMessage = false;
 
+  late SettingsProvider settingsProvider;
+
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
 
@@ -36,6 +39,8 @@ class AssistantWidgetState extends State<AssistantWidget>
   void initState() {
     super.initState();
     _message = widget.initialMessage; // Initialize the message
+
+    settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
 
     _controller = AnimationController(
       vsync: this,
@@ -62,17 +67,6 @@ class AssistantWidgetState extends State<AssistantWidget>
     });
 
     _controller.forward();
-
-    // Hide the message after a few seconds
-    Future.delayed(const Duration(seconds: 5), () {
-      if (mounted) {
-        _controller.reverse().then((_) {
-          setState(() {
-            _showMessage = false;
-          });
-        });
-      }
-    });
   }
 
   @override
@@ -118,23 +112,25 @@ class AssistantWidgetState extends State<AssistantWidget>
   }
 
   Widget _buildAssistant() {
-    return Stack(
-      clipBehavior: Clip.none, // Allow speech bubble to overflow
-      alignment: Alignment.bottomCenter,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Speech Bubble (Only visible when _showMessage is true)
+        // Speech Bubble (only if visible)
         if (_showMessage)
-          Positioned(
-            top: -50, // Adjust position above the icon
-            right: 70, // Ensure bubble aligns with top-right of the assistant
-            child: FadeTransition(
-              opacity: _fadeAnimation,
+          FadeTransition(
+            opacity: _fadeAnimation,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _showMessage = false;
+                });
+              },
               child: Transform.translate(
-                offset: const Offset(10, -10), // Fine-tune positioning
+                offset: const Offset(10, -10), // optional fine-tuning
                 child: Container(
                   constraints: const BoxConstraints(
                     minWidth: 50,
-                    maxWidth: 200, // Keep max width for readability
+                    maxWidth: 200,
                   ),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -163,23 +159,24 @@ class AssistantWidgetState extends State<AssistantWidget>
             ),
           ),
 
+        const SizedBox(height: 8), // spacing between bubble and icon
+
         // Assistant Icon
         GestureDetector(
           onTap: () {
-            // print("Assistant tapped - cycling message");
-            widget.onNextMessage(); // ✅ Call the function to show next message
+            widget.onNextMessage();
           },
           child: CircleAvatar(
             radius: 30,
             backgroundColor: AppColors.dialog(context),
             child: Lottie.asset(
-              isTestnet
-                  ? 'assets/animations/assistant_testnet.json'
-                  : 'assets/animations/assistant_mainnet.json',
-              width: 60, // Adjust animation size inside the CircleAvatar
+              settingsProvider.isMainnet
+                  ? 'assets/animations/assistant_mainnet.json'
+                  : 'assets/animations/assistant_testnet.json',
+              width: 60,
               height: 60,
               fit: BoxFit.cover,
-              repeat: true, // Make sure animation loops
+              repeat: true,
             ),
           ),
         ),

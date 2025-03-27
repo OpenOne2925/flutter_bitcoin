@@ -83,5 +83,4 @@ kotlin {
         implementation 'com.google.errorprone:error_prone_annotations:2.11.0'
         implementation 'javax.annotation:javax.annotation-api:1.3.2'
         implementation 'com.google.crypto.tink:tink-android:1.6.1'
-        implementation("xyz.twenty-two:libportal-android:0.3.4-SNAPSHOT") // ✅ Use the actual version
     }

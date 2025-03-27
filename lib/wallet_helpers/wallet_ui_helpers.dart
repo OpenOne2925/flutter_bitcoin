@@ -46,7 +46,7 @@ class WalletUiHelpers {
   final String? descriptorName;
   final List<Map<String, String>>? pubKeysAlias;
 
-  WalletService walletService = WalletService();
+  late final WalletService walletService;
 
   WalletUiHelpers({
     required this.address,
@@ -71,12 +71,13 @@ class WalletUiHelpers {
     this.descriptor,
     this.descriptorName,
     this.pubKeysAlias,
-  }) : securityHelper = WalletSecurityHelpers(
+  })  : securityHelper = WalletSecurityHelpers(
           context: context,
           descriptor: descriptor,
           descriptorName: descriptorName,
           pubKeysAlias: pubKeysAlias,
-        );
+        ),
+        walletService = WalletService(settingsProvider);
 
   // Box for displaying general wallet info with onTap functionality
   Widget buildWalletInfoBox(
@@ -122,6 +123,33 @@ class WalletUiHelpers {
                           Row(
                             // Wrap the two icons inside another Row
                             children: [
+                              if (settingsProvider.isRegtest) ...[
+                                GestureDetector(
+                                  onLongPress: () {
+                                    final BaseScaffoldState? baseScaffoldState =
+                                        baseScaffoldKey.currentState;
+
+                                    if (baseScaffoldState != null) {
+                                      baseScaffoldState.updateAssistantMessage(
+                                          context, 'assistant_faucet');
+                                    }
+                                  },
+                                  onTap: () async {
+                                    try {
+                                      await walletService.getSatoshis(address);
+                                    } catch (e) {
+                                      SnackBarHelper.show(context,
+                                          message: e.toString());
+                                    }
+                                  },
+                                  child: Icon(
+                                    Icons.money,
+                                    color: AppColors.cardTitle(context),
+                                    size: 22,
+                                  ),
+                                ),
+                                SizedBox(width: 10),
+                              ],
                               GestureDetector(
                                 onLongPress: () {
                                   final BaseScaffoldState? baseScaffoldState =
@@ -340,19 +368,20 @@ class WalletUiHelpers {
                         ],
                       ),
 
-                      // RefreshIndicator
-                      if (DateTime.now().difference(lastRefreshed!).inHours >=
-                          2) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          getTimeBasedMessage(),
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.error(context),
-                          ),
-                        ).animate().shake(duration: 800.ms), // Shake effect
-                      ]
+                      if (lastRefreshed != null)
+                        // RefreshIndicator
+                        if (DateTime.now().difference(lastRefreshed!).inHours >=
+                            2) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            getTimeBasedMessage(),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.error(context),
+                            ),
+                          ).animate().shake(duration: 800.ms), // Shake effect
+                        ]
                     ],
                   )
                 : _buildShimmerEffect(),

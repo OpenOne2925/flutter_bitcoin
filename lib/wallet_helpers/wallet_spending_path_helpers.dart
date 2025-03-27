@@ -28,6 +28,7 @@ class WalletSpendingPathHelpers {
   final String mnemonic;
   final Wallet wallet;
   final String address;
+  final BigInt avBalance;
 
   bool _isUserInteracting = false;
   bool _isScrollingForward = true;
@@ -49,6 +50,7 @@ class WalletSpendingPathHelpers {
     required this.mnemonic,
     required this.wallet,
     required this.address,
+    required this.avBalance,
 
     // SharedWallet Variables
     String? descriptor,
@@ -69,6 +71,7 @@ class WalletSpendingPathHelpers {
           signersList: signersList ?? [],
           mnemonic: mnemonic,
           mounted: mounted,
+          avBalance: avBalance,
           address: address,
           pubKeysAlias: pubKeysAlias,
           wallet: wallet,
@@ -597,8 +600,26 @@ class WalletSpendingPathHelpers {
 
           String timeRemaining = 'Spendable';
 
+          // Make a copy of utxos to avoid mutating the original list (optional but safe)
+          final sortedUtxos = List<Map<String, dynamic>>.from(utxos);
+
+          // Sort by blocksRemaining (unconfirmed ones go last or first as you prefer)
+          sortedUtxos.sort((a, b) {
+            final aHeight = a['status']['block_height'];
+            final bHeight = b['status']['block_height'];
+
+            // If either is unconfirmed, push them to the end (or adjust as needed)
+            if (aHeight == null) return 1;
+            if (bHeight == null) return -1;
+
+            final aRemaining = aHeight + timelock - 1 - currentHeight;
+            final bRemaining = bHeight + timelock - 1 - currentHeight;
+
+            return aRemaining.compareTo(bRemaining);
+          });
+
           // Gather all transactions for the display
-          List<Widget> transactionDetails = utxos.map<Widget>((utxo) {
+          List<Widget> transactionDetails = sortedUtxos.map<Widget>((utxo) {
             // Debug print for transaction ID
             // print('Processing Transaction ID: ${utxo['txid']}');
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class InkwellButton extends StatelessWidget {
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final String? label;
   final IconData? icon;
   final Color backgroundColor;
@@ -22,15 +22,20 @@ class InkwellButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDisabled = onTap == null;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(borderRadius),
+      splashColor: isDisabled ? Colors.transparent : null, // Prevent ripple
       child: Card(
-        color: backgroundColor,
+        color: isDisabled
+            ? backgroundColor.withOpacity(0.5) // Dim background
+            : backgroundColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(borderRadius),
         ),
-        elevation: 4.0,
+        elevation: isDisabled ? 0.0 : 4.0,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12.0),
           child: Row(
@@ -39,15 +44,17 @@ class InkwellButton extends StatelessWidget {
               if (icon != null)
                 Icon(
                   icon,
-                  color: iconColor ?? textColor,
+                  color: isDisabled
+                      ? textColor.withOpacity(0.5)
+                      : iconColor ?? textColor,
                   size: 24,
                 ),
               if (icon != null && label != null) const SizedBox(width: 8),
               if (label != null)
                 Text(
-                  label.toString(),
+                  label!,
                   style: TextStyle(
-                    color: textColor,
+                    color: isDisabled ? textColor.withOpacity(0.5) : textColor,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),

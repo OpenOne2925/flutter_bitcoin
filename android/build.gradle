@@ -2,7 +2,7 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        mavenLocal()  // ✅ Ensures your locally built `libportal-android` is found
+        mavenLocal()  
         gradlePluginPortal()
         maven { url 'https://storage.googleapis.com/download.flutter.io' } // ✅ Flutter Maven Repo
     }

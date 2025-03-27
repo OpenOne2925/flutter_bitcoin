@@ -17,6 +17,7 @@ import 'package:flutter_wallet/wallet_helpers/wallet_ui_helpers.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:hive/hive.dart';
+import 'package:provider/provider.dart';
 
 /// SharedWallet Page
 ///
@@ -168,9 +169,9 @@ class SharedWalletState extends State<SharedWallet> {
   @override
   void initState() {
     super.initState();
+    settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
 
-    walletService = WalletService();
-    settingsProvider = SettingsProvider();
+    walletService = WalletService(settingsProvider);
 
     openBoxAndCheckWallet().then((_) {
       _initializePage();
@@ -241,6 +242,8 @@ class SharedWalletState extends State<SharedWallet> {
               'descriptor': widget.descriptor,
               'pubKeysAlias': widget.pubKeysAlias,
             };
+
+            walletService.printInChunks(newValueMap.toString());
 
             // print('_descriptorName: $_descriptorName');
 
@@ -352,6 +355,8 @@ class SharedWalletState extends State<SharedWallet> {
         _descriptorName = widget.descriptorName!.isNotEmpty
             ? widget.descriptorName!
             : newName;
+
+        address = walletService.getAddress(wallet);
       });
 
       final compositeKey = '${widget.mnemonic}_descriptor_$_descriptorName';
@@ -457,7 +462,6 @@ class SharedWalletState extends State<SharedWallet> {
     DialogHelper.buildCustomDialog(
       context: context,
       titleKey: 'no_connection',
-      showCloseButton: false,
       content: Text(
         AppLocalizations.of(rootContext)!.translate('connect_internet'),
         style: TextStyle(
@@ -631,6 +635,7 @@ class SharedWalletState extends State<SharedWallet> {
       address: address,
       myFingerPrint: myFingerPrint,
       descriptor: _descriptor,
+      avBalance: BigInt.from(avBalance),
     );
 
     final walletButtonsHelper = WalletButtonsHelper(
@@ -657,6 +662,7 @@ class SharedWalletState extends State<SharedWallet> {
       wallet: wallet,
       myAlias: myAlias,
       baseScaffoldKey: baseScaffoldKey,
+      avBalance: BigInt.from(avBalance),
     );
 
     return BaseScaffold(

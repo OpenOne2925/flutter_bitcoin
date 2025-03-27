@@ -82,7 +82,8 @@ bool isValidBitcoinAddress(String address) {
   // - Mainnet: Legacy (1), P2SH (3), Bech32 (bc1)
   // - Testnet: Legacy (m/n), P2SH (2), Bech32 (tb1)
   final btcAddressRegex = RegExp(
-    r'^(bc1|tb1|[13]|[mn2])[a-zA-HJ-NP-Z0-9]{25,62}$',
+    r'^(bc1|tb1|bcrt1|1|3|m|n|2)[a-zA-HJ-NP-Z0-9]{25,62}$',
   );
+
   return btcAddressRegex.hasMatch(address);
 }

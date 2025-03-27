@@ -7,6 +7,7 @@ import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
+import 'package:flutter_wallet/widget_helpers/fee_selector.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -22,6 +23,7 @@ class WalletSendtxHelpers {
   final String mnemonic;
   final bool mounted;
   final String address;
+  final BigInt avBalance;
 
   TextEditingController? psbtController;
   TextEditingController? signingAmountController;
@@ -44,6 +46,7 @@ class WalletSendtxHelpers {
     required this.address,
     required this.currentHeight,
     required this.mounted,
+    required this.avBalance,
 
     // SharedWallet Variables
     this.psbtController,
@@ -84,6 +87,8 @@ class WalletSendtxHelpers {
       selectedIndex = index ?? 0;
     }
 
+    double? customFeeRate;
+
     print('selectedPath: $selectedPath');
     print('selectedIndex: $selectedIndex');
 
@@ -98,8 +103,10 @@ class WalletSendtxHelpers {
           recipientController.text,
           BigInt.from(amount!),
           selectedIndex,
+          avBalance,
           isSendAllBalance: true,
           spendingPaths: spendingPaths,
+          customFeeRate: customFeeRate,
         ))!);
       } catch (e) {
         Navigator.of(rootContext, rootNavigator: true).pop();
@@ -284,6 +291,24 @@ class WalletSendtxHelpers {
                       color: AppColors.text(context),
                     ),
                     keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+
+            Visibility(
+              visible: (isCreating) || isFromSpendingPath == true,
+              child: Column(
+                children: [
+                  FeeSelector(
+                    onFeeSelected: (double selectedFee) {
+                      print("Selected fee: $selectedFee sat/vB");
+                      setDialogState(() {
+                        customFeeRate = selectedFee;
+                      });
+                    },
+                    context: rootContext,
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -566,13 +591,17 @@ class WalletSendtxHelpers {
 
                       int sendAllBalance = 0;
 
+                      print(
+                          'Available Balance: ${wallet.getBalance().spendable}');
+
                       if (isSingleWallet) {
                         sendAllBalance =
                             await walletService.calculateSendAllBalance(
                           recipientAddress: recipientAddress,
                           wallet: wallet,
-                          availableBalance: availableBalance.toInt(),
+                          availableBalance: availableBalance,
                           walletService: walletService,
+                          customFeeRate: customFeeRate,
                         );
                       } else {
                         sendAllBalance =
@@ -582,8 +611,10 @@ class WalletSendtxHelpers {
                           recipientAddress,
                           availableBalance,
                           selectedIndex,
+                          avBalance,
                           isSendAllBalance: true,
                           spendingPaths: spendingPaths,
+                          customFeeRate: customFeeRate,
                         ))!);
                       }
 
@@ -754,6 +785,7 @@ class WalletSendtxHelpers {
                             BigInt.from(amount),
                             wallet,
                             address,
+                            customFeeRate,
                           );
 
                           Navigator.of(rootContext, rootNavigator: true).pop();
@@ -764,7 +796,10 @@ class WalletSendtxHelpers {
                             recipientAddressStr,
                             BigInt.from(amount),
                             selectedIndex,
+                            avBalance,
                             spendingPaths: spendingPaths,
+                            customFeeRate: customFeeRate,
+                            localUtxos: utxos,
                           );
                         }
                       } else {

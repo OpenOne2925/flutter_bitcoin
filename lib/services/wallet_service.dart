@@ -8,6 +8,7 @@ import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/wallet_storage_service.dart';
+import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:english_words/english_words.dart';
@@ -72,35 +73,51 @@ import 'package:english_words/english_words.dart';
 /// **Data Storage**
 /// - **`saveLocalData`**: Saves wallet-related data, such as balances and transactions, to local storage.
 
-Network network = Network.testnet; // Default to mainnet
-
-bool get isTestnet =>
-    network == Network.testnet; // ✅ Now it always reflects the latest network
-
 const int avgBlockTime = 600;
+
+const bool isTest = true;
 
 class WalletService extends ChangeNotifier {
   final WalletStorageService _walletStorageService = WalletStorageService();
+  final SettingsProvider settingsProvider;
 
-  final String baseUrl = isTestnet
-      ? 'https://mempool.space/testnet4/api' // Mempool Space Testnet API
-      : 'https://mempool.space/api'; // Mempool Space Mainnet API
+  final String faucetUrl = 'https://regfaucet.open-one.it';
+
+  WalletService(this.settingsProvider);
 
   late Wallet wallet;
   late Blockchain blockchain;
 
-  List<String> electrumServers = isTestnet
-      ? [
-          // // 🔹 Your Local Bitcoin Node (Testnet4)
-          "tcp://192.168.99.25:40001", // Local PC IP
+  String get baseUrl {
+    switch (settingsProvider.network) {
+      case Network.testnet:
+        return 'https://mempool.space/testnet4/api';
+      case Network.regtest:
+        return 'https://regtest.open-one.it/api'; // or another regtest URL
+      case Network.bitcoin:
+      default:
+        return 'https://mempool.space/api';
+    }
+  }
 
-          // // 🔹 Testnet4 Servers
+  List<String> get electrumServers {
+    switch (settingsProvider.network) {
+      case Network.testnet:
+        return [
           "ssl://mempool.space:40002",
-        ]
-      : [
-          // // 🔹 Mainnet Servers
+        ];
+      case Network.regtest:
+        return [
+          "tcp://192.168.99.25:40001",
+        ];
+      case Network.bitcoin:
+        return [
           "ssl://electrum.blockstream.info:50002",
         ];
+      default:
+        return [""];
+    }
+  }
 
   ///
   ///
@@ -117,31 +134,59 @@ class WalletService extends ChangeNotifier {
   ///
   ///
 
+  Future<void> getSatoshis(String address) async {
+    try {
+      final response = await http.get(Uri.parse("$faucetUrl/$address"));
+
+      print(response.statusCode);
+      print(response.body);
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw 'Error: ${response.body}';
+      }
+    } catch (e) {
+      print("API failed: $e");
+      throw 'Request sent, check your balance again in 2 min!';
+    }
+  }
+
   Future<ValidationResult> isValidDescriptor(
     String descriptorStr,
     String publicKey,
     BuildContext context,
   ) async {
     try {
-      // print(publicKey);
-      // printInChunks(descriptorStr);
+      print('🔐 Validating descriptor...');
+      print('📬 Public Key: $publicKey');
+      print('🧾 Descriptor (full):');
+      printInChunks(
+          descriptorStr); // assuming this splits and prints long strings
 
-      if (descriptorStr.contains(publicKey)) {
-        // Try creating the descriptor
+      final last3 = publicKey.substring(0, publicKey.length - 3);
+      print('🔍 Checking if descriptor contains pubkey: "$last3"');
+
+      if (descriptorStr.contains(last3)) {
+        print('✅ Match found. Attempting to create descriptor...');
+
         final descriptor = await Descriptor.create(
           descriptor: descriptorStr,
-          network: network,
+          network: settingsProvider.network,
         );
+        print('🏗️ Descriptor created successfully.');
 
-        // Try creating the wallet with the descriptor
+        print('💾 Attempting to create wallet in memory...');
         await Wallet.create(
           descriptor: descriptor,
-          network: network,
+          network: settingsProvider.network,
           databaseConfig: const DatabaseConfig.memory(),
         );
+        print('🎉 Wallet creation successful.');
 
         return ValidationResult(isValid: true);
       } else {
+        print('❌ Descriptor does NOT contain expected public key fragment.');
         return ValidationResult(
           isValid: false,
           errorMessage: AppLocalizations.of(context)!
@@ -149,8 +194,7 @@ class WalletService extends ChangeNotifier {
         );
       }
     } catch (e) {
-      // print('Error creating wallet with descriptor: $e');
-      // If any error occurs during creation, set isValid to false
+      print('💥 Error during descriptor/wallet creation: $e');
       return ValidationResult(
         isValid: false,
         errorMessage:
@@ -175,7 +219,7 @@ class WalletService extends ChangeNotifier {
       await Wallet.create(
         descriptor: descriptors[0],
         changeDescriptor: descriptors[1],
-        network: network,
+        network: settingsProvider.network,
         databaseConfig: const DatabaseConfig.memory(),
       );
 
@@ -254,36 +298,47 @@ class WalletService extends ChangeNotifier {
   Future<int> calculateSendAllBalance({
     required String recipientAddress,
     required Wallet wallet,
-    required int availableBalance,
+    required BigInt availableBalance,
     required WalletService walletService,
+    double? customFeeRate,
   }) async {
     try {
-      final feeRate = await blockchain.estimateFee(target: BigInt.from(6));
+      final feeRate = customFeeRate ?? await getFeeRate();
+
+      print(customFeeRate);
+
+      print(feeRate);
+
+      print(availableBalance);
 
       final recipient = await Address.fromString(
         s: recipientAddress,
-        network: network,
+        network: settingsProvider.network,
       );
       final recipientScript = recipient.scriptPubkey();
 
       final txBuilder = TxBuilder();
 
       await txBuilder
-          .addRecipient(recipientScript, BigInt.from(availableBalance))
-          .feeRate(feeRate.satPerVb)
+          .addRecipient(recipientScript, availableBalance)
+          .feeRate(feeRate)
           .finish(wallet);
 
-      return availableBalance; // If no exception occurs, return available balance
+      return availableBalance
+          .toInt(); // If no exception occurs, return available balance
     } catch (e) {
       print(e);
       // Handle insufficient funds
+
       if (e.toString().contains("InsufficientFundsException")) {
-        final RegExp regex = RegExp(r'Needed: (\d+),');
+        print(e);
+        final RegExp regex = RegExp(r'Needed: (\d+), Available: (\d+)');
         final match = regex.firstMatch(e.toString());
         if (match != null) {
           final int neededAmount = int.parse(match.group(1)!);
-          final int fee = neededAmount - availableBalance;
-          final int sendAllBalance = availableBalance - fee;
+          final int availableAmount = int.parse(match.group(2)!);
+          final int fee = neededAmount - availableAmount;
+          final int sendAllBalance = availableBalance.toInt() - fee;
 
           if (sendAllBalance > 0) {
             return sendAllBalance; // Return adjusted send all balance
@@ -331,14 +386,39 @@ class WalletService extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         final fees = jsonDecode(response.body);
-        return fees['halfHourFee']
-            .toDouble(); // Use mempool.space's fastest fee
+        return fees['halfHourFee'].toDouble(); // Use mempool.space's fee
+      } else {
+        throw ('Error: $e');
       }
     } catch (e) {
       print("Mempool API failed, falling back to default");
+      throw ('Error: $e');
     }
+  }
 
-    return 5.0;
+  Future<Map<String, dynamic>?> fetchRecommendedFees() async {
+    final String url = '$baseUrl/v1/fees/recommended';
+
+    try {
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+        // ✅ Return only the 3 keys you care about
+        return {
+          'fastestFee': data['fastestFee'].toDouble(),
+          'halfHourFee': data['halfHourFee'].toDouble(),
+          'hourFee': data['hourFee'].toDouble(),
+        };
+      } else {
+        print('Failed to load fees: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching fees: $e');
+      return null;
+    }
   }
 
   Future<List<Map<String, dynamic>>> getTransactions(String address) async {
@@ -366,17 +446,20 @@ class WalletService extends ChangeNotifier {
   }
 
   Future<int> fetchCurrentBlockHeight() async {
+    // print(await blockchain.getHeight());
+
     return blockchain.getHeight();
   }
 
   Future<String> fetchBlockTimestamp(int height) async {
     try {
       String currentHash = await blockchain.getBlockHash(height: height);
+      // print('currentHash: $currentHash');
 
       // API endpoint to fetch block details
       final String blockApiUrl = '$baseUrl/block/$currentHash';
 
-      // print(currentHash);
+      print(blockApiUrl);
 
       // Make GET request to fetch block details
       final response = await http.get(Uri.parse(blockApiUrl));
@@ -510,7 +593,7 @@ class WalletService extends ChangeNotifier {
     for (final output in outputs) {
       final testAddress = await Address.fromScript(
         script: ScriptBuf(bytes: output.scriptPubkey.bytes),
-        network: network,
+        network: settingsProvider.network,
       );
 
       if (firstAddress == null) {
@@ -528,7 +611,9 @@ class WalletService extends ChangeNotifier {
     // print('Output: ${output.scriptPubkey.asString()}');
 
     return Address.fromScript(
-        script: ScriptBuf(bytes: output.scriptPubkey.bytes), network: network);
+      script: ScriptBuf(bytes: output.scriptPubkey.bytes),
+      network: settingsProvider.network,
+    );
   }
 
   Future<Address> getAddressFromScriptInput(TxIn input) {
@@ -539,7 +624,9 @@ class WalletService extends ChangeNotifier {
     // print("         previousOutout vout: ${input.previousOutput.vout}");
     // print("         witness: ${input.witness}");
     return Address.fromScript(
-        script: ScriptBuf(bytes: input.scriptSig!.bytes), network: network);
+      script: ScriptBuf(bytes: input.scriptSig!.bytes),
+      network: settingsProvider.network,
+    );
   }
 
   // void printTransactionDetails() async {
@@ -611,7 +698,10 @@ class WalletService extends ChangeNotifier {
 
   void validateAddress(String address) async {
     try {
-      await Address.fromString(s: address, network: network);
+      await Address.fromString(
+        s: address,
+        network: settingsProvider.network,
+      );
     } on AddressException catch (e) {
       throw Exception('Invalid address format: $e');
     } catch (e) {
@@ -621,7 +711,7 @@ class WalletService extends ChangeNotifier {
 
   List<Map<String, String>> extractPublicKeysWithAliases(String descriptor) {
     // Regular expression to extract public keys (tpub) and their fingerprints with paths
-    final publicKeyRegex = RegExp(r"\[([^\]]+)\](tpub[A-Za-z0-9]+[^\s,)]*)");
+    final publicKeyRegex = RegExp(r"\[([^\]]+)\]([tvxyz]pub[A-Za-z0-9]+)");
 
     // Extract matches
     final matches = publicKeyRegex.allMatches(descriptor);
@@ -775,7 +865,7 @@ class WalletService extends ChangeNotifier {
       final res = await Wallet.create(
         descriptor: descriptors[0],
         changeDescriptor: descriptors[1],
-        network: network,
+        network: settingsProvider.network,
         databaseConfig: const DatabaseConfig.memory(),
       );
       // var addressInfo =
@@ -797,13 +887,13 @@ class WalletService extends ChangeNotifier {
         final mnemonicObj = await Mnemonic.fromString(mnemonic);
 
         final descriptorSecretKey = await DescriptorSecretKey.create(
-          network: network,
+          network: settingsProvider.network,
           mnemonic: mnemonicObj,
         );
 
         final descriptor = await Descriptor.newBip84(
           secretKey: descriptorSecretKey,
-          network: network,
+          network: settingsProvider.network,
           keychain: e,
         );
 
@@ -822,6 +912,7 @@ class WalletService extends ChangeNotifier {
     BigInt amount,
     Wallet wallet,
     String changeAddressStr,
+    double? customFeeRate,
   ) async {
     await syncWallet(wallet);
 
@@ -841,7 +932,7 @@ class WalletService extends ChangeNotifier {
           s: changeAddressStr, network: wallet.network());
       final changeScript = changeAddress.scriptPubkey();
 
-      final feeRate = await getFeeRate();
+      final feeRate = customFeeRate ?? await getFeeRate();
 
       // Build the transaction:
       // - Send `amount` to the recipient
@@ -887,12 +978,14 @@ class WalletService extends ChangeNotifier {
   ///
 
   Future<Wallet> createSharedWallet(String descriptor) async {
+    // print(settingsProvider.network);
+
     return wallet = await Wallet.create(
       descriptor: await Descriptor.create(
         descriptor: descriptor,
-        network: network,
+        network: settingsProvider.network,
       ),
-      network: network,
+      network: settingsProvider.network,
       databaseConfig: const DatabaseConfig.memory(),
     );
   }
@@ -961,7 +1054,7 @@ class WalletService extends ChangeNotifier {
       String descriptor, String pubKey, String privKey) {
     // Extract the derivation path and pubkey portion for dynamic matching
     final regexPathPub = RegExp(RegExp.escape('${pubKey.split(']')[0]}]') +
-        r'[tx]pub[A-Za-z0-9]+\/\d+\/\*'); // tpub for testnet and xpub for mainnet
+        r'[tvxyz]pub[A-Za-z0-9]+\/\d+\/\*'); // tpub for testnet and xpub for mainnet
 
     // Replace only the matching public key with the private key
     return descriptor.replaceFirstMapped(regexPathPub, (match) {
@@ -984,7 +1077,7 @@ class WalletService extends ChangeNotifier {
     // Extract the derivation path prefix and ensure we match tpub/xpub keys with trailing paths
     final regexPathPub = RegExp(
       RegExp.escape('${pubKey.split(']')[0]}]') +
-          r'[tx]pub[A-Za-z0-9]+\/(\d+)\/\*',
+          r'[tvxyz]pub[A-Za-z0-9]+\/(\d+)\/\*',
     ); // Matches tpub for testnet and xpub for mainnet
 
     int currentIndex = 0; // Tracks the current match index
@@ -1025,7 +1118,7 @@ class WalletService extends ChangeNotifier {
   ) async {
     // Create the root secret key from the mnemonic
     final secretKey = await DescriptorSecretKey.create(
-      network: network,
+      network: settingsProvider.network,
       mnemonic: mnemonic,
     );
 
@@ -1047,7 +1140,7 @@ class WalletService extends ChangeNotifier {
   Future<int> extractOlderWithPrivateKey(String descriptor) async {
     // Adjusted regex to match only "older" values followed by "pk(...tprv...)"
     final regExp =
-        RegExp(r'older\((\d+)\).*?pk\(\[.*?]([tx]p(?:rv|ub)[a-zA-Z0-9]+)');
+        RegExp(r'older\((\d+)\).*?pk\(\[.*?]([tvxyz]p(?:rv|ub)[a-zA-Z0-9]+)');
     final matches = regExp.allMatches(descriptor);
 
     int older = 0;
@@ -1057,7 +1150,12 @@ class WalletService extends ChangeNotifier {
       String keyType = match.group(2)!; // Capture whether it's tprv or tpub
 
       // Only process the match if it's a private key (tprv)
-      if (keyType.startsWith("tprv") || keyType.startsWith("xprv")) {
+      if (keyType.startsWith("xprv") ||
+          keyType.startsWith("yprv") ||
+          keyType.startsWith("zprv") ||
+          keyType.startsWith("tprv") ||
+          keyType.startsWith("uprv") ||
+          keyType.startsWith("vprv")) {
         // print('Found older value associated with private key: $olderValue');
         older = int.parse(olderValue);
       }
@@ -1480,9 +1578,12 @@ class WalletService extends ChangeNotifier {
     String mnemonic,
     String recipientAddressStr,
     BigInt amount,
-    int? chosenPath, {
+    int? chosenPath,
+    BigInt avBalance, {
     bool isSendAllBalance = false,
     List<Map<String, dynamic>>? spendingPaths,
+    double? customFeeRate,
+    List<dynamic>? localUtxos,
   }) async {
     Map<String, Uint32List>? multiSigPath;
     Map<String, Uint32List>? timeLockPath;
@@ -1527,36 +1628,59 @@ class WalletService extends ChangeNotifier {
 
     wallet = await createSharedWallet(descriptor);
 
-    await syncWallet(wallet);
+    final List<ConnectivityResult> connectivityResult =
+        await (Connectivity().checkConnectivity());
 
-    final utxos = wallet.getBalance();
-    print("Available UTXOs: ${utxos.confirmed}");
-
-    final unspent = wallet.listUnspent();
-    final feeRate = await getFeeRate();
-    // await blockchain.estimateFee(target: BigInt.from(1));
+    final Balance utxos;
+    // final List<LocalUtxo> unspent;
 
     BigInt totalSpending;
 
-    if (!isSendAllBalance) {
-      // totalSpending = amount + BigInt.from(feeRate);
+    if (connectivityResult.contains(ConnectivityResult.none)) {
+      if (!isSendAllBalance) {
+        // totalSpending = amount + BigInt.from(feeRate);
 
-      totalSpending = amount;
-      print("Total Spending: $totalSpending");
-      print("Confirmed Utxos: ${utxos.spendable}");
-      // Check If there are enough funds available
-      if (utxos.spendable < totalSpending) {
-        // Exit early if no confirmed UTXOs are available
-        throw Exception(
-            "Not enough confirmed funds available. Please wait until your transactions confirm.");
+        totalSpending = amount;
+        print("Total Spending: $totalSpending");
+        print("Available Balance: ${avBalance}");
+        // Check If there are enough funds available
+        if (avBalance < totalSpending) {
+          // Exit early if no confirmed UTXOs are available
+          throw Exception(
+              "Not enough confirmed funds available. Please wait until your transactions confirm.");
+        }
       }
+    } else {
+      await syncWallet(wallet);
+      utxos = wallet.getBalance();
+      print("Available UTXOs: ${utxos.confirmed}");
+
+      if (!isSendAllBalance) {
+        // totalSpending = amount + BigInt.from(feeRate);
+
+        totalSpending = amount;
+        print("Total Spending: $totalSpending");
+        print("Confirmed Utxos: ${utxos.spendable}");
+        // Check If there are enough funds available
+        if (utxos.spendable < totalSpending) {
+          // Exit early if no confirmed UTXOs are available
+          throw Exception(
+              "Not enough confirmed funds available. Please wait until your transactions confirm.");
+        }
+      }
+
+      // unspent = wallet.listUnspent();
     }
+
+    final feeRate = customFeeRate ?? await getFeeRate();
+
+    print('Custom Fee Rate: $customFeeRate');
 
     List<OutPoint> spendableOutpoints = [];
 
-    for (var utxo in unspent) {
-      print('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
-    }
+    // for (var utxo in unspent) {
+    //   print('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
+    // }
 
     try {
       // Build the transaction
@@ -1613,7 +1737,7 @@ class WalletService extends ChangeNotifier {
       // Build the transaction:
       (PartiallySignedTransaction, TransactionDetails) txBuilderResult;
 
-      await syncWallet(wallet);
+      // await syncWallet(wallet);
 
       if (isSendAllBalance) {
         // print(internalChangeAddress.address.asString());
@@ -1717,11 +1841,13 @@ class WalletService extends ChangeNotifier {
         }
       }
       print('Spending: $amount');
+      print('LocalUtxos: $localUtxos');
 
-      final utxos = await getUtxos(wallet
-          .getAddress(addressIndex: AddressIndex.peek(index: 0))
-          .address
-          .toString());
+      final utxos = localUtxos ??
+          await getUtxos(wallet
+              .getAddress(addressIndex: AddressIndex.peek(index: 0))
+              .address
+              .toString());
 
       // spendingPaths = extractAllPaths(policy);
 
@@ -1752,6 +1878,7 @@ class WalletService extends ChangeNotifier {
                 ))
             .toList();
       }
+      // TODO: Working transactions with no internet connection
 
       if (chosenPath == 0) {
         print('MultiSig Builder');
@@ -1843,8 +1970,9 @@ class WalletService extends ChangeNotifier {
         print("Broadcasting error: ${broadcastError.toString()}");
         throw Exception("Broadcasting error: ${broadcastError.toString()}");
       }
-    } on Exception catch (e) {
+    } on Exception catch (e, stackTrace) {
       print("Error: ${e.toString()}");
+      print('StackTrace: $stackTrace');
 
       throw Exception("Error: ${e.toString()}");
     }
@@ -1888,9 +2016,9 @@ class WalletService extends ChangeNotifier {
     wallet = await Wallet.create(
       descriptor: await Descriptor.create(
         descriptor: descriptor,
-        network: network,
+        network: settingsProvider.network,
       ),
-      network: network,
+      network: settingsProvider.network,
       databaseConfig: const DatabaseConfig.memory(),
     );
 

@@ -1,4 +1,6 @@
+import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Light & Dark Theme Definitions
@@ -27,6 +29,14 @@ class SettingsProvider with ChangeNotifier {
   ThemeData get themeData => _themeData;
   bool get isDarkMode => _isDarkMode;
 
+  Network _network = Network.regtest; // default to mainnet
+
+  Network get network => _network;
+
+  bool get isMainnet => _network == Network.bitcoin;
+  bool get isTestnet => _network == Network.testnet;
+  bool get isRegtest => _network == Network.regtest;
+
   SettingsProvider() {
     loadSettings(); // Initialize SharedPreferences before use
   }
@@ -38,6 +48,21 @@ class SettingsProvider with ChangeNotifier {
 
     _isDarkMode = _prefs.getBool('isDarkMode') ?? false;
     _themeData = _isDarkMode ? darkTheme : lightTheme;
+    final networkString = _prefs.getString('network');
+
+    if (networkString != null) {
+      if (networkString.contains('bitcoin')) {
+        _network = Network.bitcoin;
+      } else if (networkString.contains('regtest')) {
+        _network = Network.regtest;
+      } else {
+        _network = Network.testnet;
+      }
+    } else if (isTest) {
+      _network = Network.testnet;
+    } else {
+      _network = Network.bitcoin;
+    }
 
     notifyListeners(); // Ensure UI updates after loading
   }
@@ -67,6 +92,16 @@ class SettingsProvider with ChangeNotifier {
     // Save preference
     SharedPreferences prefs = await SharedPreferences.getInstance();
     prefs.setBool('isDarkMode', _isDarkMode);
+  }
+
+  void setNetwork(Network newNetwork) async {
+    _network = newNetwork;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    // print(newNetwork.toString());
+
+    await prefs.setString('network', newNetwork.toString());
+    notifyListeners();
   }
 
   void resetSettings() {
