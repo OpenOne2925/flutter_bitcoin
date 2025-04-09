@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.5.1
+version: 1.5.3
 
 environment:
   sdk: ^3.5.1
@@ -30,8 +30,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  ffi: ^2.0.1
-  flutter_rust_bridge: ^2.0.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -39,7 +37,7 @@ dependencies:
   bdk_flutter: # ^0.31.2
     git:
       url: https://github.com/LtbLightning/bdk-flutter.git
-  sdk_flutter: # 
+  sdk_flutter: # Portal Flutter Bindings
     path: ./portal-sdk-flutter-master
   http: ^1.2.2
   hive: ^2.0.0
@@ -104,6 +102,7 @@ flutter:
     - assets/animations/error_cross.json
     - assets/animations/bitcoin_tower.json
     - assets/animations/bitcoin_city.json
+    - assets/animations/bitcoin_splash.json
     - assets/animations/assistant_mainnet.json
     - assets/animations/assistant_testnet.json
     # To add assets to your application, add an assets section, like this:

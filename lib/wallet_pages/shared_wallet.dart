@@ -243,7 +243,7 @@ class SharedWalletState extends State<SharedWallet> {
               'pubKeysAlias': widget.pubKeysAlias,
             };
 
-            walletService.printInChunks(newValueMap.toString());
+            // walletService.printInChunks(newValueMap.toString());
 
             // print('_descriptorName: $_descriptorName');
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
@@ -258,7 +259,7 @@ class WalletSpendingPathHelpers {
               Flexible(
                 fit: FlexFit.loose,
                 child: Text(
-                  "$totalValue ${AppLocalizations.of(context)!.translate('sats_available')} $timeRemaining",
+                  "${UtilitiesService.formatBitcoinAmount(totalValue)} ${AppLocalizations.of(context)!.translate('sats_available')} $timeRemaining",
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.text(context),
@@ -284,7 +285,7 @@ class WalletSpendingPathHelpers {
             Flexible(
               fit: FlexFit.loose,
               child: Text(
-                "$futureTotal ${AppLocalizations.of(context)!.translate('future_sats')}",
+                "${UtilitiesService.formatBitcoinAmount(futureTotal)} ${AppLocalizations.of(context)!.translate('future_sats')}",
                 style: TextStyle(
                   fontSize: 12,
                   color: AppColors.text(context),
@@ -304,7 +305,8 @@ class WalletSpendingPathHelpers {
         Text(
           AppLocalizations.of(context)!
               .translate('total_unconfirmed')
-              .replaceAll('{x}', totalUnconfirmed.toString()),
+              .replaceAll('{x}',
+                  UtilitiesService.formatBitcoinAmount(totalUnconfirmed)),
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
@@ -318,7 +320,7 @@ class WalletSpendingPathHelpers {
     List<String> otherAliases = List.from(pathAliases)..remove(myAlias);
 
     String aliasText = totalSpendable > 0
-        ? "${AppLocalizations.of(context)!.translate('immediately_spend').replaceAll('{x}', myAlias.toString())} \n$totalSpendable sats"
+        ? "${AppLocalizations.of(context)!.translate('immediately_spend').replaceAll('{x}', myAlias.toString())} \n${UtilitiesService.formatBitcoinAmount(totalSpendable)}"
         : AppLocalizations.of(context)!
             .translate('cannot_spend')
             .replaceAll('{x}', myAlias.toString());
@@ -651,7 +653,7 @@ class WalletSpendingPathHelpers {
                     ),
                     TextSpan(
                       text:
-                          "$value sats - ${AppLocalizations.of(rootContext)!.translate('unconfirmed')}",
+                          "${UtilitiesService.formatBitcoinAmount(value)} - ${AppLocalizations.of(rootContext)!.translate('unconfirmed')}",
                       style: TextStyle(
                         color: AppColors.text(context),
                       ),
@@ -689,7 +691,7 @@ class WalletSpendingPathHelpers {
                 children: [
                   if (isSpendable) ...[
                     TextSpan(
-                      text: "$value sats ",
+                      text: "${UtilitiesService.formatBitcoinAmount(value)} ",
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     TextSpan(
@@ -705,7 +707,7 @@ class WalletSpendingPathHelpers {
                           color: AppColors.cardTitle(context)),
                     ),
                     TextSpan(
-                      text: "$value sats\n",
+                      text: "${UtilitiesService.formatBitcoinAmount(value)}\n",
                     ),
                     TextSpan(
                       text:

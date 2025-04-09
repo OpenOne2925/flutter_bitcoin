@@ -103,17 +103,11 @@ class WalletService extends ChangeNotifier {
   List<String> get electrumServers {
     switch (settingsProvider.network) {
       case Network.testnet:
-        return [
-          "ssl://mempool.space:40002",
-        ];
+        return ["ssl://mempool.space:40002"];
       case Network.regtest:
-        return [
-          "tcp://192.168.99.25:40001",
-        ];
+        return ["tcp://79.61.35.232:40001", "tcp://192.168.99.25:40001"];
       case Network.bitcoin:
-        return [
-          "ssl://electrum.blockstream.info:50002",
-        ];
+        return ["ssl://electrum.blockstream.info:50002"];
       default:
         return [""];
     }
@@ -138,8 +132,8 @@ class WalletService extends ChangeNotifier {
     try {
       final response = await http.get(Uri.parse("$faucetUrl/$address"));
 
-      print(response.statusCode);
-      print(response.body);
+      // print(response.statusCode);
+      // print(response.body);
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -161,8 +155,7 @@ class WalletService extends ChangeNotifier {
       print('🔐 Validating descriptor...');
       print('📬 Public Key: $publicKey');
       print('🧾 Descriptor (full):');
-      printInChunks(
-          descriptorStr); // assuming this splits and prints long strings
+      printInChunks(descriptorStr);
 
       final last3 = publicKey.substring(0, publicKey.length - 3);
       print('🔍 Checking if descriptor contains pubkey: "$last3"');
@@ -189,7 +182,9 @@ class WalletService extends ChangeNotifier {
         print('❌ Descriptor does NOT contain expected public key fragment.');
         return ValidationResult(
           isValid: false,
-          errorMessage: AppLocalizations.of(context)!
+          errorMessage: AppLocalizations.of(
+            context,
+          )!
               .translate('error_public_key_not_contained'),
         );
       }
@@ -197,8 +192,10 @@ class WalletService extends ChangeNotifier {
       print('💥 Error during descriptor/wallet creation: $e');
       return ValidationResult(
         isValid: false,
-        errorMessage:
-            AppLocalizations.of(context)!.translate('error_wallet_descriptor'),
+        errorMessage: AppLocalizations.of(
+          context,
+        )!
+            .translate('error_wallet_descriptor'),
       );
     }
   }
@@ -238,15 +235,11 @@ class WalletService extends ChangeNotifier {
 
     if (savedMnemonic != null) {
       // Restore the wallet using the saved mnemonic
-      wallet = await createOrRestoreWallet(
-        savedMnemonic,
-      );
+      wallet = await createOrRestoreWallet(savedMnemonic);
       // print(wallet);
       return wallet;
     } else {
-      wallet = await createOrRestoreWallet(
-        mnemonic!,
-      );
+      wallet = await createOrRestoreWallet(mnemonic!);
     }
     return wallet;
   }
@@ -266,8 +259,9 @@ class WalletService extends ChangeNotifier {
   String getAddress(Wallet wallet) {
     // await syncWallet(wallet);
 
-    var addressInfo =
-        wallet.getAddress(addressIndex: const AddressIndex.peek(index: 0));
+    var addressInfo = wallet.getAddress(
+      addressIndex: const AddressIndex.peek(index: 0),
+    );
     return addressInfo.address.asString();
   }
 
@@ -275,19 +269,21 @@ class WalletService extends ChangeNotifier {
   Future<Map<String, int>> getBitcoinBalance(String address) async {
     await syncWallet(wallet);
     try {
-      final int confirmedBalance =
-          int.parse(wallet.getBalance().spendable.toString());
+      final int confirmedBalance = int.parse(
+        wallet.getBalance().spendable.toString(),
+      );
 
       print('confirmedBalance: $confirmedBalance');
 
-      final int pendingBalance =
-          int.parse(wallet.getBalance().untrustedPending.toString());
+      final int pendingBalance = int.parse(
+        wallet.getBalance().untrustedPending.toString(),
+      );
 
       print('pendingBalance: $pendingBalance');
 
       return {
         "confirmedBalance": confirmedBalance,
-        "pendingBalance": pendingBalance
+        "pendingBalance": pendingBalance,
       };
     } catch (e) {
       print("Error fetching balance: $e");
@@ -373,7 +369,8 @@ class WalletService extends ChangeNotifier {
         return;
       } catch (e) {
         print(
-            "Error: $e Failed to connect to Electrum server: $url, trying next...");
+          "Error: $e Failed to connect to Electrum server: $url, trying next...",
+        );
       }
     }
     throw Exception("Failed to connect to any Electrum server.");
@@ -381,8 +378,9 @@ class WalletService extends ChangeNotifier {
 
   Future<double> getFeeRate() async {
     try {
-      final response =
-          await http.get(Uri.parse("$baseUrl/v1/fees/recommended"));
+      final response = await http.get(
+        Uri.parse("$baseUrl/v1/fees/recommended"),
+      );
 
       if (response.statusCode == 200) {
         final fees = jsonDecode(response.body);
@@ -438,7 +436,8 @@ class WalletService extends ChangeNotifier {
         return List<Map<String, dynamic>>.from(transactionsJson);
       } else {
         throw Exception(
-            'Failed to load transactions. Status Code: ${response.statusCode}');
+          'Failed to load transactions. Status Code: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception('Failed to fetch transactions: $e');
@@ -478,12 +477,12 @@ class WalletService extends ChangeNotifier {
               .add(Duration(hours: -2))
               .toString()
               .substring(
-                  0,
-                  DateTime.fromMillisecondsSinceEpoch(timestamp * 1000)
-                          .add(Duration(hours: -2))
-                          .toString()
-                          .length -
-                      7);
+                0,
+                DateTime.fromMillisecondsSinceEpoch(
+                      timestamp * 1000,
+                    ).add(Duration(hours: -2)).toString().length -
+                    7,
+              );
         } else {
           print('Error: "timestamp" field not found in response.');
           throw Exception('Block API response missing timestamp field.');
@@ -527,21 +526,38 @@ class WalletService extends ChangeNotifier {
     final url = '$baseUrl/address/$address/utxo';
     List<dynamic> utxos = [];
 
+    // print('ciaooo: ${wallet.listUnspent()}');
+
+    // final List<LocalUtxo> walletUtxos = wallet.listUnspent();
+
+    // for (var utxo in walletUtxos) {
+    //   print(utxo.txout.scriptPubkey);
+    //   print(utxo.txout.value);
+    //   print(utxo.isSpent);
+    //   print(utxo.outpoint.txid);
+    //   print(utxo.outpoint.vout);
+    // }
+
+    print('[DEBUG] Fetching UTXOs for address: $address');
+    print('[DEBUG] Constructed URL: $url');
+
     try {
       final response = await http.get(Uri.parse(url));
+      print('[DEBUG] HTTP GET response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         utxos = json.decode(response.body);
+        print('[DEBUG] Decoded UTXOs: $utxos');
       } else {
         print(
-            'Failed to fetch transactions. HTTP status: ${response.statusCode}');
+          '[ERROR] Failed to fetch UTXOs. HTTP status: ${response.statusCode}',
+        );
+        print('[ERROR] Response body: ${response.body}');
       }
-
-      // printInChunks('Mempool UTXOS: $utxos');
 
       return utxos;
     } catch (e) {
-      print('Error fetching transactions: $e');
+      print('[EXCEPTION] Error fetching UTXOs: $e');
       return utxos;
     }
   }
@@ -698,10 +714,7 @@ class WalletService extends ChangeNotifier {
 
   void validateAddress(String address) async {
     try {
-      await Address.fromString(
-        s: address,
-        network: settingsProvider.network,
-      );
+      await Address.fromString(s: address, network: settingsProvider.network);
     } on AddressException catch (e) {
       throw Exception('Invalid address format: $e');
     } catch (e) {
@@ -737,7 +750,9 @@ class WalletService extends ChangeNotifier {
   }
 
   Future<double> convertSatoshisToCurrency(
-      int satoshis, String currency) async {
+    int satoshis,
+    String currency,
+  ) async {
     final url = 'https://blockchain.info/ticker';
     final response = await http.get(Uri.parse(url));
 
@@ -754,7 +769,9 @@ class WalletService extends ChangeNotifier {
   }
 
   List<Map<String, dynamic>> sortTransactionsByConfirmations(
-      List<Map<String, dynamic>> transactions, int currentHeight) {
+    List<Map<String, dynamic>> transactions,
+    int currentHeight,
+  ) {
     transactions.sort((a, b) {
       // Extract block height values (if null, assume unconfirmed)
       final blockHeightA = a['status']?['block_height'];
@@ -776,8 +793,10 @@ class WalletService extends ChangeNotifier {
     return transactions;
   }
 
-  List<String> findNewTransactions(List<Map<String, dynamic>> apiTransactions,
-      List<TransactionDetails> walletTransactions) {
+  List<String> findNewTransactions(
+    List<Map<String, dynamic>> apiTransactions,
+    List<TransactionDetails> walletTransactions,
+  ) {
     // Extract transaction IDs from both sources
     List<String> apiTxIds = apiTransactions
         .map((tx) => tx['txid'].toString().toLowerCase())
@@ -822,8 +841,9 @@ class WalletService extends ChangeNotifier {
   Future<DescriptorPublicKey?> fetchPubKey(String mnemonic) async {
     final trueMnemonic = await Mnemonic.fromString(mnemonic);
 
-    final hardenedDerivationPath =
-        await DerivationPath.create(path: "m/84h/1h/0h");
+    final hardenedDerivationPath = await DerivationPath.create(
+      path: "m/84h/1h/0h",
+    );
 
     final receivingDerivationPath = await DerivationPath.create(path: "m/0");
 
@@ -925,11 +945,15 @@ class WalletService extends ChangeNotifier {
       final txBuilder = TxBuilder();
 
       final recipientAddress = await Address.fromString(
-          s: recipientAddressStr, network: wallet.network());
+        s: recipientAddressStr,
+        network: wallet.network(),
+      );
       final recipientScript = recipientAddress.scriptPubkey();
 
       final changeAddress = await Address.fromString(
-          s: changeAddressStr, network: wallet.network());
+        s: changeAddressStr,
+        network: wallet.network(),
+      );
       final changeScript = changeAddress.scriptPubkey();
 
       final feeRate = customFeeRate ?? await getFeeRate();
@@ -943,7 +967,8 @@ class WalletService extends ChangeNotifier {
           .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
           .feeRate(feeRate) // Set the fee rate (in satoshis per byte)
           .drainTo(
-              changeScript) // Specify the custom address to send the change
+            changeScript,
+          ) // Specify the custom address to send the change
           .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
       // Sign the transaction
@@ -1018,10 +1043,7 @@ class WalletService extends ChangeNotifier {
     return 'wsh(or_d($multi,$timelockCondition))';
   }
 
-  Future<void> saveLocalData(
-    Wallet wallet,
-    DateTime lastRefreshed,
-  ) async {
+  Future<void> saveLocalData(Wallet wallet, DateTime lastRefreshed) async {
     String currentAddress = getAddress(wallet);
 
     final totalBalance = await getBitcoinBalance(currentAddress);
@@ -1030,8 +1052,9 @@ class WalletService extends ChangeNotifier {
     final currentHeight = await fetchCurrentBlockHeight();
     final timestamp = await fetchBlockTimestamp(currentHeight);
 
-    List<Map<String, dynamic>> transactions =
-        await getTransactions(currentAddress);
+    List<Map<String, dynamic>> transactions = await getTransactions(
+      currentAddress,
+    );
     transactions = sortTransactionsByConfirmations(transactions, currentHeight);
 
     final walletData = WalletData(
@@ -1051,10 +1074,15 @@ class WalletService extends ChangeNotifier {
   }
 
   String replacePubKeyWithPrivKeyMultiSig(
-      String descriptor, String pubKey, String privKey) {
+    String descriptor,
+    String pubKey,
+    String privKey,
+  ) {
     // Extract the derivation path and pubkey portion for dynamic matching
-    final regexPathPub = RegExp(RegExp.escape('${pubKey.split(']')[0]}]') +
-        r'[tvxyz]pub[A-Za-z0-9]+\/\d+\/\*'); // tpub for testnet and xpub for mainnet
+    final regexPathPub = RegExp(
+      RegExp.escape('${pubKey.split(']')[0]}]') +
+          r'[tvxyz]pub[A-Za-z0-9]+\/\d+\/\*',
+    ); // tpub for testnet and xpub for mainnet
 
     // Replace only the matching public key with the private key
     return descriptor.replaceFirstMapped(regexPathPub, (match) {
@@ -1084,8 +1112,9 @@ class WalletService extends ChangeNotifier {
 
     // Replace only the match at the specified `chosenPath` index
     final result = descriptor.replaceAllMapped(regexPathPub, (match) {
-      final trailingPath =
-          match.group(1); // Extract the trailing path (e.g., "0", "1", "2")
+      final trailingPath = match.group(
+        1,
+      ); // Extract the trailing path (e.g., "0", "1", "2")
 
       // Debugging info for each match
       // print('Match Found: ${match.group(0)}');
@@ -1100,8 +1129,9 @@ class WalletService extends ChangeNotifier {
       } else {
         // print('Keeping Original Public Key: ${match.group(0)}');
         currentIndex++; // Increment the index for the next match
-        return match
-            .group(0)!; // Keep the original matched string for other paths
+        return match.group(
+          0,
+        )!; // Keep the original matched string for other paths
       }
     });
 
@@ -1139,8 +1169,9 @@ class WalletService extends ChangeNotifier {
 
   Future<int> extractOlderWithPrivateKey(String descriptor) async {
     // Adjusted regex to match only "older" values followed by "pk(...tprv...)"
-    final regExp =
-        RegExp(r'older\((\d+)\).*?pk\(\[.*?]([tvxyz]p(?:rv|ub)[a-zA-Z0-9]+)');
+    final regExp = RegExp(
+      r'older\((\d+)\).*?pk\(\[.*?]([tvxyz]p(?:rv|ub)[a-zA-Z0-9]+)',
+    );
     final matches = regExp.allMatches(descriptor);
 
     int older = 0;
@@ -1228,8 +1259,11 @@ class WalletService extends ChangeNotifier {
   ) {
     List<Map<String, dynamic>> result = [];
 
-    void traverse(Map<String, dynamic> node, List<String> path,
-        List<dynamic>? parentItems) {
+    void traverse(
+      Map<String, dynamic> node,
+      List<String> path,
+      List<dynamic>? parentItems,
+    ) {
       // print(
       //     "Traversing node: ${node['id'] ?? 'Unknown ID'}, Path: ${path.join(' > ')}");
 
@@ -1325,8 +1359,11 @@ class WalletService extends ChangeNotifier {
   List<Map<String, dynamic>> extractAllPaths(Map<String, dynamic> json) {
     List<Map<String, dynamic>> result = [];
 
-    void traverse(Map<String, dynamic> node, List<String> path,
-        List<dynamic>? parentItems) {
+    void traverse(
+      Map<String, dynamic> node,
+      List<String> path,
+      List<dynamic>? parentItems,
+    ) {
       // print(
       //     "Traversing node: ${node['id'] ?? 'Unknown ID'}, Path: ${path.join(' > ')}");
 
@@ -1398,13 +1435,14 @@ class WalletService extends ChangeNotifier {
         //     "Node has child items: ${node['items'].length} found in node: ${node['id'] ?? 'Unknown ID'}");
         List<dynamic> items = node['items'];
         for (int i = 0; i < items.length; i++) {
-          traverse({
-            ...items[i],
-            'parentItems': items, // Pass sibling items as context
-          }, [
-            ...path,
-            '${node['type']}[$i]'
-          ], items);
+          traverse(
+            {
+              ...items[i],
+              'parentItems': items, // Pass sibling items as context
+            },
+            [...path, '${node['type']}[$i]'],
+            items,
+          );
         }
       } else {
         // print("No child items in node: ${node['id'] ?? 'Unknown ID'}");
@@ -1516,7 +1554,9 @@ class WalletService extends ChangeNotifier {
   }
 
   List<String> getAliasesFromFingerprint(
-      List<Map<String, String>> pubKeysAlias, List<String> signers) {
+    List<Map<String, String>> pubKeysAlias,
+    List<String> signers,
+  ) {
     // Initialize an empty map for public key aliases
     Map<String, String> pubKeysAliasMap = {};
 
@@ -1591,8 +1631,9 @@ class WalletService extends ChangeNotifier {
     // print('Bool: $multiSig');
     Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
 
-    final hardenedDerivationPath =
-        await DerivationPath.create(path: "m/84h/1h/0h");
+    final hardenedDerivationPath = await DerivationPath.create(
+      path: "m/84h/1h/0h",
+    );
 
     final receivingDerivationPath = await DerivationPath.create(path: "m/0");
 
@@ -1647,7 +1688,8 @@ class WalletService extends ChangeNotifier {
         if (avBalance < totalSpending) {
           // Exit early if no confirmed UTXOs are available
           throw Exception(
-              "Not enough confirmed funds available. Please wait until your transactions confirm.");
+            "Not enough confirmed funds available. Please wait until your transactions confirm.",
+          );
         }
       }
     } else {
@@ -1665,7 +1707,8 @@ class WalletService extends ChangeNotifier {
         if (utxos.spendable < totalSpending) {
           // Exit early if no confirmed UTXOs are available
           throw Exception(
-              "Not enough confirmed funds available. Please wait until your transactions confirm.");
+            "Not enough confirmed funds available. Please wait until your transactions confirm.",
+          );
         }
       }
 
@@ -1687,11 +1730,14 @@ class WalletService extends ChangeNotifier {
       final txBuilder = TxBuilder();
 
       final recipientAddress = await Address.fromString(
-          s: recipientAddressStr, network: wallet.network());
+        s: recipientAddressStr,
+        network: wallet.network(),
+      );
       final recipientScript = recipientAddress.scriptPubkey();
 
       var internalChangeAddress = wallet.getInternalAddress(
-          addressIndex: const AddressIndex.peek(index: 0));
+        addressIndex: const AddressIndex.peek(index: 0),
+      );
 
       final changeScript = internalChangeAddress.address.scriptPubkey();
 
@@ -1706,8 +1752,9 @@ class WalletService extends ChangeNotifier {
 
       // const String targetFingerprint = "fb94d032";
 
-      final Map<String, dynamic> policy =
-          jsonDecode(externalWalletPolicy.asString());
+      final Map<String, dynamic> policy = jsonDecode(
+        externalWalletPolicy.asString(),
+      );
 
       final path = extractAllPathsToFingerprint(policy, targetFingerprint);
 
@@ -1717,18 +1764,20 @@ class WalletService extends ChangeNotifier {
         // First Path: Direct MULTISIG
         multiSigPath = {
           for (int i = 0; i < path[0]["ids"].length - 1; i++)
-            path[0]["ids"][i]: Uint32List.fromList([path[0]["indexes"][i]])
+            path[0]["ids"][i]: Uint32List.fromList([path[0]["indexes"][i]]),
         };
 
         // print("Generated multiSigPath: $multiSigPath");
       } else {
         timeLockPath = {
           for (int i = 0; i < path[chosenPath!]["ids"].length - 1; i++)
-            path[chosenPath]["ids"][i]: Uint32List.fromList(i ==
-                    path[chosenPath]["ids"].length -
-                        2 // Check if it's the second-to-last item
-                ? [0, 1] // Select both indexes for the last `THRESH` node
-                : [path[chosenPath]["indexes"][i]])
+            path[chosenPath]["ids"][i]: Uint32List.fromList(
+              i ==
+                      path[chosenPath]["ids"].length -
+                          2 // Check if it's the second-to-last item
+                  ? [0, 1] // Select both indexes for the last `THRESH` node
+                  : [path[chosenPath]["indexes"][i]],
+            ),
         };
 
         // print("Generated timeLockPath: $timeLockPath");
@@ -1763,10 +1812,12 @@ class WalletService extends ChangeNotifier {
         } catch (e) {
           print('Error: $e');
 
-          final utxos = await getUtxos(wallet
-              .getAddress(addressIndex: AddressIndex.peek(index: 0))
-              .address
-              .toString());
+          final utxos = await getUtxos(
+            wallet
+                .getAddress(addressIndex: AddressIndex.peek(index: 0))
+                .address
+                .toString(),
+          );
 
           // print(spendingPaths);
           // print(chosenPath);
@@ -1788,7 +1839,8 @@ class WalletService extends ChangeNotifier {
             spendableUtxos = utxos.where((utxo) {
               final blockHeight = utxo['status']['block_height'];
               print(
-                  'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight');
+                'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight',
+              );
 
               final isSpendable = blockHeight != null &&
                   (blockHeight + timelock - 1 <= currentHeight ||
@@ -1801,7 +1853,8 @@ class WalletService extends ChangeNotifier {
             print('Spendable UTXOs found: ${spendableUtxos.length}');
             for (var spendableUtxo in spendableUtxos) {
               print(
-                  'Spendable UTXO: txid=${spendableUtxo['txid']}, blockHeight=${spendableUtxo['status']['block_height']}');
+                'Spendable UTXO: txid=${spendableUtxo['txid']}, blockHeight=${spendableUtxo['status']['block_height']}',
+              );
             }
           }
 
@@ -1844,10 +1897,12 @@ class WalletService extends ChangeNotifier {
       print('LocalUtxos: $localUtxos');
 
       final utxos = localUtxos ??
-          await getUtxos(wallet
-              .getAddress(addressIndex: AddressIndex.peek(index: 0))
-              .address
-              .toString());
+          await getUtxos(
+            wallet
+                .getAddress(addressIndex: AddressIndex.peek(index: 0))
+                .address
+                .toString(),
+          );
 
       // spendingPaths = extractAllPaths(policy);
 
@@ -1872,10 +1927,7 @@ class WalletService extends ChangeNotifier {
                   (blockHeight + timelock - 1 <= currentHeight ||
                       timelock == 0);
             })
-            .map((utxo) => OutPoint(
-                  txid: utxo['txid'],
-                  vout: utxo['vout'],
-                ))
+            .map((utxo) => OutPoint(txid: utxo['txid'], vout: utxo['vout']))
             .toList();
       }
       // TODO: Working transactions with no internet connection
@@ -1987,8 +2039,9 @@ class WalletService extends ChangeNotifier {
   ) async {
     Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
 
-    final hardenedDerivationPath =
-        await DerivationPath.create(path: "m/84h/1h/0h");
+    final hardenedDerivationPath = await DerivationPath.create(
+      path: "m/84h/1h/0h",
+    );
 
     final receivingDerivationPath = await DerivationPath.create(path: "m/0");
 
@@ -2094,8 +2147,12 @@ class WalletService extends ChangeNotifier {
 
   void printInChunks(String text, {int chunkSize = 800}) {
     for (int i = 0; i < text.length; i += chunkSize) {
-      print(text.substring(
-          i, i + chunkSize > text.length ? text.length : i + chunkSize));
+      print(
+        text.substring(
+          i,
+          i + chunkSize > text.length ? text.length : i + chunkSize,
+        ),
+      );
     }
   }
 

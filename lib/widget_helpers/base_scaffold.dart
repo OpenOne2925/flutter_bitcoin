@@ -600,7 +600,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
               height: 60,
               width: 60,
               child: Lottie.asset(
-                'assets/animations/bitcoin_city.json',
+                'assets/animations/bitcoin_splash.json',
                 repeat: true,
               ),
             ),

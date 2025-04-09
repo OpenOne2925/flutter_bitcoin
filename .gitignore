@@ -1,3 +1,8 @@
+# Build Scripts
+build_testnet_apk.sh
+build_mainnet_apk.sh
+git_push_total.sh
+
 # Miscellaneous
 *.class
 *.log

@@ -13,7 +13,6 @@ import 'package:hive/hive.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:provider/provider.dart';
-import 'package:sdk_flutter/sdk_flutter.dart';
 
 class CAWalletPage extends StatefulWidget {
   const CAWalletPage({super.key});
@@ -25,8 +24,6 @@ class CAWalletPage extends StatefulWidget {
 class CAWalletPageState extends State<CAWalletPage> {
   String? _mnemonic;
   String _status = 'Idle';
-
-  final sdkFlutterPlugin = SdkFlutter();
 
   Wallet? _wallet;
 
@@ -48,8 +45,6 @@ class CAWalletPageState extends State<CAWalletPage> {
 
     _walletService =
         WalletService(Provider.of<SettingsProvider>(context, listen: false));
-
-    sdkFlutterPlugin.initialize(true);
 
     _mnemonicController.addListener(() {
       _mnemonic = _mnemonicController.text;

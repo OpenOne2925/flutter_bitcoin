@@ -159,7 +159,9 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      initialRoute: '/example_nfc', // _determineInitialRoute(),
+      initialRoute:
+          // '/example_nfc',
+          _determineInitialRoute(),
       routes: {
         '/wallet_page': (context) => const WalletPage(),
         '/ca_wallet_page': (context) => const CAWalletPage(),

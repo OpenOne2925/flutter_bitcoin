@@ -101,7 +101,7 @@ class SettingsPageState extends State<SettingsPage> {
                       height: 150,
                       width: 150,
                       child: Lottie.asset(
-                        'assets/animations/bitcoin_city.json',
+                        'assets/animations/bitcoin_splash.json',
                         repeat: true,
                       ),
                     ),

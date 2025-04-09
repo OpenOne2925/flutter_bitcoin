@@ -27,7 +27,7 @@ class SplashScreenState extends State<SplashScreen> {
       backgroundColor: Colors.black,
       body: Center(
         child: Lottie.asset(
-          'assets/animations/bitcoin_city.json',
+          'assets/animations/bitcoin_splash.json',
           width: 250,
           height: 250,
           fit: BoxFit.cover,

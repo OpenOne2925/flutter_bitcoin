@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
+import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,15 +12,23 @@ class WalletTransactionHelpers {
   final int currentHeight;
   final String address;
   final GlobalKey<BaseScaffoldState> baseScaffoldKey;
+  final SettingsProvider settingsProvider;
 
   WalletTransactionHelpers({
     required this.context,
     required this.currentHeight,
     required this.address,
     required this.baseScaffoldKey,
+    required this.settingsProvider,
   });
 
   void showTransactionsDialog(Map<String, dynamic> transaction) {
+    final String mempoolUrl = settingsProvider.isTestnet
+        ? 'https://mempool.space/testnet4'
+        : settingsProvider.isMainnet
+            ? 'https://mempool.space/'
+            : 'https://regtest.open-one.it';
+
     final txid = transaction['txid'];
 
     // Extract confirmation details
@@ -258,7 +267,7 @@ class WalletTransactionHelpers {
                     ),
                   ),
                   Text(
-                    "$amount sats",
+                    UtilitiesService.formatBitcoinAmount(amount),
                     style: TextStyle(
                       fontSize: 14,
                       color: AppColors.text(context),
@@ -280,7 +289,7 @@ class WalletTransactionHelpers {
                           ),
                         ),
                         Text(
-                          "$fee sats",
+                          UtilitiesService.formatBitcoinAmount(fee),
                           style: TextStyle(
                             fontSize: 14,
                             color: AppColors.text(context),
@@ -321,8 +330,7 @@ class WalletTransactionHelpers {
 
                   GestureDetector(
                     onTap: () async {
-                      final Uri url =
-                          Uri.parse("https://mempool.space/testnet4/tx/$txid/");
+                      final Uri url = Uri.parse("$mempoolUrl/tx/$txid/");
 
                       if (await canLaunchUrl(url)) {
                         await launchUrl(url,
@@ -487,8 +495,8 @@ class WalletTransactionHelpers {
                 Text(
                   // Show only the fee payed for internal transactions
                   isInternal
-                      ? "${AppLocalizations.of(context)!.translate('internal')}: - $fee sats"
-                      : '${isSent ? "${AppLocalizations.of(context)!.translate('sent')}: - " : "${AppLocalizations.of(context)!.translate('received')}: + "}$amount sats',
+                      ? "${AppLocalizations.of(context)!.translate('internal')}: - ${UtilitiesService.formatBitcoinAmount(fee)}"
+                      : '${isSent ? "${AppLocalizations.of(context)!.translate('sent')}: - " : "${AppLocalizations.of(context)!.translate('received')}: + "}${UtilitiesService.formatBitcoinAmount(amount)}',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

@@ -135,6 +135,32 @@ class WalletUiHelpers {
                                     }
                                   },
                                   onTap: () async {
+                                    const faucetAddress =
+                                        'bcrt1q2d9pp5ffapy83c9z9w8k2jjvk648f899uhnwa4';
+
+                                    final hasAlreadyReceived =
+                                        transactions.any((tx) {
+                                      final vin = tx['vin'] as List<dynamic>?;
+                                      if (vin == null) return false;
+
+                                      return vin.any((input) {
+                                        final prevout = input['prevout'];
+                                        if (prevout == null) return false;
+
+                                        return prevout[
+                                                'scriptpubkey_address'] ==
+                                            faucetAddress;
+                                      });
+                                    });
+
+                                    if (hasAlreadyReceived) {
+                                      SnackBarHelper.showError(
+                                        context,
+                                        message: 'faucet_error',
+                                      );
+                                      return;
+                                    }
+
                                     try {
                                       await walletService.getSatoshis(address);
                                     } catch (e) {
@@ -259,68 +285,85 @@ class WalletUiHelpers {
                               children: [
                                 Row(
                                   children: [
-                                    showInSatoshis
-                                        ? Text(
-                                            '$avBalance sats',
-                                            style: TextStyle(
-                                              color: AppColors.text(context),
-                                              fontSize: 16,
-                                            ),
-                                          )
-                                        : Text.rich(
-                                            TextSpan(
-                                              text:
-                                                  '${avCurrencyBalance.toStringAsFixed(2)} ',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                color: AppColors.text(context),
-                                                decoration:
-                                                    TextDecoration.lineThrough,
-                                              ),
-                                              children: [
-                                                TextSpan(
-                                                  text:
-                                                      settingsProvider.currency,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                    const SizedBox(width: 8),
-                                    ledBalance != 0
-                                        ? showInSatoshis
-                                            ? Text(
-                                                ledBalance > 0
-                                                    ? '+ $ledBalance sats'
-                                                    : '$ledBalance sats',
-                                                style: TextStyle(
-                                                  color: balanceColor,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 16,
-                                                ),
-                                              )
-                                            : Text.rich(
-                                                TextSpan(
-                                                  text: ledBalance > 0
-                                                      ? '+ ${ledCurrencyBalance.toStringAsFixed(2)}'
-                                                      : ledCurrencyBalance
-                                                          .toStringAsFixed(2),
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          showInSatoshis
+                                              ? Text(
+                                                  UtilitiesService
+                                                      .formatBitcoinAmount(
+                                                          avBalance),
                                                   style: TextStyle(
-                                                    decoration: TextDecoration
-                                                        .lineThrough,
-                                                    color: balanceColor,
-                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        AppColors.text(context),
                                                     fontSize: 16,
                                                   ),
-                                                  children: [
-                                                    TextSpan(
+                                                )
+                                              : Text.rich(
+                                                  TextSpan(
+                                                    text:
+                                                        '${avCurrencyBalance.toStringAsFixed(2)} ',
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      color: AppColors.text(
+                                                          context),
+                                                      decoration: TextDecoration
+                                                          .lineThrough,
+                                                    ),
+                                                    children: [
+                                                      TextSpan(
                                                         text: settingsProvider
-                                                            .currency),
-                                                  ],
+                                                            .currency,
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
-                                              )
-                                        : Text(''),
+                                          const SizedBox(width: 8),
+                                          ledBalance != 0
+                                              ? showInSatoshis
+                                                  ? Text(
+                                                      ledBalance > 0
+                                                          ? '+ ${UtilitiesService.formatBitcoinAmount(ledBalance)}'
+                                                          : UtilitiesService
+                                                              .formatBitcoinAmount(
+                                                                  ledBalance),
+                                                      style: TextStyle(
+                                                        color: balanceColor,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 16,
+                                                      ),
+                                                    )
+                                                  : Text.rich(
+                                                      TextSpan(
+                                                        text: ledBalance > 0
+                                                            ? '+ ${ledCurrencyBalance.toStringAsFixed(2)}'
+                                                            : ledCurrencyBalance
+                                                                .toStringAsFixed(
+                                                                    2),
+                                                        style: TextStyle(
+                                                          decoration:
+                                                              TextDecoration
+                                                                  .lineThrough,
+                                                          color: balanceColor,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 16,
+                                                        ),
+                                                        children: [
+                                                          TextSpan(
+                                                              text:
+                                                                  settingsProvider
+                                                                      .currency),
+                                                        ],
+                                                      ),
+                                                    )
+                                              : Text(''),
+                                        ],
+                                      ),
+                                    ),
                                   ],
-                                ),
+                                )
                               ],
                             ),
                           ],
@@ -410,6 +453,7 @@ class WalletUiHelpers {
       currentHeight: currentHeight,
       address: address,
       baseScaffoldKey: baseScaffoldKey,
+      settingsProvider: settingsProvider,
     );
 
     return Card(
