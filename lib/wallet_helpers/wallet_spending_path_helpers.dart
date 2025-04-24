@@ -8,6 +8,7 @@ import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers.dart';
+import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers2.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 
@@ -22,7 +23,7 @@ class WalletSpendingPathHelpers {
   final BuildContext context;
   final Map<String, dynamic> policy;
   final ScrollController _scrollController = ScrollController();
-  final WalletSendtxHelpers sendTxHelper;
+  final WalletSendtxHelpers2 sendTxHelper;
   final TextEditingController amountController;
   final TextEditingController recipientController;
   final bool mounted;
@@ -57,7 +58,7 @@ class WalletSpendingPathHelpers {
     String? descriptor,
     String? myFingerPrint,
     List<String>? signersList,
-  }) : sendTxHelper = WalletSendtxHelpers(
+  }) : sendTxHelper = WalletSendtxHelpers2(
           isSingleWallet: false,
           context: context,
           recipientController: recipientController,

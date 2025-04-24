@@ -15,6 +15,7 @@ import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class BaseScaffold extends StatefulWidget {
   final Widget body;
@@ -462,6 +463,21 @@ class BaseScaffoldState extends State<BaseScaffold> {
               icon: Icon(Icons.help_outline, color: AppColors.icon(context)),
               onPressed: _toggleAssistant,
             ),
+          IconButton(
+            icon: Icon(
+              Icons.travel_explore,
+              color: AppColors.icon(context),
+            ),
+            onPressed: () async {
+              final Uri url = Uri.parse("https://btcmap.org/map");
+
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              } else {
+                throw "Could not launch $url";
+              }
+            },
+          ),
           IconButton(
             icon: Icon(
               settingsProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,

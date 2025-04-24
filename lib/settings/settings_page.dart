@@ -30,13 +30,12 @@ class SettingsPageState extends State<SettingsPage> {
 
   Future<void> checkFirstTime() async {
     final prefs = await SharedPreferences.getInstance();
-    bool openedBefore = prefs.getBool('opened_settings') ?? false;
+    bool openedBefore = prefs.getBool('onboarding_complete') ?? false;
 
     if (!openedBefore) {
       setState(() {
         isFirstTime = true;
       });
-      await prefs.setBool('opened_settings', true);
     }
   }
 
@@ -284,7 +283,10 @@ class SettingsPageState extends State<SettingsPage> {
 
                     const SizedBox(height: 40),
                     CustomButton(
-                      onPressed: () {
+                      onPressed: () async {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('onboarding_complete', true);
+
                         Navigator.pushReplacementNamed(
                             context, '/pin_setup_page');
                       },

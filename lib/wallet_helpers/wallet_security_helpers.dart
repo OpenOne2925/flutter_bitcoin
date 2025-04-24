@@ -1,15 +1,10 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
-import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:hive/hive.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class WalletSecurityHelpers {
@@ -179,20 +174,20 @@ class WalletSecurityHelpers {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: Icon(
-                        Icons.copy,
-                        color: AppColors.icon(context),
-                      ),
-                      onPressed: () {
-                        UtilitiesService.copyToClipboard(
-                          context: rootContext,
-                          text: savedMnemonic,
-                          messageKey: 'mnemonic_clipboard',
-                        );
-                      },
-                    ),
+                    // const SizedBox(width: 8),
+                    // IconButton(
+                    //   icon: Icon(
+                    //     Icons.copy,
+                    //     color: AppColors.icon(context),
+                    //   ),
+                    //   onPressed: () {
+                    //     UtilitiesService.copyToClipboard(
+                    //       context: rootContext,
+                    //       text: savedMnemonic,
+                    //       messageKey: 'mnemonic_clipboard',
+                    //     );
+                    //   },
+                    // ),
                   ],
                 ),
               ),
