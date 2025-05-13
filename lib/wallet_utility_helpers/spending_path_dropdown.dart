@@ -54,8 +54,9 @@ class SpendingPathDropdown extends StatelessWidget {
           value: data,
           enabled: isSelectable,
           child: Text(
-            "${AppLocalizations.of(rootContext)!.translate('type')}: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK: ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}' : 'MULTISIG'}, "
-            "${data['threshold']} of ${aliases.length}, ${AppLocalizations.of(rootContext)!.translate('keys')}: ${aliases.join(', ')}",
+            "${AppLocalizations.of(rootContext)!.translate('type')}: "
+            "${data['type'].contains('RELATIVETIMELOCK') ? 'OLDER: ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}' : data['type'].contains('ABSOLUTETIMELOCK') ? 'AFTER: ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('height')}' : 'MULTISIG'}, "
+            "${data['threshold'] != null ? '${data['threshold']} of ${aliases.length}, ' : ''} ${AppLocalizations.of(rootContext)!.translate('keys')}: ${aliases.join(', ')}",
             style: TextStyle(
               fontSize: 14,
               color: isSelectable
@@ -84,7 +85,7 @@ class SpendingPathDropdown extends StatelessWidget {
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              "${AppLocalizations.of(rootContext)!.translate('type')}: ${data['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}' : 'MULTISIG'}, ...",
+              "${data['type'].contains('RELATIVETIMELOCK') ? 'OLDER: ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}' : data['type'].contains('ABSOLUTETIMELOCK') ? 'AFTER: ${data['timelock']} ${AppLocalizations.of(rootContext)!.translate('height')}' : 'MULTISIG'}, ...",
               style: TextStyle(
                 fontSize: 14,
                 color: AppColors.text(context),

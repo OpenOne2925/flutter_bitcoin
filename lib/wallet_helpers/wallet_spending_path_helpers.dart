@@ -8,7 +8,6 @@ import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers.dart';
-import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers2.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 
@@ -23,7 +22,7 @@ class WalletSpendingPathHelpers {
   final BuildContext context;
   final Map<String, dynamic> policy;
   final ScrollController _scrollController = ScrollController();
-  final WalletSendtxHelpers2 sendTxHelper;
+  final WalletSendtxHelpers sendTxHelper;
   final TextEditingController amountController;
   final TextEditingController recipientController;
   final bool mounted;
@@ -58,7 +57,7 @@ class WalletSpendingPathHelpers {
     String? descriptor,
     String? myFingerPrint,
     List<String>? signersList,
-  }) : sendTxHelper = WalletSendtxHelpers2(
+  }) : sendTxHelper = WalletSendtxHelpers(
           isSingleWallet: false,
           context: context,
           recipientController: recipientController,
@@ -173,7 +172,7 @@ class WalletSpendingPathHelpers {
     int index,
     int length,
   ) {
-    // print('Spending paths: $path');
+    print('Spending paths: $path');
 
     // Extract aliases for the current pathInfo's fingerprints
     final List<String> pathAliases =
@@ -187,9 +186,14 @@ class WalletSpendingPathHelpers {
 
     // Extract timelock for the path
     final timelock = path['timelock'] ?? 0;
+    final String timelockType = path['type'].contains('RELATIVETIMELOCK')
+        ? 'older'
+        : path['type'].contains('ABSOLUTETIMELOCK')
+            ? 'after'
+            : 'none';
 
-    // print('Timelock for the path: $timelock');
-    // print('Current blockchain height: $currentHeight');
+    print('Timelock for the path: $timelock');
+    print('Current blockchain height: $currentHeight');
 
     String timeRemaining = 'Spendable';
 
@@ -203,7 +207,7 @@ class WalletSpendingPathHelpers {
       final value = utxo['value'];
 
       if (blockHeight == null) {
-        totalUnconfirmed += value as int;
+        totalUnconfirmed += int.parse(value.toString());
 
         continue;
       }
@@ -211,12 +215,19 @@ class WalletSpendingPathHelpers {
       // print('totalUncofnirmed: $totalUnconfirmed');
 
       // Determine if the transaction is spendable
-      final isSpendable =
-          blockHeight + timelock - 1 <= currentHeight || timelock == 0;
+      bool isSpendable;
+
+      if (timelockType == 'older') {
+        isSpendable = blockHeight + timelock - 1 <= currentHeight;
+      } else if (timelockType == 'after') {
+        isSpendable = timelock <= currentHeight;
+      } else {
+        isSpendable = true;
+      }
 
       // Calculate time remaining if not spendable
       if (isSpendable) {
-        totalSpendable += value as int;
+        totalSpendable += int.parse(value.toString());
       } else {
         // print(utxo['txid']);
 
@@ -224,9 +235,9 @@ class WalletSpendingPathHelpers {
 
         if (blockHeightTotals.containsKey(blockHeight)) {
           blockHeightTotals[blockHeight] =
-              blockHeightTotals[blockHeight]! + value as int;
+              blockHeightTotals[blockHeight]! + int.parse(value.toString());
         } else {
-          blockHeightTotals[blockHeight] = value;
+          blockHeightTotals[blockHeight] = int.parse(value.toString());
         }
       }
     }
@@ -242,9 +253,17 @@ class WalletSpendingPathHelpers {
       int utxoBlockHeight = sortedEntries[i].key;
       int totalValue = sortedEntries[i].value;
 
-      final remainingBlocks = utxoBlockHeight + timelock - 1 - currentHeight;
+      int remainingBlocks;
+      if (timelockType == 'older') {
+        remainingBlocks =
+            (utxoBlockHeight + timelock - 1 - currentHeight) as int;
+      } else {
+        remainingBlocks = timelock - currentHeight;
+      }
+
       final totalSeconds = remainingBlocks * avgBlockTime;
-      timeRemaining = walletService.formatTime(totalSeconds as int, context);
+      timeRemaining = walletService.formatTime(totalSeconds, context);
+      print('TimeRemaining: $timeRemaining');
 
       if (i == 0) {
         waitingTransactions.add(
@@ -362,9 +381,11 @@ class WalletSpendingPathHelpers {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      path['type'].contains('RELATIVETIMELOCK')
-                          ? 'Timelock: $timelock ${AppLocalizations.of(context)!.translate('blocks')}'
-                          : 'MULTISIG',
+                      timelockType == 'older'
+                          ? '${AppLocalizations.of(context)!.translate('timelock')}: $timelock ${AppLocalizations.of(context)!.translate('blocks')}'
+                          : timelockType == 'after'
+                              ? '${AppLocalizations.of(context)!.translate('timelock')}: $timelock ${AppLocalizations.of(context)!.translate('height')}'
+                              : 'MULTISIG',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -476,7 +497,7 @@ class WalletSpendingPathHelpers {
                             );
                           } finally {
                             Navigator.of(rootContext, rootNavigator: true)
-                                .pop(); // Dismiss dialog
+                                .pop();
                           }
                         }
                       },
@@ -598,13 +619,22 @@ class WalletSpendingPathHelpers {
           // Extract timelock for the path
           final timelock = pathInfo['timelock'] ?? 0;
 
+          final String timelockType =
+              pathInfo['type'].contains('RELATIVETIMELOCK')
+                  ? 'older'
+                  : pathInfo['type'].contains('ABSOLUTETIMELOCK')
+                      ? 'after'
+                      : 'none';
+
           // print('Timelock for the path: $timelock');
           // print('Current blockchain height: $currentHeight');
 
           String timeRemaining = 'Spendable';
 
           // Make a copy of utxos to avoid mutating the original list (optional but safe)
-          final sortedUtxos = List<Map<String, dynamic>>.from(utxos);
+          final sortedUtxos = utxos
+              .map<Map<String, dynamic>>((e) => Map<String, dynamic>.from(e))
+              .toList();
 
           // Sort by blocksRemaining (unconfirmed ones go last or first as you prefer)
           sortedUtxos.sort((a, b) {
@@ -654,7 +684,7 @@ class WalletSpendingPathHelpers {
                     ),
                     TextSpan(
                       text:
-                          "${UtilitiesService.formatBitcoinAmount(value)} - ${AppLocalizations.of(rootContext)!.translate('unconfirmed')}",
+                          "${UtilitiesService.formatBitcoinAmount(int.parse(value.toString()))} - ${AppLocalizations.of(rootContext)!.translate('unconfirmed')}",
                       style: TextStyle(
                         color: AppColors.text(context),
                       ),
@@ -665,11 +695,23 @@ class WalletSpendingPathHelpers {
             }
 
             // Determine if the transaction is spendable
-            final isSpendable =
-                blockHeight + timelock - 1 <= currentHeight || timelock == 0;
+            bool isSpendable;
+            if (timelockType == 'older') {
+              isSpendable = blockHeight + timelock - 1 <= currentHeight;
+            } else if (timelockType == 'after') {
+              isSpendable = timelock <= currentHeight;
+            } else {
+              isSpendable = true;
+            }
+
             // print('Is transaction spendable? $isSpendable');
 
-            final remainingBlocks = blockHeight + timelock - 1 - currentHeight;
+            int remainingBlocks;
+            if (timelockType == 'older') {
+              remainingBlocks = blockHeight + timelock - 1 - currentHeight;
+            } else {
+              remainingBlocks = timelock - currentHeight;
+            }
             // print(
             //     'Remaining blocks until timelock expires: $remainingBlocks');
 
@@ -692,7 +734,8 @@ class WalletSpendingPathHelpers {
                 children: [
                   if (isSpendable) ...[
                     TextSpan(
-                      text: "${UtilitiesService.formatBitcoinAmount(value)} ",
+                      text:
+                          "${UtilitiesService.formatBitcoinAmount(int.parse(value.toString()))} ",
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     TextSpan(
@@ -708,7 +751,8 @@ class WalletSpendingPathHelpers {
                           color: AppColors.cardTitle(context)),
                     ),
                     TextSpan(
-                      text: "${UtilitiesService.formatBitcoinAmount(value)}\n",
+                      text:
+                          "${UtilitiesService.formatBitcoinAmount(int.parse(value.toString()))}\n",
                     ),
                     TextSpan(
                       text:
@@ -749,7 +793,11 @@ class WalletSpendingPathHelpers {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "${AppLocalizations.of(rootContext)!.translate('type')}: ${pathInfo['type'].contains('RELATIVETIMELOCK') ? 'TIMELOCK $timelock blocks' : 'MULTISIG'}",
+                  timelockType == 'older'
+                      ? '${AppLocalizations.of(context)!.translate('rel_timelock')}: $timelock ${AppLocalizations.of(context)!.translate('blocks')}'
+                      : timelockType == 'after'
+                          ? '${AppLocalizations.of(context)!.translate('abs_timelock')}: $timelock ${AppLocalizations.of(context)!.translate('height')}'
+                          : 'MULTISIG',
                   style: TextStyle(
                     fontSize: 16,
                     color: AppColors.cardTitle(context),

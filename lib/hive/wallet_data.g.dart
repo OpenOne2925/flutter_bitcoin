@@ -25,17 +25,17 @@ class WalletDataAdapter extends TypeAdapter<WalletData> {
           .map((dynamic e) => (e as Map).cast<String, dynamic>())
           .toList(),
       currentHeight: fields[5] as int,
-      timeStamp: fields[6]
-          .toString(), // Changed manually to toString, since it doesn't work with the normal cast
+      timeStamp: fields[6].toString(),
       utxos: (fields[7] as List?)?.cast<dynamic>(),
       lastRefreshed: fields[8] as DateTime?,
+      myAddresses: fields[9] != null ? Set<String>.from(fields[9]) : {},
     );
   }
 
   @override
   void write(BinaryWriter writer, WalletData obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.address)
       ..writeByte(1)
@@ -53,7 +53,9 @@ class WalletDataAdapter extends TypeAdapter<WalletData> {
       ..writeByte(7)
       ..write(obj.utxos)
       ..writeByte(8)
-      ..write(obj.lastRefreshed);
+      ..write(obj.lastRefreshed)
+      ..writeByte(9)
+      ..write(obj.myAddresses?.toList());
   }
 
   @override

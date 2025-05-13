@@ -2,10 +2,9 @@ import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
-import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers2.dart';
+import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers.dart';
 import 'package:flutter_wallet/wallet_pages/qr_scanner_page.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_receive_helpers.dart';
-import 'package:flutter_wallet/wallet_helpers/wallet_sendtx_helpers.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 
@@ -13,7 +12,7 @@ class WalletButtonsHelper {
   final BuildContext context;
   final String address;
   final bool isSingleWallet;
-  final WalletSendtxHelpers2 sendTxHelper;
+  final WalletSendtxHelpers sendTxHelper;
   final WalletReceiveHelpers receiveHelper;
   final GlobalKey<BaseScaffoldState> baseScaffoldKey;
   final BigInt avBalance;
@@ -47,7 +46,7 @@ class WalletButtonsHelper {
     List<Map<String, dynamic>>? spendingPaths,
     List<String>? signersList,
     String? myAlias,
-  })  : sendTxHelper = WalletSendtxHelpers2(
+  })  : sendTxHelper = WalletSendtxHelpers(
           isSingleWallet: isSingleWallet,
           context: context,
           recipientController: recipientController,
@@ -174,7 +173,14 @@ class WalletButtonsHelper {
             onPressed: () async {
               final recipientAddressStr = await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const QRScannerPage()),
+                MaterialPageRoute(
+                  builder: (_) => QRScannerPage(
+                    title: 'Scan Bitcoin Address',
+                    isValid: (data) => extractBitcoinAddress(data) != null,
+                    extractValue: (data) => extractBitcoinAddress(data)!,
+                    errorKey: 'invalid_address',
+                  ),
+                ),
               );
 
               // If a valid Bitcoin address was scanned, show the transaction dialog

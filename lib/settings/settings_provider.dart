@@ -29,7 +29,7 @@ class SettingsProvider with ChangeNotifier {
   ThemeData get themeData => _themeData;
   bool get isDarkMode => _isDarkMode;
 
-  Network _network = Network.regtest; // default to mainnet
+  Network _network = Network.regtest;
 
   Network get network => _network;
 
@@ -59,7 +59,7 @@ class SettingsProvider with ChangeNotifier {
         _network = Network.testnet;
       }
     } else if (isTest) {
-      _network = Network.testnet;
+      _network = Network.regtest;
     } else {
       _network = Network.bitcoin;
     }

@@ -13,6 +13,7 @@ class WalletTransactionHelpers {
   final String address;
   final GlobalKey<BaseScaffoldState> baseScaffoldKey;
   final SettingsProvider settingsProvider;
+  final Set<String> myAddresses;
 
   WalletTransactionHelpers({
     required this.context,
@@ -20,6 +21,7 @@ class WalletTransactionHelpers {
     required this.address,
     required this.baseScaffoldKey,
     required this.settingsProvider,
+    required this.myAddresses,
   });
 
   void showTransactionsDialog(Map<String, dynamic> transaction) {
@@ -36,16 +38,16 @@ class WalletTransactionHelpers {
     final isConfirmed = blockHeight != null;
     final unformattedBlockTime = transaction['status']['block_time'] ?? 0;
 
+    DateTime formattedTime =
+        DateTime.fromMillisecondsSinceEpoch(unformattedBlockTime * 1000);
+    if (settingsProvider.isTestnet) {
+      formattedTime = formattedTime.subtract(const Duration(hours: 2));
+    }
+
     final blockTime = isConfirmed
-        ? DateTime.fromMillisecondsSinceEpoch(
-            unformattedBlockTime * 1000,
-          ).add(Duration(hours: -2)).toString().substring(
-            0,
-            DateTime.fromMillisecondsSinceEpoch(unformattedBlockTime * 1000)
-                    .add(Duration(hours: -2))
-                    .toString()
-                    .length -
-                7)
+        ? formattedTime
+            .toString()
+            .substring(0, formattedTime.toString().length - 7)
         : 'Unconfirmed';
 
     // Extract transaction fee
@@ -68,33 +70,34 @@ class WalletTransactionHelpers {
         0;
 
     // Determine if transaction is sent, received, or internal
-    final bool isSent = inputAddresses.contains(address);
-    final bool isReceived = outputAddresses.contains(address);
-    final bool isInternal = inputAddresses.length == 1 &&
-        inputAddresses.contains(address) &&
-        outputAddresses.length == 1 &&
-        outputAddresses.contains(address);
+    final isSent = inputAddresses.any((addr) => myAddresses.contains(addr));
+    final isReceived =
+        outputAddresses.any((addr) => myAddresses.contains(addr));
+    final isInternal = isSent &&
+        isReceived &&
+        inputAddresses.every((addr) => myAddresses.contains(addr)) &&
+        outputAddresses.every((addr) => myAddresses.contains(addr));
 
     // Determine the actual amount sent/received
     int amount = 0;
 
     if (isInternal) {
-      amount = totalOutput;
+      amount = totalOutput; // Internal tx stays the same
     } else if (isSent) {
+      // Sum outputs *not* belonging to any of your addresses
       amount = transaction['vout']
-              ?.where((vout) =>
-                  vout['scriptpubkey_address'] !=
-                  address) // Exclude own address
+              ?.where(
+                  (vout) => !myAddresses.contains(vout['scriptpubkey_address']))
               ?.fold<int>(
                 0,
                 (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
               ) ??
           0;
     } else if (isReceived) {
+      // Sum outputs that *do* belong to any of your addresses
       amount = transaction['vout']
-              ?.where((vout) =>
-                  vout['scriptpubkey_address'] ==
-                  address) // Include own address
+              ?.where(
+                  (vout) => myAddresses.contains(vout['scriptpubkey_address']))
               ?.fold<int>(
                 0,
                 (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
@@ -363,16 +366,16 @@ class WalletTransactionHelpers {
     final isConfirmed = blockHeight != null;
     final unformattedBlockTime = tx['status']['block_time'] ?? 0;
 
+    DateTime formattedTime =
+        DateTime.fromMillisecondsSinceEpoch(unformattedBlockTime * 1000);
+    if (settingsProvider.isTestnet) {
+      formattedTime = formattedTime.subtract(const Duration(hours: 2));
+    }
+
     final blockTime = isConfirmed
-        ? DateTime.fromMillisecondsSinceEpoch(
-            unformattedBlockTime * 1000,
-          ).add(Duration(hours: -2)).toString().substring(
-            0,
-            DateTime.fromMillisecondsSinceEpoch(unformattedBlockTime * 1000)
-                    .add(Duration(hours: -2))
-                    .toString()
-                    .length -
-                7)
+        ? formattedTime
+            .toString()
+            .substring(0, formattedTime.toString().length - 7)
         : 'Unconfirmed';
 
     // Transaction fee
@@ -399,34 +402,34 @@ class WalletTransactionHelpers {
         0;
 
     // Check if transaction is sent, received, or internal
-    final isSent = inputAddresses.contains(address); // Sent transaction
+    final isSent = inputAddresses.any((addr) => myAddresses.contains(addr));
     final isReceived =
-        outputAddresses.contains(address); // Received transaction
-    final isInternal = inputAddresses.length == 1 &&
-        inputAddresses.contains(address) &&
-        outputAddresses.length == 1 &&
-        outputAddresses.contains(address); // Internal transaction
+        outputAddresses.any((addr) => myAddresses.contains(addr));
+    final isInternal = isSent &&
+        isReceived &&
+        inputAddresses.every((addr) => myAddresses.contains(addr)) &&
+        outputAddresses.every((addr) => myAddresses.contains(addr));
 
     // Determine the amount sent/received
     int amount = 0;
 
     if (isInternal) {
-      amount = totalOutput; // Full amount in an internal transaction
+      amount = totalOutput; // Internal tx stays the same
     } else if (isSent) {
+      // Sum outputs *not* belonging to any of your addresses
       amount = tx['vout']
-              ?.where((vout) =>
-                  vout['scriptpubkey_address'] !=
-                  address) // Exclude own address
+              ?.where(
+                  (vout) => !myAddresses.contains(vout['scriptpubkey_address']))
               ?.fold<int>(
                 0,
                 (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
               ) ??
           0;
     } else if (isReceived) {
+      // Sum outputs that *do* belong to any of your addresses
       amount = tx['vout']
-              ?.where((vout) =>
-                  vout['scriptpubkey_address'] ==
-                  address) // Include only own address
+              ?.where(
+                  (vout) => myAddresses.contains(vout['scriptpubkey_address']))
               ?.fold<int>(
                 0,
                 (int sum, dynamic vout) => sum + ((vout['value'] as int?) ?? 0),
@@ -439,13 +442,14 @@ class WalletTransactionHelpers {
 
     if (isSent) {
       counterpartyAddress = outputAddresses
-          .where((addr) => addr != address) // Exclude own address
+          .where((addr) => !myAddresses.contains(addr))
           .join(', ');
     } else if (isReceived) {
       // If multiple input addresses exist, the sender is likely the one contributing the most BTC.
       if (inputAddresses.isNotEmpty) {
-        counterpartyAddress =
-            inputAddresses.first; // Default to the first sender
+        counterpartyAddress = inputAddresses
+            .where((addr) => !myAddresses.contains(addr))
+            .join(', ');
 
         // Find the input with the highest value (likely the fee payer)
         int highestInputValue = 0;

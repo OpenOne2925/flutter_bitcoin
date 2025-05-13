@@ -97,7 +97,7 @@ class UtilitiesService {
 
   static String formatBitcoinAmount(int sats) {
     if (sats < 1000000) {
-      return '$sats sats';
+      return '$sats';
     } else {
       double btc = sats / 100000000;
       return '${btc.toStringAsFixed(8).replaceFirst(RegExp(r'\.?0+$'), '')} BTC';

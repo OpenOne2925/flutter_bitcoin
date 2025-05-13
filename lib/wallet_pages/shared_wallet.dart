@@ -161,6 +161,7 @@ class SharedWalletState extends State<SharedWallet> {
   List<String> signersList = [];
   List<dynamic> utxos = [];
   Map<String, dynamic> policy = {};
+  Set<String> myAddresses = {};
   late Policy externalWalletPolicy;
 
   // Timer and Refresh Logic
@@ -318,6 +319,7 @@ class SharedWalletState extends State<SharedWallet> {
           _timeStamp = _walletData!.timeStamp;
           utxos = _walletData!.utxos!;
           _lastRefreshed = _walletData!.lastRefreshed;
+          myAddresses = _walletData!.myAddresses!;
 
           _isLoading = false;
         });
@@ -338,6 +340,11 @@ class SharedWalletState extends State<SharedWallet> {
       // print('DescriptorWidget: ${widget.descriptor}');
 
       wallet = await walletService.createSharedWallet(widget.descriptor);
+
+      myAddresses.add(wallet
+          .getAddress(addressIndex: AddressIndex.peek(index: 0))
+          .address
+          .asString());
 
       setState(() {
         isWalletInitialized = true;
@@ -381,6 +388,8 @@ class SharedWalletState extends State<SharedWallet> {
       // Extract wallet policies
       externalWalletPolicy = wallet.policies(KeychainKind.externalChain)!;
       policy = jsonDecode(externalWalletPolicy.asString());
+
+      walletService.printInChunks(externalWalletPolicy.toString());
 
       // Convert mnemonic to object
       Mnemonic trueMnemonic = await Mnemonic.fromString(widget.mnemonic);
@@ -497,9 +506,12 @@ class SharedWalletState extends State<SharedWallet> {
 
     await _fetchCurrentBlockHeight();
 
+    myAddresses.add(address);
+
     await walletService.saveLocalData(
       wallet,
       _lastRefreshed!,
+      myAddresses,
     );
 
     String walletAddress = walletService.getAddress(wallet);
@@ -516,7 +528,7 @@ class SharedWalletState extends State<SharedWallet> {
 
     // Fetch and set the transactions
     List<Map<String, dynamic>> transactions =
-        await walletService.getTransactions(walletAddress);
+        await walletService.getTransactions(address);
 
     transactions = walletService.sortTransactionsByConfirmations(
       transactions,
@@ -528,7 +540,7 @@ class SharedWalletState extends State<SharedWallet> {
     });
 
     // Fetch all transactions for the wallet
-    final walletUtxos = await walletService.getUtxos(address);
+    final walletUtxos = await walletService.getUtxos();
 
     setState(() {
       utxos = walletUtxos;
@@ -615,6 +627,7 @@ class SharedWalletState extends State<SharedWallet> {
       descriptorName: _descriptorName,
       baseScaffoldKey: baseScaffoldKey,
       isRefreshing: _isRefreshing,
+      myAddresses: myAddresses,
     );
 
     final spendingHelper = WalletSpendingPathHelpers(
@@ -666,7 +679,10 @@ class SharedWalletState extends State<SharedWallet> {
     );
 
     return BaseScaffold(
-      title: Text(_descriptorName),
+      title: Text(
+        _descriptorName,
+        style: TextStyle(fontSize: 18),
+      ),
       key: baseScaffoldKey,
       body: Stack(
         children: [

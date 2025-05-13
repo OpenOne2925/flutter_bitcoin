@@ -4,7 +4,18 @@ import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class QRScannerPage extends StatefulWidget {
-  const QRScannerPage({super.key});
+  final String title;
+  final String errorKey;
+  final bool Function(String) isValid;
+  final String Function(String) extractValue;
+
+  const QRScannerPage({
+    super.key,
+    required this.title,
+    required this.isValid,
+    required this.extractValue,
+    this.errorKey = 'invalid_qr_data',
+  });
 
   @override
   QRScannerPageState createState() => QRScannerPageState();
@@ -21,24 +32,18 @@ class QRScannerPageState extends State<QRScannerPage> {
 
   // Method to handle QR code scanning and extraction
   void _onDetect(BarcodeCapture barcodeCapture) {
-    final barcode =
-        barcodeCapture.barcodes.first; // Handle the first detected barcode
-    final String? code = barcode.rawValue;
+    final barcode = barcodeCapture.barcodes.first;
+    final String? rawData = barcode.rawValue;
 
-    if (code != null) {
-      final recipientAddressStr = extractBitcoinAddress(code);
-
-      if (!mounted) return;
-
-      if (recipientAddressStr != null) {
-        controller.stop(); // Stop the scanner when a valid address is found
-        Navigator.pop(context, recipientAddressStr); // Return the address
-      } else {
-        SnackBarHelper.showError(
-          context,
-          message: AppLocalizations.of(context)!.translate('invalid_address'),
-        );
-      }
+    if (rawData != null && widget.isValid(rawData)) {
+      final extracted = widget.extractValue(rawData);
+      controller.stop();
+      Navigator.pop(context, extracted);
+    } else {
+      SnackBarHelper.showError(
+        context,
+        message: AppLocalizations.of(context)!.translate(widget.errorKey),
+      );
     }
   }
 

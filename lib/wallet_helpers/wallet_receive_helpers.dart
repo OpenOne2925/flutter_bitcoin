@@ -25,7 +25,7 @@ class WalletReceiveHelpers {
             width: 200,
             height: 200,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white(),
               borderRadius: BorderRadius.circular(16.0),
               boxShadow: [
                 BoxShadow(
@@ -40,7 +40,7 @@ class WalletReceiveHelpers {
               data: address,
               version: QrVersions.auto,
               size: 180.0,
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.white(),
             ),
           ),
           const SizedBox(height: 16),

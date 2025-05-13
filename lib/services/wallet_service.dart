@@ -88,6 +88,20 @@ class WalletService extends ChangeNotifier {
   late Wallet wallet;
   late Blockchain blockchain;
 
+  // TODO: TESTNET3
+  // String get baseUrl {
+  //   switch (settingsProvider.network) {
+  //     case Network.testnet:
+  //       return 'https://blockstream.info/testnet/api';
+  //     case Network.regtest:
+  //       return 'https://regtest.open-one.it/api'; // or another regtest URL
+  //     case Network.bitcoin:
+  //     default:
+  //       return 'https://mempool.space/api';
+  //   }
+  // }
+
+  // TODO: TESTNET4
   String get baseUrl {
     switch (settingsProvider.network) {
       case Network.testnet:
@@ -100,6 +114,21 @@ class WalletService extends ChangeNotifier {
     }
   }
 
+  // TODO: Testnet3
+  // List<String> get electrumServers {
+  //   switch (settingsProvider.network) {
+  //     case Network.testnet:
+  //       return ["ssl://electrum.blockstream.info:60002"];
+  //     case Network.regtest:
+  //       return ["tcp://79.61.35.232:40001", "tcp://192.168.99.25:40001"];
+  //     case Network.bitcoin:
+  //       return ["ssl://electrum.blockstream.info:50002"];
+  //     default:
+  //       return [""];
+  //   }
+  // }
+
+  // TODO: Testnet4
   List<String> get electrumServers {
     switch (settingsProvider.network) {
       case Network.testnet:
@@ -260,7 +289,9 @@ class WalletService extends ChangeNotifier {
     // await syncWallet(wallet);
 
     var addressInfo = wallet.getAddress(
-      addressIndex: const AddressIndex.peek(index: 0),
+      addressIndex: const AddressIndex //
+          .increase(),
+      // .peek(index: 0),
     );
     return addressInfo.address.asString();
   }
@@ -420,27 +451,88 @@ class WalletService extends ChangeNotifier {
   }
 
   Future<List<Map<String, dynamic>>> getTransactions(String address) async {
-    try {
-      // Construct the URL
-      final url = '$baseUrl/address/$address/txs';
+    final results = wallet.listTransactions(includeRaw: true);
 
-      // Send the GET request to the API
-      final response = await http.get(Uri.parse(url));
+    List<Map<String, dynamic>> finalTxs = [];
 
-      // Check if the response was successful
-      if (response.statusCode == 200) {
-        // Parse the JSON response
-        List<dynamic> transactionsJson = jsonDecode(response.body);
+    for (var tx in results) {
+      final url = '$baseUrl/tx/${tx.txid}';
 
-        // Cast to List<Map<String, dynamic>> for easier processing
-        return List<Map<String, dynamic>>.from(transactionsJson);
-      } else {
-        throw Exception(
-          'Failed to load transactions. Status Code: ${response.statusCode}',
-        );
+      try {
+        // print(url);
+
+        // Send the GET request to the API
+        final response = await http.get(Uri.parse(url));
+
+        // Check if the response was successful
+        if (response.statusCode == 200) {
+          // Parse the JSON response
+          Map<String, dynamic> txJson = jsonDecode(response.body);
+
+          // Do not add 'index' key — use the list index instead
+          finalTxs.add(txJson);
+        } else {
+          throw Exception(
+            'Failed to load transactions. Status Code: ${response.statusCode}',
+          );
+        }
+      } catch (e) {
+        throw Exception('Failed to fetch transactions: $e');
       }
-    } catch (e) {
-      throw Exception('Failed to fetch transactions: $e');
+    }
+
+    // printInChunks('txsnew: $finalTxs');
+
+    return finalTxs;
+  }
+
+  // Future<List<Map<String, dynamic>>> getTransactions(String address) async {
+  //   try {
+  //     // Construct the URL
+  //     final url = '$baseUrl/address/$address/txs';
+
+  //     print(url);
+
+  //     // Send the GET request to the API
+  //     final response = await http.get(Uri.parse(url));
+
+  //     // Check if the response was successful
+  //     if (response.statusCode == 200) {
+  //       // Parse the JSON response
+  //       List<dynamic> transactionsJson = jsonDecode(response.body);
+
+  //       printInChunks(
+  //           'txsold: ${List<Map<String, dynamic>>.from(transactionsJson)}');
+
+  //       // Cast to List<Map<String, dynamic>> for easier processing
+  //       return List<Map<String, dynamic>>.from(transactionsJson);
+  //     } else {
+  //       throw Exception(
+  //         'Failed to load transactions. Status Code: ${response.statusCode}',
+  //       );
+  //     }
+  //   } catch (e) {
+  //     throw Exception('Failed to fetch transactions: $e');
+  //   }
+  // }
+
+  Future<int> fetchCurrentBlockHeightMempool() async {
+    // print(await blockchain.getHeight());
+
+    final String blockApiUrl = '$baseUrl/blocks/tip/height';
+
+    final response = await http.get(Uri.parse(blockApiUrl));
+
+    if (response.statusCode == 200) {
+      // Decode JSON response
+      final int jsonData = json.decode(response.body);
+
+      print(response.body);
+
+      return jsonData;
+    } else {
+      print('Error: "timestamp" field not found in response.');
+      throw Exception('Block API response missing timestamp field.');
     }
   }
 
@@ -453,7 +545,7 @@ class WalletService extends ChangeNotifier {
   Future<String> fetchBlockTimestamp(int height) async {
     try {
       String currentHash = await blockchain.getBlockHash(height: height);
-      // print('currentHash: $currentHash');
+      print('currentHash: $currentHash');
 
       // API endpoint to fetch block details
       final String blockApiUrl = '$baseUrl/block/$currentHash';
@@ -473,16 +565,15 @@ class WalletService extends ChangeNotifier {
 
           // print('timestamp from method: $timestamp');
 
-          return DateTime.fromMillisecondsSinceEpoch(timestamp * 1000)
-              .add(Duration(hours: -2))
+          DateTime formattedTime =
+              DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+          if (settingsProvider.isTestnet) {
+            formattedTime = formattedTime.subtract(const Duration(hours: 2));
+          }
+
+          return formattedTime
               .toString()
-              .substring(
-                0,
-                DateTime.fromMillisecondsSinceEpoch(
-                      timestamp * 1000,
-                    ).add(Duration(hours: -2)).toString().length -
-                    7,
-              );
+              .substring(0, formattedTime.toString().length - 7);
         } else {
           print('Error: "timestamp" field not found in response.');
           throw Exception('Block API response missing timestamp field.');
@@ -508,58 +599,136 @@ class WalletService extends ChangeNotifier {
     }
   }
 
+  // String formatTime(int totalSeconds, BuildContext context) {
+  //   if (totalSeconds <= 0) return "0 seconds";
+
+  //   final hours = totalSeconds ~/ 3600;
+  //   final minutes = (totalSeconds % 3600) ~/ 60;
+  //   final seconds = totalSeconds % 60;
+
+  //   return AppLocalizations.of(context)!
+  //       .translate('time_remaining')
+  //       .replaceAll('{x}', hours.toString())
+  //       .replaceAll('{y}', minutes.toString())
+  //       .replaceAll('{z}', seconds.toString());
+  // }
+
   String formatTime(int totalSeconds, BuildContext context) {
-    if (totalSeconds <= 0) return "0 seconds";
+    if (totalSeconds <= 0) {
+      return AppLocalizations.of(context)!.translate('zero_seconds');
+    }
 
-    final hours = totalSeconds ~/ 3600;
-    final minutes = (totalSeconds % 3600) ~/ 60;
-    final seconds = totalSeconds % 60;
+    const secondsInYear = 31536000;
+    const secondsInMonth = 2592000;
+    const secondsInDay = 86400;
+    const secondsInHour = 3600;
+    const secondsInMinute = 60;
 
-    return AppLocalizations.of(context)!
-        .translate('time_remaining')
-        .replaceAll('{x}', hours.toString())
-        .replaceAll('{y}', minutes.toString())
-        .replaceAll('{z}', seconds.toString());
+    final years = totalSeconds ~/ secondsInYear;
+    totalSeconds %= secondsInYear;
+
+    final months = totalSeconds ~/ secondsInMonth;
+    totalSeconds %= secondsInMonth;
+
+    final days = totalSeconds ~/ secondsInDay;
+    totalSeconds %= secondsInDay;
+
+    final hours = totalSeconds ~/ secondsInHour;
+    totalSeconds %= secondsInHour;
+
+    final minutes = totalSeconds ~/ secondsInMinute;
+    final seconds = totalSeconds % secondsInMinute;
+
+    final loc = AppLocalizations.of(context)!;
+
+    String formatUnit(int value, String singularKey, String pluralKey) {
+      if (value == 0) return '';
+      final label = loc.translate(value == 1 ? singularKey : pluralKey);
+      return '$value $label';
+    }
+
+    List<String> parts = [];
+
+    parts.addAll([
+      formatUnit(years, 'year', 'years'),
+      formatUnit(months, 'month', 'months'),
+      formatUnit(days, 'day', 'days'),
+      formatUnit(hours, 'hour', 'hours'),
+      formatUnit(minutes, 'minute', 'minutes'),
+      formatUnit(seconds, 'second', 'seconds'),
+    ]);
+
+    // Filter out empty parts and join with commas
+    return parts.where((p) => p.isNotEmpty).join(', ');
   }
 
-  Future<List<dynamic>> getUtxos(String address) async {
-    final url = '$baseUrl/address/$address/utxo';
-    List<dynamic> utxos = [];
+  // Future<List<dynamic>> getUtxos(String address) async {
+  //   final url = '$baseUrl/address/$address/utxo';
+  //   List<dynamic> utxos = [];
 
-    // print('ciaooo: ${wallet.listUnspent()}');
+  //   print('[DEBUG] Fetching UTXOs for address: $address');
+  //   print('[DEBUG] Constructed URL: $url');
 
-    // final List<LocalUtxo> walletUtxos = wallet.listUnspent();
+  //   try {
+  //     final response = await http.get(Uri.parse(url));
+  //     print('[DEBUG] HTTP GET response status: ${response.statusCode}');
 
-    // for (var utxo in walletUtxos) {
-    //   print(utxo.txout.scriptPubkey);
-    //   print(utxo.txout.value);
-    //   print(utxo.isSpent);
-    //   print(utxo.outpoint.txid);
-    //   print(utxo.outpoint.vout);
-    // }
+  //     if (response.statusCode == 200) {
+  //       utxos = json.decode(response.body);
+  //       print('[DEBUG] Decoded UTXOs: $utxos');
+  //     } else {
+  //       print(
+  //         '[ERROR] Failed to fetch UTXOs. HTTP status: ${response.statusCode}',
+  //       );
+  //       print('[ERROR] Response body: ${response.body}');
+  //     }
 
-    print('[DEBUG] Fetching UTXOs for address: $address');
-    print('[DEBUG] Constructed URL: $url');
+  //     return utxos;
+  //   } catch (e) {
+  //     print('[EXCEPTION] Error fetching UTXOs: $e');
+  //     return utxos;
+  //   }
+  // }
 
-    try {
-      final response = await http.get(Uri.parse(url));
-      print('[DEBUG] HTTP GET response status: ${response.statusCode}');
+  Future<List<dynamic>> getUtxos() async {
+    List<dynamic> finalUtxos = [];
+    final walletUtxos = wallet.listUnspent();
 
-      if (response.statusCode == 200) {
-        utxos = json.decode(response.body);
-        print('[DEBUG] Decoded UTXOs: $utxos');
-      } else {
-        print(
-          '[ERROR] Failed to fetch UTXOs. HTTP status: ${response.statusCode}',
-        );
-        print('[ERROR] Response body: ${response.body}');
+    for (var utxo in walletUtxos) {
+      final txid = utxo.outpoint.txid;
+      final vout = utxo.outpoint.vout;
+      final value = utxo.txout.value;
+
+      try {
+        final txResponse = await http.get(Uri.parse('$baseUrl/tx/$txid'));
+
+        if (txResponse.statusCode == 200) {
+          final txData = json.decode(txResponse.body);
+
+          final status = {
+            'confirmed': txData['status']['confirmed'],
+            'block_height': txData['status']['block_height'],
+            'block_hash': txData['status']['block_hash'],
+            'block_time': txData['status']['block_time'],
+          };
+
+          finalUtxos.add({
+            'txid': txid,
+            'vout': vout,
+            'status': status,
+            'value': value,
+          });
+
+          print('[DEBUG] Decoded UTXOs: $finalUtxos');
+        } else {
+          print('[ERROR] Failed to fetch tx $txid: ${txResponse.statusCode}');
+        }
+      } catch (e) {
+        print('[EXCEPTION] While fetching tx $txid: $e');
       }
-
-      return utxos;
-    } catch (e) {
-      print('[EXCEPTION] Error fetching UTXOs: $e');
-      return utxos;
     }
+
+    return finalUtxos;
   }
 
   bool checkCondition(
@@ -588,7 +757,8 @@ class WalletService extends ChangeNotifier {
           blockHeight + timelock <= currentHeight || timelock == 0;
 
       if (isSpendable) {
-        totalSpendableValue += utxoValue; // Add spendable UTXO value
+        totalSpendableValue +=
+            int.parse(utxoValue.toString()); // Add spendable UTXO value
       }
 
       // Check if MULTISIG condition is satisfied
@@ -1043,7 +1213,11 @@ class WalletService extends ChangeNotifier {
     return 'wsh(or_d($multi,$timelockCondition))';
   }
 
-  Future<void> saveLocalData(Wallet wallet, DateTime lastRefreshed) async {
+  Future<void> saveLocalData(
+    Wallet wallet,
+    DateTime lastRefreshed,
+    Set<String> myAddresses,
+  ) async {
     String currentAddress = getAddress(wallet);
 
     final totalBalance = await getBitcoinBalance(currentAddress);
@@ -1052,9 +1226,8 @@ class WalletService extends ChangeNotifier {
     final currentHeight = await fetchCurrentBlockHeight();
     final timestamp = await fetchBlockTimestamp(currentHeight);
 
-    List<Map<String, dynamic>> transactions = await getTransactions(
-      currentAddress,
-    );
+    List<Map<String, dynamic>> transactions =
+        await getTransactions(currentAddress);
     transactions = sortTransactionsByConfirmations(transactions, currentHeight);
 
     final walletData = WalletData(
@@ -1065,8 +1238,9 @@ class WalletService extends ChangeNotifier {
       transactions: transactions,
       currentHeight: currentHeight,
       timeStamp: timestamp,
-      utxos: await getUtxos(currentAddress),
+      utxos: await getUtxos(),
       lastRefreshed: lastRefreshed,
+      myAddresses: myAddresses,
     );
 
     // Save the data to Hive
@@ -1167,34 +1341,6 @@ class WalletService extends ChangeNotifier {
     return (derivedExtendedSecretKey, derivedExtendedPublicKey);
   }
 
-  Future<int> extractOlderWithPrivateKey(String descriptor) async {
-    // Adjusted regex to match only "older" values followed by "pk(...tprv...)"
-    final regExp = RegExp(
-      r'older\((\d+)\).*?pk\(\[.*?]([tvxyz]p(?:rv|ub)[a-zA-Z0-9]+)',
-    );
-    final matches = regExp.allMatches(descriptor);
-
-    int older = 0;
-
-    for (var match in matches) {
-      String olderValue = match.group(1)!; // Extract the older value
-      String keyType = match.group(2)!; // Capture whether it's tprv or tpub
-
-      // Only process the match if it's a private key (tprv)
-      if (keyType.startsWith("xprv") ||
-          keyType.startsWith("yprv") ||
-          keyType.startsWith("zprv") ||
-          keyType.startsWith("tprv") ||
-          keyType.startsWith("uprv") ||
-          keyType.startsWith("vprv")) {
-        // print('Found older value associated with private key: $olderValue');
-        older = int.parse(olderValue);
-      }
-    }
-
-    return older;
-  }
-
   // Function to traverse and extract both the id and the path to the fingerprint
   List<Map<String, dynamic>> extractAllPathsToFingerprint(
     Map<String, dynamic> policy,
@@ -1288,6 +1434,9 @@ class WalletService extends ChangeNotifier {
               if (sibling['type'] == 'RELATIVETIMELOCK') {
                 type = "RELATIVETIMELOCK > $type";
                 timelockValue = sibling['value']; // Capture timelock value
+              } else if (sibling['type'] == 'ABSOLUTETIMELOCK') {
+                type = "ABSOLUTETIMELOCK > $type";
+                timelockValue = sibling['value'];
               }
             }
           }
@@ -1318,6 +1467,9 @@ class WalletService extends ChangeNotifier {
           for (var sibling in parentItems) {
             if (sibling['type'] == 'RELATIVETIMELOCK') {
               type = "RELATIVETIMELOCK > $type";
+              timelockValue = sibling['value'];
+            } else if (sibling['type'] == 'ABSOLUTETIMELOCK') {
+              type = "ABSOLUTETIMELOCK > $type";
               timelockValue = sibling['value'];
             }
           }
@@ -1364,8 +1516,8 @@ class WalletService extends ChangeNotifier {
       List<String> path,
       List<dynamic>? parentItems,
     ) {
-      // print(
-      //     "Traversing node: ${node['id'] ?? 'Unknown ID'}, Path: ${path.join(' > ')}");
+      print(
+          "Traversing node: ${node['id'] ?? 'Unknown ID'}, Path: ${path.join(' > ')}");
 
       // Check if this node has keys
       if (node['keys'] != null) {
@@ -1388,11 +1540,14 @@ class WalletService extends ChangeNotifier {
             if (sibling['type'] == 'RELATIVETIMELOCK') {
               type = "RELATIVETIMELOCK > $type";
               timelockValue = sibling['value']; // Capture the timelock value
+            } else if (sibling['type'] == 'ABSOLUTETIMELOCK') {
+              type = "ABSOLUTETIMELOCK > $type";
+              timelockValue = sibling['value'];
             }
           }
         }
 
-        // print("Path found in node: ${node['id'] ?? 'Unknown ID'}");
+        print("Path found in node: ${node['id'] ?? 'Unknown ID'}");
         result.add({
           'type': type, // Type reflects sibling constraints
           'threshold': node['threshold'],
@@ -1400,12 +1555,12 @@ class WalletService extends ChangeNotifier {
           'path': path.join(' > '),
           'timelock': timelockValue,
         });
-        // print("Added to result: ${result.last}");
+        print("Added to result: ${result.last}");
       }
 
       // Check if this node has a direct fingerprint reference (e.g., ECDSASIGNATURE)
       if (node['type'] == 'ECDSASIGNATURE') {
-        // print("Checking ECDSASIGNATURE in node: ${node['id'] ?? 'Unknown ID'}");
+        print("Checking ECDSASIGNATURE in node: ${node['id'] ?? 'Unknown ID'}");
         String type = "ECDSASIGNATURE";
         int? timelockValue;
 
@@ -1415,6 +1570,9 @@ class WalletService extends ChangeNotifier {
             if (sibling['type'] == 'RELATIVETIMELOCK') {
               type = "RELATIVETIMELOCK > $type";
               timelockValue = sibling['value']; // Capture the timelock value
+            } else if (sibling['type'] == 'ABSOLUTETIMELOCK') {
+              type = "ABSOLUTETIMELOCK > $type";
+              timelockValue = sibling['value'];
             }
           }
         }
@@ -1431,8 +1589,8 @@ class WalletService extends ChangeNotifier {
 
       // Recursively traverse child nodes in "items"
       if (node['items'] != null) {
-        // print(
-        //     "Node has child items: ${node['items'].length} found in node: ${node['id'] ?? 'Unknown ID'}");
+        print(
+            "Node has child items: ${node['items'].length} found in node: ${node['id'] ?? 'Unknown ID'}");
         List<dynamic> items = node['items'];
         for (int i = 0; i < items.length; i++) {
           traverse(
@@ -1445,13 +1603,13 @@ class WalletService extends ChangeNotifier {
           );
         }
       } else {
-        // print("No child items in node: ${node['id'] ?? 'Unknown ID'}");
+        print("No child items in node: ${node['id'] ?? 'Unknown ID'}");
       }
     }
 
-    // print("Starting traversal for all paths");
+    print("Starting traversal for all paths");
     traverse(json, [], null);
-    // print("Traversal complete. Results: $result");
+    print("Traversal complete. Results: $result");
     return result;
   }
 
@@ -1812,12 +1970,7 @@ class WalletService extends ChangeNotifier {
         } catch (e) {
           print('Error: $e');
 
-          final utxos = await getUtxos(
-            wallet
-                .getAddress(addressIndex: AddressIndex.peek(index: 0))
-                .address
-                .toString(),
-          );
+          final utxos = await getUtxos();
 
           // print(spendingPaths);
           // print(chosenPath);
@@ -1861,7 +2014,7 @@ class WalletService extends ChangeNotifier {
           // Sum the value of spendable UTXOs
           final totalSpendableBalance = spendableUtxos.fold<int>(
             0,
-            (sum, utxo) => sum + (utxo['value'] as int),
+            (sum, utxo) => sum + (int.parse(utxo['value'].toString())),
           );
 
           print('totalSpendableBalance: $totalSpendableBalance');
@@ -1896,13 +2049,7 @@ class WalletService extends ChangeNotifier {
       print('Spending: $amount');
       print('LocalUtxos: $localUtxos');
 
-      final utxos = localUtxos ??
-          await getUtxos(
-            wallet
-                .getAddress(addressIndex: AddressIndex.peek(index: 0))
-                .address
-                .toString(),
-          );
+      final utxos = localUtxos ?? await getUtxos();
 
       // spendingPaths = extractAllPaths(policy);
 

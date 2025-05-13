@@ -31,6 +31,9 @@ class WalletData extends HiveObject {
   @HiveField(8)
   DateTime? lastRefreshed;
 
+  @HiveField(9)
+  Set<String>? myAddresses;
+
   WalletData({
     required this.address,
     required this.balance,
@@ -41,5 +44,6 @@ class WalletData extends HiveObject {
     required this.timeStamp,
     required this.utxos,
     required this.lastRefreshed,
+    required this.myAddresses,
   });
 }

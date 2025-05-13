@@ -7,6 +7,7 @@ import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
+import 'package:flutter_wallet/wallet_pages/qr_scanner_page.dart';
 import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
@@ -19,6 +20,7 @@ import 'package:hive/hive.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
 
 class CreateSharedWallet extends StatefulWidget {
   const CreateSharedWallet({super.key});
@@ -759,6 +761,10 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                                     style: const TextStyle(fontSize: 14),
                                   ),
                                   Text(
+                                    '${AppLocalizations.of(context)!.translate('after')}: ${condition['after']}',
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  Text(
                                     '${AppLocalizations.of(context)!.translate('pub_keys')}: ${aliases.join(', ')}',
                                     style: const TextStyle(fontSize: 14),
                                   ),
@@ -851,19 +857,50 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextFormField(
-              controller: publicKeyController,
-              decoration: CustomTextFieldStyles.textFieldDecoration(
-                context: context,
-                labelText: AppLocalizations.of(rootContext)!
-                    .translate('enter_pub_key'),
-                hintText: AppLocalizations.of(rootContext)!
-                    .translate('enter_pub_key'),
-                borderColor: AppColors.background(context),
-              ),
-              style: TextStyle(
-                color: AppColors.text(context),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: publicKeyController,
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText: AppLocalizations.of(rootContext)!
+                          .translate('enter_pub_key'),
+                      hintText: AppLocalizations.of(rootContext)!
+                          .translate('enter_pub_key'),
+                      borderColor: AppColors.background(context),
+                    ),
+                    style: TextStyle(
+                      color: AppColors.text(context),
+                    ),
+                  ),
+                ),
+                InkwellButton(
+                  onTap: () async {
+                    final result =
+                        await Navigator.of(context, rootNavigator: true).push(
+                      MaterialPageRoute(
+                        builder: (_) => QRScannerPage(
+                          title: 'Scan PubKey',
+                          isValid: (data) => true,
+                          // data.startsWith('cHUB') || data.startsWith('psbt'),
+                          extractValue: (data) => data,
+                          errorKey: 'invalid_pub_key',
+                        ),
+                      ),
+                    );
+
+                    if (result != null) {
+                      // ✅ If needed, reopen the dialog here with updated data
+                      publicKeyController.text = result;
+                    }
+                  },
+                  backgroundColor: AppColors.gradient(context),
+                  textColor: AppColors.text(context),
+                  icon: Icons.qr_code_scanner,
+                  iconColor: AppColors.icon(context),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
             TextFormField(
@@ -974,6 +1011,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       {Map<String, dynamic>? condition, isUpdating = false}) {
     final TextEditingController thresholdController = TextEditingController();
     final TextEditingController olderController = TextEditingController();
+    final TextEditingController afterController = TextEditingController();
+
     List<Map<String, dynamic>> selectedPubKeys =
         []; // Store both pubkey and alias
 
@@ -1100,9 +1139,36 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     ),
                     keyboardType: TextInputType.number,
                   ),
+
                   const SizedBox(height: 10),
+
+                  // Older condition
                   TextFormField(
                     controller: olderController,
+                    onChanged: (value) {
+                      setDialogState(() {
+                        if (int.tryParse(value) != null &&
+                            int.parse(value) > 65535) {
+                          // If the entered value exceeds the max, reset it to the max
+                          olderController.text = '65535';
+                          olderController.selection =
+                              TextSelection.fromPosition(
+                            TextPosition(
+                              offset: olderController.text.length,
+                            ),
+                          );
+                        } else {
+                          olderController.text = value;
+                        }
+                      });
+
+                      setDialogState(() {
+                        // Clear the 'after' field if 'older' is filled
+                        if (value.isNotEmpty) {
+                          afterController.clear();
+                        }
+                      });
+                    },
                     decoration: CustomTextFieldStyles.textFieldDecoration(
                       context: context,
                       labelText: AppLocalizations.of(rootContext)!
@@ -1116,7 +1182,64 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     ),
                     keyboardType: TextInputType.number,
                   ),
+
                   const SizedBox(height: 10),
+
+                  // After condition
+                  TextFormField(
+                    controller: afterController,
+                    onChanged: (value) async {
+                      final settingsProvider =
+                          Provider.of<SettingsProvider>(context, listen: false);
+
+                      final WalletService wallServ =
+                          WalletService(settingsProvider);
+                      final String blockApiUrl =
+                          '${wallServ.baseUrl}/blocks/tip/height';
+
+                      try {
+                        final response = await http.get(Uri.parse(blockApiUrl));
+                        final int currHeight = json.decode(response.body);
+
+                        int yearLimit5 = currHeight + 262800;
+
+                        setDialogState(() {
+                          int? enteredValue = int.tryParse(value);
+
+                          if (enteredValue != null) {
+                            if (enteredValue > yearLimit5) {
+                              afterController.text = yearLimit5.toString();
+                              afterController.selection =
+                                  TextSelection.fromPosition(
+                                TextPosition(
+                                    offset: afterController.text.length),
+                              );
+                            } else {
+                              afterController.text = enteredValue.toString();
+                            }
+
+                            // Clear 'older' if 'after' is set
+                            olderController.clear();
+                          }
+                        });
+                      } catch (e) {
+                        // Handle network or parse error gracefully
+                        print("Error fetching block height: $e");
+                      }
+                    },
+                    decoration: CustomTextFieldStyles.textFieldDecoration(
+                      context: context,
+                      labelText: AppLocalizations.of(rootContext)!
+                          .translate('enter_after'),
+                      hintText:
+                          AppLocalizations.of(rootContext)!.translate('after'),
+                      borderColor: AppColors.background(context),
+                    ),
+                    style: TextStyle(
+                      color: AppColors.text(context),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
                 ],
               ),
           ],
@@ -1130,8 +1253,11 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
               InkwellButton(
                 onTap: () {
                   if (thresholdController.text.isNotEmpty &&
-                      olderController.text.isNotEmpty &&
-                      selectedPubKeys.isNotEmpty) {
+                      selectedPubKeys.isNotEmpty &&
+                      (olderController.text.isNotEmpty ||
+                          afterController.text.isNotEmpty) &&
+                      !(olderController.text.isNotEmpty &&
+                          afterController.text.isNotEmpty)) {
                     // Convert input to integer for accurate comparison
                     int newOlder = int.tryParse(olderController.text) ?? -1;
                     final newPubkeys = selectedPubKeys;
@@ -1174,9 +1300,10 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                           timelockConditions.add({
                             'threshold': thresholdController.text,
                             'older': olderController.text,
+                            'after': afterController.text,
                             'pubkeys': jsonEncode(newPubkeys),
                           });
-                          // print(timelockConditions);
+                          print(timelockConditions);
                         });
 
                         // Close the dialog after adding the condition
@@ -1260,69 +1387,92 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
   }
 
   void _createDescriptor() {
+    print('Starting descriptor creation...');
+
     // Validate inputs
     _validateInputs();
 
-    // If any section is missing, stop further processing
     if (_isDescriptorNameMissing ||
         _isThresholdMissing ||
         _arePublicKeysMissing ||
         _isYourPubKeyMissing) {
+      print('Validation failed: Missing descriptor fields.');
       return;
     }
 
-    // Extract only the public keys from the list of public keys with alias
+    // Extract and sort public keys
     List<String> extractedPublicKeys = publicKeysWithAliasMultisig
         .map((entry) => entry['publicKey']!)
         .toList()
-      ..sort(); // Sort alphabetically
+      ..sort();
 
-    // Format the public keys for the descriptor
+    print('Extracted public keys: $extractedPublicKeys');
+
     String formattedKeys =
         extractedPublicKeys.toString().replaceAll(RegExp(r'^\[|\]$'), '');
 
     String multi = 'multi($threshold,$formattedKeys)';
+    print('Multi condition: $multi');
+
     String finalDescriptor;
 
-    // Handle any potential duplicates in timelock public keys
-    _handleTimelocks();
+    _handleTimelocks(); // Optional: Add debug log inside that method if needed
+    print('Timelock conditions after handling: $timelockConditions');
 
     if (timelockConditions.isNotEmpty) {
-      timelockConditions.sort(
-          (a, b) => int.parse(a['older']).compareTo(int.parse(b['older'])));
-      // Build timelock condition string
+      timelockConditions.sort((a, b) {
+        int getTimeLock(Map cond) =>
+            int.tryParse(cond['older'] ?? cond['after'] ?? '0') ?? 0;
+        return getTimeLock(a).compareTo(getTimeLock(b));
+      });
+
+      print('Sorted timelock conditions: $timelockConditions');
+
       List<String> formattedTimelocks = timelockConditions.map((condition) {
         String threshold = condition['threshold'];
         String older = condition['older'];
+        String after = condition['after'];
 
-        // Extract only the publicKey values from pubkeys
+        print('olderCondition: $older');
+        print('afterCondition: $after');
+
+        String timeCondition = older.isNotEmpty
+            ? 'older($older)'
+            : after.isNotEmpty
+                ? 'after($after)'
+                : throw Exception('Missing TimeLock condition');
+
         List<String> pubkeys = (condition['pubkeys'] as List)
             .map((key) => key['publicKey'] as String)
             .toList()
-          ..sort(); // Sort alphabetically
+          ..sort();
 
-        // Construct multi condition for the current timelock
         String pubkeysString = pubkeys.join(',');
         String multiCondition = pubkeys.length > 1
             ? 'multi($threshold,$pubkeysString)'
             : 'pk(${pubkeys.first})';
 
-        // Combine with the older value
-        return 'and_v(v:older($older),$multiCondition)';
+        String result = 'and_v(v:$timeCondition,$multiCondition)';
+        print('Formatted timelock: $result');
+
+        return result;
       }).toList();
 
-      // Combine all timelock conditions into a single valid condition
       String timelockCondition = buildTimelockCondition(formattedTimelocks);
+      print('Combined timelock condition: $timelockCondition');
+
       finalDescriptor = 'wsh(or_d($multi,$timelockCondition))';
     } else {
       finalDescriptor = 'wsh($multi)';
     }
 
-    // _walletService.printInChunks(finalDescriptor);
+    print('Final descriptor before cleaning: $finalDescriptor');
 
     setState(() {
       _finalDescriptor = finalDescriptor.replaceAll(' ', '');
     });
+
+    print('Final descriptor stored: $_finalDescriptor');
 
     _createDescriptorDialog(context);
   }
@@ -1451,6 +1601,21 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                           ),
                           TextSpan(
                             text: '${condition['older']}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.normal,
+                              color: AppColors.text(context),
+                            ),
+                          ),
+                          TextSpan(
+                            text:
+                                '${AppLocalizations.of(rootContext)!.translate('after')}: ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.cardTitle(context),
+                            ),
+                          ),
+                          TextSpan(
+                            text: '${condition['after']}',
                             style: TextStyle(
                               fontWeight: FontWeight.normal,
                               color: AppColors.text(context),
@@ -1617,10 +1782,10 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                               },
                               label: AppLocalizations.of(rootContext)!
                                   .translate('no'),
-                              backgroundColor: Colors.white,
-                              textColor: Colors.black,
+                              backgroundColor: AppColors.gradient(context),
+                              textColor: AppColors.text(context),
                               icon: Icons.cancel_rounded,
-                              iconColor: Colors.redAccent,
+                              iconColor: AppColors.icon(context),
                             ),
                             InkwellButton(
                               onTap: () {
@@ -1629,10 +1794,10 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                               },
                               label: AppLocalizations.of(rootContext)!
                                   .translate('yes'),
-                              backgroundColor: Colors.white,
-                              textColor: Colors.black,
+                              backgroundColor: AppColors.text(context),
+                              textColor: AppColors.gradient(context),
                               icon: Icons.check_circle,
-                              iconColor: AppColors.accent(context),
+                              iconColor: AppColors.icon(context),
                             ),
                           ],
                         )) ??

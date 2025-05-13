@@ -55,6 +55,7 @@ class WalletPageState extends State<WalletPage> {
   int ledBalance = 0;
   int avBalance = 0;
   List<Map<String, dynamic>> _transactions = [];
+  Set<String> myAddresses = {};
 
   // Currency and Ledger Balances
   double ledCurrencyBalance = 0.0;
@@ -137,6 +138,11 @@ class WalletPageState extends State<WalletPage> {
     // Restore wallet from the saved mnemonic
     wallet = await walletService.loadSavedWallet();
 
+    myAddresses.add(wallet
+        .getAddress(addressIndex: AddressIndex.peek(index: 0))
+        .address
+        .asString());
+
     setState(() {
       isWalletInitialized = true;
     });
@@ -167,6 +173,7 @@ class WalletPageState extends State<WalletPage> {
         _currentHeight = _walletData!.currentHeight;
         _timeStamp = _walletData!.timeStamp;
         _lastRefreshed = _walletData!.lastRefreshed;
+        myAddresses = _walletData!.myAddresses!;
 
         _isLoading = false;
       });
@@ -225,7 +232,13 @@ class WalletPageState extends State<WalletPage> {
 
     await _fetchCurrentBlockHeight();
 
-    await walletService.saveLocalData(wallet, _lastRefreshed!);
+    myAddresses.add(address);
+
+    await walletService.saveLocalData(
+      wallet,
+      _lastRefreshed!,
+      myAddresses,
+    );
 
     String walletAddress = walletService.getAddress(wallet);
     setState(() {
@@ -241,7 +254,7 @@ class WalletPageState extends State<WalletPage> {
 
     // Fetch and set the transactions
     List<Map<String, dynamic>> transactions =
-        await walletService.getTransactions(walletAddress);
+        await walletService.getTransactions(address);
 
     transactions = walletService.sortTransactionsByConfirmations(
       transactions,
@@ -252,7 +265,11 @@ class WalletPageState extends State<WalletPage> {
       _transactions = transactions;
     });
 
-    await walletService.saveLocalData(wallet, _lastRefreshed!);
+    await walletService.saveLocalData(
+      wallet,
+      _lastRefreshed!,
+      myAddresses,
+    );
   }
 
   Future<void> _fetchCurrentBlockHeight() async {
@@ -334,6 +351,7 @@ class WalletPageState extends State<WalletPage> {
       isSingleWallet: true,
       baseScaffoldKey: baseScaffoldKey,
       isRefreshing: _isRefreshing,
+      myAddresses: myAddresses,
     );
 
     final walletButtonsHelper = WalletButtonsHelper(

@@ -25,6 +25,14 @@ class AppColors {
     return Colors.orangeAccent[400]!;
   }
 
+  static Color black() {
+    return Colors.black;
+  }
+
+  static Color white() {
+    return Colors.white;
+  }
+
   static Color darkPrimary(BuildContext context) {
     if (_isRegtest(context)) return Colors.blue[700]!;
     if (_isTestnet(context)) return Colors.green[600]!;

@@ -463,21 +463,21 @@ class BaseScaffoldState extends State<BaseScaffold> {
               icon: Icon(Icons.help_outline, color: AppColors.icon(context)),
               onPressed: _toggleAssistant,
             ),
-          IconButton(
-            icon: Icon(
-              Icons.travel_explore,
-              color: AppColors.icon(context),
-            ),
-            onPressed: () async {
-              final Uri url = Uri.parse("https://btcmap.org/map");
+          // IconButton(
+          //   icon: Icon(
+          //     Icons.travel_explore,
+          //     color: AppColors.icon(context),
+          //   ),
+          //   onPressed: () async {
+          //     final Uri url = Uri.parse("https://btcmap.org/map");
 
-              if (await canLaunchUrl(url)) {
-                await launchUrl(url, mode: LaunchMode.externalApplication);
-              } else {
-                throw "Could not launch $url";
-              }
-            },
-          ),
+          //     if (await canLaunchUrl(url)) {
+          //       await launchUrl(url, mode: LaunchMode.externalApplication);
+          //     } else {
+          //       throw "Could not launch $url";
+          //     }
+          //   },
+          // ),
           IconButton(
             icon: Icon(
               settingsProvider.isDarkMode ? Icons.dark_mode : Icons.light_mode,

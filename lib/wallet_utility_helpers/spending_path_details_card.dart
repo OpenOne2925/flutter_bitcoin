@@ -18,7 +18,13 @@ class SpendingPathDetailsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (path == null) return const SizedBox();
 
-    final isTimelock = path!['type'].contains('RELATIVETIMELOCK');
+    final String timelockType = path!['type'].contains('RELATIVETIMELOCK')
+        ? 'older'
+        : path!['type'].contains('ABSOLUTETIMELOCK')
+            ? 'after'
+            : 'none';
+
+    final isTimelock = timelockType != 'none';
     final threshold = path!['threshold'];
     final fingerprints = path!['fingerprints'] as List;
 
@@ -59,7 +65,7 @@ class SpendingPathDetailsCard extends StatelessWidget {
                   ),
                   TextSpan(
                     text: isTimelock
-                        ? "TIMELOCK: ${path!['timelock']} ${AppLocalizations.of(rootContext)!.translate('blocks')}"
+                        ? "TIMELOCK (${timelockType.toUpperCase()}): ${path!['timelock']} ${AppLocalizations.of(rootContext)!.translate(timelockType == 'older' ? 'blocks' : 'height')}"
                         : "MULTISIG $threshold of ${aliases.length}",
                   ),
                   const TextSpan(text: "\n"),
