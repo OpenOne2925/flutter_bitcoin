@@ -107,7 +107,7 @@ class WalletPageState extends State<WalletPage> {
 
       // Define derivation paths
       final hardenedDerivationPath =
-          await DerivationPath.create(path: "m/84h/1h/0h");
+          await DerivationPath.create(path: "m/86h/1h/0h");
       final receivingDerivationPath = await DerivationPath.create(path: "m/0");
 
       // Derive descriptor keys
@@ -138,11 +138,6 @@ class WalletPageState extends State<WalletPage> {
     // Restore wallet from the saved mnemonic
     wallet = await walletService.loadSavedWallet();
 
-    myAddresses.add(wallet
-        .getAddress(addressIndex: AddressIndex.peek(index: 0))
-        .address
-        .asString());
-
     setState(() {
       isWalletInitialized = true;
     });
@@ -159,9 +154,12 @@ class WalletPageState extends State<WalletPage> {
       _lastRefreshed = DateTime.now();
     });
 
-    address = walletService.getAddress(wallet);
+    String walletId = wallet
+        .getAddress(addressIndex: AddressIndex.peek(index: 0))
+        .address
+        .asString();
 
-    _walletData = await _walletStorageService.loadWalletData(address);
+    _walletData = await _walletStorageService.loadWalletData(walletId);
 
     if (_walletData != null) {
       // If offline data is available, use it to update the UI
@@ -223,6 +221,15 @@ class WalletPageState extends State<WalletPage> {
     );
   }
 
+  bool isAddressinTransaction(Map<String, dynamic> tx, String address) {
+    return (tx['vin'] as List).any((vin) {
+          final prevout = vin['prevout'];
+          return prevout != null && prevout['scriptpubkey_address'] == address;
+        }) ||
+        (tx['vout'] as List)
+            .any((vout) => vout['scriptpubkey_address'] == address);
+  }
+
   Future<void> _syncWallet() async {
     setState(() {
       _lastRefreshed = DateTime.now();
@@ -232,17 +239,13 @@ class WalletPageState extends State<WalletPage> {
 
     await _fetchCurrentBlockHeight();
 
-    myAddresses.add(address);
-
-    await walletService.saveLocalData(
-      wallet,
-      _lastRefreshed!,
-      myAddresses,
-    );
-
-    String walletAddress = walletService.getAddress(wallet);
     setState(() {
-      address = walletAddress;
+      if (address.isEmpty) {
+        address = wallet
+            .getAddress(addressIndex: AddressIndex.peek(index: 0))
+            .address
+            .asString();
+      }
     });
 
     Map<String, int> balance = await walletService.getBitcoinBalance(address);
@@ -264,6 +267,14 @@ class WalletPageState extends State<WalletPage> {
     setState(() {
       _transactions = transactions;
     });
+
+    bool isAddressUsed =
+        transactions.any((tx) => isAddressinTransaction(tx, address));
+
+    if (isAddressUsed && !myAddresses.contains(address)) {
+      myAddresses.add(address);
+    }
+    print('myaddresses: $myAddresses');
 
     await walletService.saveLocalData(
       wallet,
@@ -355,18 +366,25 @@ class WalletPageState extends State<WalletPage> {
     );
 
     final walletButtonsHelper = WalletButtonsHelper(
-        context: context,
-        address: address,
-        mnemonic: myMnemonic,
-        isSingleWallet: true,
-        recipientController: _recipientController,
-        amountController: _amountController,
-        walletService: walletService,
-        currentHeight: _currentHeight,
-        mounted: mounted,
-        wallet: wallet,
-        baseScaffoldKey: baseScaffoldKey,
-        avBalance: BigInt.from(avBalance));
+      context: context,
+      address: address,
+      mnemonic: myMnemonic,
+      isSingleWallet: true,
+      recipientController: _recipientController,
+      amountController: _amountController,
+      walletService: walletService,
+      currentHeight: _currentHeight,
+      mounted: mounted,
+      wallet: wallet,
+      baseScaffoldKey: baseScaffoldKey,
+      avBalance: BigInt.from(avBalance),
+      myAddresses: myAddresses,
+      onNewAddressGenerated: (newAddr) {
+        setState(() {
+          address = newAddr;
+        });
+      },
+    );
 
     return BaseScaffold(
       title: Text(

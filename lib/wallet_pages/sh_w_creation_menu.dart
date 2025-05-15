@@ -63,7 +63,7 @@ class ShWCreationMenuState extends State<ShWCreationMenu> {
             },
             child: CustomButton(
               onPressed: () {
-                Navigator.pushNamed(context, '/create_shared');
+                Navigator.pushNamed(context, '/create_shared_backup');
               },
               backgroundColor: AppColors.background(context),
               foregroundColor: AppColors.gradient(context),

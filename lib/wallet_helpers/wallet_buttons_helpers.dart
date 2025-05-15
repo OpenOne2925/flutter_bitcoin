@@ -16,6 +16,10 @@ class WalletButtonsHelper {
   final WalletReceiveHelpers receiveHelper;
   final GlobalKey<BaseScaffoldState> baseScaffoldKey;
   final BigInt avBalance;
+  final Wallet wallet;
+  final WalletService walletService;
+  final Set<String> myAddresses;
+  final void Function(String newAddress)? onNewAddressGenerated;
 
   WalletButtonsHelper({
     required this.context,
@@ -23,14 +27,16 @@ class WalletButtonsHelper {
     required this.isSingleWallet,
     required this.baseScaffoldKey,
     required this.avBalance,
+    required this.wallet,
+    required this.walletService,
+    required this.myAddresses,
+    required this.onNewAddressGenerated,
 
     // Common Variables
     required TextEditingController recipientController,
     required TextEditingController amountController,
-    required WalletService walletService,
     required bool mounted,
     required String mnemonic,
-    required Wallet wallet,
     required int currentHeight,
 
     // SharedWallet Variables
@@ -64,11 +70,14 @@ class WalletButtonsHelper {
           mounted: mounted,
           avBalance: avBalance,
           signersList: signersList ?? [],
-          address: address,
           pubKeysAlias: pubKeysAlias ?? [],
           wallet: wallet,
+          onNewAddressGenerated: onNewAddressGenerated,
         ),
-        receiveHelper = WalletReceiveHelpers(context: context);
+        receiveHelper = WalletReceiveHelpers(
+          context: context,
+          onNewAddressGenerated: onNewAddressGenerated,
+        );
 
   Widget buildButtons() {
     return SafeArea(
@@ -210,7 +219,8 @@ class WalletButtonsHelper {
             }
           },
           child: CustomButton(
-            onPressed: () => receiveHelper.showQRCodeDialog(address),
+            onPressed: () =>
+                receiveHelper.showQRCodeDialog(walletService, wallet),
             backgroundColor: AppColors.background(context),
             foregroundColor: AppColors.text(context),
             icon: Icons.arrow_downward,

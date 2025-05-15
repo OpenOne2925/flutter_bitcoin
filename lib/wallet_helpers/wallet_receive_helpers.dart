@@ -1,17 +1,30 @@
+import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
+import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class WalletReceiveHelpers {
   final BuildContext context;
+  final void Function(String newAddress)? onNewAddressGenerated;
 
-  WalletReceiveHelpers({required this.context});
+  WalletReceiveHelpers({
+    required this.context,
+    required this.onNewAddressGenerated,
+  });
 
   // Method to display the QR code in a dialog
-  void showQRCodeDialog(String address) {
+  void showQRCodeDialog(
+    WalletService walletService,
+    Wallet wallet,
+  ) {
     final rootContext = context;
+
+    String address = walletService.getAddress(wallet);
+
+    onNewAddressGenerated?.call(address);
 
     DialogHelper.buildCustomDialog(
       context: rootContext,

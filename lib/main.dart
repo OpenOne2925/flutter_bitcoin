@@ -9,6 +9,7 @@ import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/loading_screens/splash_screen.dart';
 import 'package:flutter_wallet/wallet_pages/ca_wallet_page.dart';
 import 'package:flutter_wallet/wallet_pages/create_shared_wallet.dart';
+import 'package:flutter_wallet/wallet_pages/create_shared_wallet_backup.dart';
 import 'package:flutter_wallet/wallet_pages/example_nfc.dart';
 import 'package:flutter_wallet/wallet_pages/import_shared_wallet.dart';
 import 'package:flutter_wallet/security_pages/pin_setup_page.dart';
@@ -169,6 +170,7 @@ class MyApp extends StatelessWidget {
         '/pin_verification_page': (context) => const PinVerificationPage(),
         '/shared_wallet': (context) => const ShWCreationMenu(),
         '/create_shared': (context) => const CreateSharedWallet(),
+        '/create_shared_backup': (context) => const CreateSharedWalletBackup(),
         '/import_shared': (context) => const ImportSharedWallet(),
         '/settings': (context) => const SettingsPage(),
         '/example_nfc': (context) => const ExampleNfc(),

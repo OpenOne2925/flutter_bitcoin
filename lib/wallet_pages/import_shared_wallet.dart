@@ -89,7 +89,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
     final mnemonic = await Mnemonic.fromString(savedMnemonic);
 
     final hardenedDerivationPath =
-        await DerivationPath.create(path: "m/84h/1h/0h");
+        await DerivationPath.create(path: "m/86h/1h/0h");
 
     final receivingDerivationPath = await DerivationPath.create(path: "m/0");
     final changeDerivationPath = await DerivationPath.create(path: "m/1");

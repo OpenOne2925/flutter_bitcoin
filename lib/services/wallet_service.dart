@@ -114,7 +114,7 @@ class WalletService extends ChangeNotifier {
     }
   }
 
-  // TODO: Testnet3
+  // TODO: TESTNET3
   // List<String> get electrumServers {
   //   switch (settingsProvider.network) {
   //     case Network.testnet:
@@ -128,7 +128,7 @@ class WalletService extends ChangeNotifier {
   //   }
   // }
 
-  // TODO: Testnet4
+  // TODO: TESTNET4
   List<String> get electrumServers {
     switch (settingsProvider.network) {
       case Network.testnet:
@@ -196,6 +196,7 @@ class WalletService extends ChangeNotifier {
           descriptor: descriptorStr,
           network: settingsProvider.network,
         );
+
         print('🏗️ Descriptor created successfully.');
 
         print('💾 Attempting to create wallet in memory...');
@@ -293,6 +294,9 @@ class WalletService extends ChangeNotifier {
           .increase(),
       // .peek(index: 0),
     );
+
+    print('New Address generated: ${addressInfo.address.asString()}');
+
     return addressInfo.address.asString();
   }
 
@@ -1012,7 +1016,7 @@ class WalletService extends ChangeNotifier {
     final trueMnemonic = await Mnemonic.fromString(mnemonic);
 
     final hardenedDerivationPath = await DerivationPath.create(
-      path: "m/84h/1h/0h",
+      path: "m/86h/1h/0h",
     );
 
     final receivingDerivationPath = await DerivationPath.create(path: "m/0");
@@ -1081,7 +1085,7 @@ class WalletService extends ChangeNotifier {
           mnemonic: mnemonicObj,
         );
 
-        final descriptor = await Descriptor.newBip84(
+        final descriptor = await Descriptor.newBip86(
           secretKey: descriptorSecretKey,
           network: settingsProvider.network,
           keychain: e,
@@ -1185,40 +1189,17 @@ class WalletService extends ChangeNotifier {
     );
   }
 
-  String createWalletDescriptor(
-    String primaryReceivingSecret,
-    String secondaryReceivingPublic,
-    int primaryTimelock,
-    int secondaryTimelock,
-    String primaryChangePublic,
-    String secondaryChangePublic,
-  ) {
-    // Define the multi-sig condition based on timelock priority
-    String multi = (primaryTimelock < secondaryTimelock)
-        ? 'multi(2,$primaryReceivingSecret,$secondaryReceivingPublic)'
-        : 'multi(2,$secondaryReceivingPublic,$primaryReceivingSecret)';
-
-    // Define the timelock conditions for Perro and Gato
-    String timelockPerro =
-        'and_v(v:older($secondaryTimelock),pk($secondaryChangePublic))';
-    String timelockGato =
-        'and_v(v:older($primaryTimelock),pk($primaryChangePublic))';
-
-    // Combine the timelock conditions
-    String timelockCondition = (primaryTimelock < secondaryTimelock)
-        ? 'or_i($timelockGato,$timelockPerro)'
-        : 'or_i($timelockPerro,$timelockGato)';
-
-    // Return the final walletDescriptor
-    return 'wsh(or_d($multi,$timelockCondition))';
-  }
-
   Future<void> saveLocalData(
     Wallet wallet,
     DateTime lastRefreshed,
     Set<String> myAddresses,
   ) async {
     String currentAddress = getAddress(wallet);
+
+    String walletId = wallet
+        .getAddress(addressIndex: AddressIndex.peek(index: 0))
+        .address
+        .asString();
 
     final totalBalance = await getBitcoinBalance(currentAddress);
     final availableBalance = totalBalance['confirmedBalance'];
@@ -1244,7 +1225,7 @@ class WalletService extends ChangeNotifier {
     );
 
     // Save the data to Hive
-    await _walletStorageService.saveWalletData(currentAddress, walletData);
+    await _walletStorageService.saveWalletData(walletId, walletData);
   }
 
   String replacePubKeyWithPrivKeyMultiSig(
@@ -1320,23 +1301,36 @@ class WalletService extends ChangeNotifier {
     DerivationPath unHardenedPath,
     Mnemonic mnemonic,
   ) async {
+    print("🔐 Starting key derivation process...");
+    print("🧠 Mnemonic: $mnemonic");
+    print("📌 Network: ${settingsProvider.network}");
+    print("📍 Hardened path: $hardenedPath");
+    print("📍 Unhardened path: $unHardenedPath");
+
     // Create the root secret key from the mnemonic
     final secretKey = await DescriptorSecretKey.create(
       network: settingsProvider.network,
       mnemonic: mnemonic,
     );
+    print("✅ Root secret key created: ${secretKey.asString()}");
 
     // Derive the key at the hardened path
     final derivedSecretKey = secretKey.derive(hardenedPath);
+    print("📍 Derived hardened secret key: ${derivedSecretKey.asString()}");
 
     // Extend the derived secret key further using the unhardened path
     final derivedExtendedSecretKey = derivedSecretKey.extend(unHardenedPath);
+    print("🔁 Extended secret key: ${derivedExtendedSecretKey.asString()}");
 
     // Convert the derived secret key to its public counterpart
     final publicKey = derivedSecretKey.toPublic();
+    print("🔓 Public key from hardened key: ${publicKey.asString()}");
 
     // Extend the public key using the same unhardened path
     final derivedExtendedPublicKey = publicKey.extend(path: unHardenedPath);
+    print("🔁 Extended public key: ${derivedExtendedPublicKey.asString()}");
+
+    print("✅ Key derivation complete");
 
     return (derivedExtendedSecretKey, derivedExtendedPublicKey);
   }
@@ -1456,8 +1450,8 @@ class WalletService extends ChangeNotifier {
         }
       }
 
-      // Check if this node has a direct fingerprint reference (e.g., ECDSASIGNATURE)
-      if (node['type'] == 'ECDSASIGNATURE' &&
+      // Check if this node has a direct fingerprint reference (e.g., SCHNORRSIGNATURE)
+      if (node['type'] == 'SCHNORRSIGNATURE' &&
           node['fingerprint'] == fingerprint) {
         String type = node['type'];
         int? timelockValue;
@@ -1482,7 +1476,7 @@ class WalletService extends ChangeNotifier {
           'path': path.join(' > '),
           'timelock': timelockValue,
         });
-        // print("Added ECDSASIGNATURE to result: ${result.last}");
+        // print("Added SCHNORRSIGNATURE to result: ${result.last}");
       }
 
       // Recursively traverse child nodes in "items"
@@ -1558,10 +1552,11 @@ class WalletService extends ChangeNotifier {
         print("Added to result: ${result.last}");
       }
 
-      // Check if this node has a direct fingerprint reference (e.g., ECDSASIGNATURE)
-      if (node['type'] == 'ECDSASIGNATURE') {
-        print("Checking ECDSASIGNATURE in node: ${node['id'] ?? 'Unknown ID'}");
-        String type = "ECDSASIGNATURE";
+      // Check if this node has a direct fingerprint reference (e.g., SCHNORRSIGNATURE)
+      if (node['type'] == 'SCHNORRSIGNATURE') {
+        print(
+            "Checking SCHNORRSIGNATURE in node: ${node['id'] ?? 'Unknown ID'}");
+        String type = "SCHNORRSIGNATURE";
         int? timelockValue;
 
         // Look for sibling constraints (e.g., RELATIVETIMELOCK)
@@ -1579,12 +1574,12 @@ class WalletService extends ChangeNotifier {
 
         result.add({
           'type': type,
-          'threshold': null, // No threshold for ECDSASIGNATURE
+          'threshold': null, // No threshold for SCHNORRSIGNATURE
           'fingerprints': [node['fingerprint']], // Single fingerprint
           'path': path.join(' > '),
           'timelock': timelockValue,
         });
-        // print("Added ECDSASIGNATURE to result: ${result.last}");
+        // print("Added SCHNORRSIGNATURE to result: ${result.last}");
       }
 
       // Recursively traverse child nodes in "items"
@@ -1790,7 +1785,7 @@ class WalletService extends ChangeNotifier {
     Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
 
     final hardenedDerivationPath = await DerivationPath.create(
-      path: "m/84h/1h/0h",
+      path: "m/86h/1h/0h",
     );
 
     final receivingDerivationPath = await DerivationPath.create(path: "m/0");
@@ -2187,7 +2182,7 @@ class WalletService extends ChangeNotifier {
     Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
 
     final hardenedDerivationPath = await DerivationPath.create(
-      path: "m/84h/1h/0h",
+      path: "m/86h/1h/0h",
     );
 
     final receivingDerivationPath = await DerivationPath.create(path: "m/0");

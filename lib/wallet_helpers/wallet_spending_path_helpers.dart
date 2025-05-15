@@ -30,6 +30,7 @@ class WalletSpendingPathHelpers {
   final Wallet wallet;
   final String address;
   final BigInt avBalance;
+  final void Function(String newAddress)? onNewAddressGenerated;
 
   bool _isUserInteracting = false;
   bool _isScrollingForward = true;
@@ -52,6 +53,7 @@ class WalletSpendingPathHelpers {
     required this.wallet,
     required this.address,
     required this.avBalance,
+    required this.onNewAddressGenerated,
 
     // SharedWallet Variables
     String? descriptor,
@@ -73,9 +75,9 @@ class WalletSpendingPathHelpers {
           mnemonic: mnemonic,
           mounted: mounted,
           avBalance: avBalance,
-          address: address,
           pubKeysAlias: pubKeysAlias,
           wallet: wallet,
+          onNewAddressGenerated: onNewAddressGenerated,
         ) {
     _startAutoScroll(); // Start scrolling when the class is initialized
   }

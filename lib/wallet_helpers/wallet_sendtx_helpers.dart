@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
-import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
@@ -15,7 +14,6 @@ import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:flutter_wallet/widget_helpers/fee_selector.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
 
@@ -23,15 +21,14 @@ class WalletSendtxHelpers {
   final bool isSingleWallet;
   final BuildContext context;
   final TextEditingController recipientController;
-
   final TextEditingController amountController;
   final WalletService walletService;
   final int currentHeight;
   final Wallet wallet;
   final String mnemonic;
   final bool mounted;
-  final String address;
   final BigInt avBalance;
+  final void Function(String newAddress)? onNewAddressGenerated;
 
   TextEditingController? psbtController;
   TextEditingController? signingAmountController;
@@ -58,10 +55,10 @@ class WalletSendtxHelpers {
     required this.walletService,
     required this.mnemonic,
     required this.wallet,
-    required this.address,
     required this.currentHeight,
     required this.mounted,
     required this.avBalance,
+    required this.onNewAddressGenerated,
 
     // SharedWallet Variables
     this.psbtController,
@@ -92,6 +89,10 @@ class WalletSendtxHelpers {
       return;
     }
 
+    String address = walletService.getAddress(wallet);
+
+    onNewAddressGenerated?.call(address);
+
     final extractedData =
         walletService.extractDataByFingerprint(policy!, myFingerPrint!);
     if (extractedData.isNotEmpty) {
@@ -99,8 +100,8 @@ class WalletSendtxHelpers {
       selectedIndex = index ?? 0;
     }
 
-    print(selectedIndex);
-    print(selectedPath);
+    print('SelectedIndex: $selectedIndex');
+    print('SelectedPath: $selectedPath');
 
     showPSBT = isCreating;
 
@@ -164,6 +165,7 @@ class WalletSendtxHelpers {
             setDialogState,
             extractedData,
             rootContext,
+            address,
           ),
         ];
       },
@@ -221,6 +223,7 @@ class WalletSendtxHelpers {
     void Function(void Function()) setDialogState,
     List<Map<String, dynamic>> extractedData,
     BuildContext rootContext,
+    String address,
   ) {
     return InkwellButton(
       onTap: () async {
@@ -235,6 +238,7 @@ class WalletSendtxHelpers {
           rootContext: rootContext,
           extractedData: extractedData,
           setDialogState: setDialogState,
+          address: address,
         );
       },
       label: AppLocalizations.of(rootContext)!.translate(
@@ -344,6 +348,7 @@ class WalletSendtxHelpers {
     required BuildContext rootContext,
     required List<Map<String, dynamic>> extractedData,
     required void Function(void Function()) setDialogState,
+    required String address,
   }) async {
     bool userConfirmed = false;
 
@@ -394,6 +399,7 @@ class WalletSendtxHelpers {
           await _decodePsbt(
             extractedData,
             setDialogState,
+            address,
           );
 
           return;
@@ -474,6 +480,7 @@ class WalletSendtxHelpers {
   Future<void> _decodePsbt(
     List<Map<String, dynamic>> extractedData,
     void Function(void Function()) setDialogState,
+    String address,
   ) async {
     try {
       final psbt =

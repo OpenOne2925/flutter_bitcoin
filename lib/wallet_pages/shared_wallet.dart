@@ -396,7 +396,7 @@ class SharedWalletState extends State<SharedWallet> {
 
       // Define derivation paths
       final hardenedDerivationPath =
-          await DerivationPath.create(path: "m/84h/1h/0h");
+          await DerivationPath.create(path: "m/86h/1h/0h");
       final receivingDerivationPath = await DerivationPath.create(path: "m/0");
 
       // Derive descriptor keys
@@ -495,6 +495,15 @@ class SharedWalletState extends State<SharedWallet> {
     );
   }
 
+  bool isAddressinTransaction(Map<String, dynamic> tx, String address) {
+    return (tx['vin'] as List).any((vin) {
+          final prevout = vin['prevout'];
+          return prevout != null && prevout['scriptpubkey_address'] == address;
+        }) ||
+        (tx['vout'] as List)
+            .any((vout) => vout['scriptpubkey_address'] == address);
+  }
+
   Future<void> _syncWallet() async {
     setState(() {
       _lastRefreshed = DateTime.now();
@@ -506,13 +515,14 @@ class SharedWalletState extends State<SharedWallet> {
 
     await _fetchCurrentBlockHeight();
 
-    myAddresses.add(address);
-
-    await walletService.saveLocalData(
-      wallet,
-      _lastRefreshed!,
-      myAddresses,
-    );
+    setState(() {
+      if (address.isEmpty) {
+        address = wallet
+            .getAddress(addressIndex: AddressIndex.peek(index: 0))
+            .address
+            .asString();
+      }
+    });
 
     String walletAddress = walletService.getAddress(wallet);
     setState(() {
@@ -545,6 +555,20 @@ class SharedWalletState extends State<SharedWallet> {
     setState(() {
       utxos = walletUtxos;
     });
+
+    bool isAddressUsed =
+        transactions.any((tx) => isAddressinTransaction(tx, address));
+
+    if (isAddressUsed && !myAddresses.contains(address)) {
+      myAddresses.add(address);
+    }
+    print('myaddresses: $myAddresses');
+
+    await walletService.saveLocalData(
+      wallet,
+      _lastRefreshed!,
+      myAddresses,
+    );
   }
 
   void _convertCurrency() async {
@@ -649,6 +673,11 @@ class SharedWalletState extends State<SharedWallet> {
       myFingerPrint: myFingerPrint,
       descriptor: _descriptor,
       avBalance: BigInt.from(avBalance),
+      onNewAddressGenerated: (newAddr) {
+        setState(() {
+          address = newAddr;
+        });
+      },
     );
 
     final walletButtonsHelper = WalletButtonsHelper(
@@ -676,6 +705,12 @@ class SharedWalletState extends State<SharedWallet> {
       myAlias: myAlias,
       baseScaffoldKey: baseScaffoldKey,
       avBalance: BigInt.from(avBalance),
+      myAddresses: myAddresses,
+      onNewAddressGenerated: (newAddr) {
+        setState(() {
+          address = newAddr;
+        });
+      },
     );
 
     return BaseScaffold(

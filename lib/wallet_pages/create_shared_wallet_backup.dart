@@ -22,14 +22,15 @@ import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 
-class CreateSharedWallet extends StatefulWidget {
-  const CreateSharedWallet({super.key});
+class CreateSharedWalletBackup extends StatefulWidget {
+  const CreateSharedWalletBackup({super.key});
 
   @override
-  CreateSharedWalletState createState() => CreateSharedWalletState();
+  CreateSharedWalletBackupState createState() =>
+      CreateSharedWalletBackupState();
 }
 
-class CreateSharedWalletState extends State<CreateSharedWallet> {
+class CreateSharedWalletBackupState extends State<CreateSharedWalletBackup> {
   late final WalletService _walletService;
 
   final TextEditingController _thresholdController = TextEditingController();
@@ -115,7 +116,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       // print('Mnemonic: $savedMnemonic');
 
       final hardenedDerivationPath =
-          await DerivationPath.create(path: "m/84h/1h/0h");
+          await DerivationPath.create(path: "m/86h/1h/0h");
       final receivingDerivationPath = await DerivationPath.create(path: "m/0");
 
       final (_, receivingPublicKey) = await _walletService.deriveDescriptorKeys(
@@ -141,6 +142,29 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       setState(() => isLoading = false);
     }
   }
+
+  // Future<void> _generatePublicKey({bool isGenerating = true}) async {
+  //   setState(() => isLoading = true);
+  //   try {
+  //     final walletBox = Hive.box('walletBox');
+  //     final savedMnemonic = walletBox.get('walletMnemonic');
+
+  //     final receivingPublicKey =
+  //         _walletService.getXOnlyPubKey(savedMnemonic, "m/86'/1'/0'/0/0");
+
+  //     setState(() {
+  //       if (isGenerating) {
+  //         _publicKey = receivingPublicKey.toString();
+  //       }
+  //       initialPubKey = receivingPublicKey.toString();
+  //       _mnemonic = savedMnemonic;
+  //     });
+  //   } catch (e) {
+  //     print("Error generating public key: $e");
+  //   } finally {
+  //     setState(() => isLoading = false);
+  //   }
+  // }
 
   // Asynchronous method to validate the descriptor
   Future<bool> _validateDescriptor(String descriptor) async {
@@ -1385,94 +1409,129 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
   }
 
   void _createDescriptor() {
-    print('Starting descriptor creation...');
+    print('🚀 Starting descriptor creation...');
 
-    // Validate inputs
+    // Step 1: Validate inputs
+    print('🧪 Validating inputs...');
     _validateInputs();
 
     if (_isDescriptorNameMissing ||
         _isThresholdMissing ||
         _arePublicKeysMissing ||
         _isYourPubKeyMissing) {
-      print('Validation failed: Missing descriptor fields.');
+      print('❌ Validation failed: Missing descriptor fields.');
       return;
     }
+    print('✅ Validation passed.');
 
-    // Extract and sort public keys
+    // Step 2: Extract and sort public keys
+    print('🔍 Extracting public keys from user input...');
     List<String> extractedPublicKeys = publicKeysWithAliasMultisig
         .map((entry) => entry['publicKey']!)
         .toList()
       ..sort();
 
-    print('Extracted public keys: $extractedPublicKeys');
+    print('📋 Sorted Public Keys: $extractedPublicKeys');
 
     String formattedKeys =
         extractedPublicKeys.toString().replaceAll(RegExp(r'^\[|\]$'), '');
+    print('🔧 Formatted keys string for descriptor: $formattedKeys');
 
-    String multi = 'multi($threshold,$formattedKeys)';
-    print('Multi condition: $multi');
+    // ⚠️ Fixed: Do not prepend a key outside of multi_a
+    String multi = 'multi_a($threshold,$formattedKeys)';
+    print('🔗 Multi_a expression: $multi');
 
     String finalDescriptor;
 
     _handleTimelocks(); // Optional: Add debug log inside that method if needed
     print('Timelock conditions after handling: $timelockConditions');
 
+    // Step 3: Handle optional timelocks
     if (timelockConditions.isNotEmpty) {
+      print('⏱ Handling timelock conditions...');
+
+      // Sort timelocks by block/time
       timelockConditions.sort((a, b) {
         int getTimeLock(Map cond) =>
             int.tryParse(cond['older'] ?? cond['after'] ?? '0') ?? 0;
         return getTimeLock(a).compareTo(getTimeLock(b));
       });
 
-      print('Sorted timelock conditions: $timelockConditions');
+      print('📋 Sorted timelock conditions: $timelockConditions');
 
+      // Format each timelock into Miniscript
       List<String> formattedTimelocks = timelockConditions.map((condition) {
         String threshold = condition['threshold'];
-        String older = condition['older'];
-        String after = condition['after'];
+        String older = condition['older'] ?? '';
+        String after = condition['after'] ?? '';
 
-        print('olderCondition: $older');
-        print('afterCondition: $after');
+        print('⏳ Processing timelock condition:');
+        print('  🔐 Threshold: $threshold');
+        print('  🔁 Older: $older');
+        print('  📆 After: $after');
 
         String timeCondition = older.isNotEmpty
             ? 'older($older)'
             : after.isNotEmpty
                 ? 'after($after)'
-                : throw Exception('Missing TimeLock condition');
+                : throw Exception(
+                    '⚠️ Timelock condition missing `older` or `after` value');
 
         List<String> pubkeys = (condition['pubkeys'] as List)
             .map((key) => key['publicKey'] as String)
             .toList()
           ..sort();
 
+        print('  🔑 Sorted pubkeys for this condition: $pubkeys');
+
         String pubkeysString = pubkeys.join(',');
         String multiCondition = pubkeys.length > 1
-            ? 'multi($threshold,$pubkeysString)'
+            ? 'multi_a($threshold,$pubkeysString)'
             : 'pk(${pubkeys.first})';
 
+        print('  🔧 Script expression: $multiCondition');
+
         String result = 'and_v(v:$timeCondition,$multiCondition)';
-        print('Formatted timelock: $result');
+        print('  🧱 Final formatted timelock expression: $result');
 
         return result;
       }).toList();
 
+      // Combine the timelocks and the multi_a base
       String timelockCondition = buildTimelockCondition(formattedTimelocks);
-      print('Combined timelock condition: $timelockCondition');
+      print('🧩 Combined timelock condition: $timelockCondition');
 
-      finalDescriptor = 'wsh(or_d($multi,$timelockCondition))';
+      // Use nested logic for final tr() descriptor
+      finalDescriptor =
+          'tr(${extractedPublicKeys.first}, ${nestConditions(multi, [
+            timelockCondition
+          ])})';
+
+      print('🧬 Final descriptor with timelocks: $finalDescriptor');
     } else {
-      finalDescriptor = 'wsh($multi)';
+      // No timelocks, just use multi_a in tr()
+      print('🟢 No timelock conditions. Using only multisig policy.');
+      finalDescriptor = 'tr(${extractedPublicKeys.first},$multi)';
+      print('🧬 Final descriptor: $finalDescriptor');
     }
 
-    print('Final descriptor before cleaning: $finalDescriptor');
+    // Clean and store descriptor
+    finalDescriptor = finalDescriptor.replaceAll(' ', '');
+    print('✅ Final descriptor after cleaning: $finalDescriptor');
 
     setState(() {
-      _finalDescriptor = finalDescriptor.replaceAll(' ', '');
+      _finalDescriptor = finalDescriptor;
     });
 
-    print('Final descriptor stored: $_finalDescriptor');
-
+    print('📦 Descriptor stored to state.');
     _createDescriptorDialog(context);
+  }
+
+  String nestConditions(String base, List<String> conditions) {
+    for (final cond in conditions) {
+      base = 'or_d($base,$cond)';
+    }
+    return base;
   }
 
   void _createDescriptorDialog(BuildContext context) {
