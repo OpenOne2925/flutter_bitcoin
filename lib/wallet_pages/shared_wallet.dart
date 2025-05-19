@@ -292,21 +292,22 @@ class SharedWalletState extends State<SharedWallet> {
       });
 
       setState(() {
-        address = wallet
-            .getAddress(
-              addressIndex: const AddressIndex.peek(index: 0),
-            )
-            .address
-            .toString();
         _descriptor = widget.descriptor;
       });
 
-      String walletAddress = walletService.getAddress(wallet);
-      setState(() {
-        address = walletAddress;
-      });
+      for (int i = 0; i < 100; i++) {
+        final addressInfo = wallet.getAddress(
+          addressIndex: AddressIndex.peek(index: i),
+        );
+        myAddresses.add(addressInfo.address.toString());
+      }
 
-      _walletData = await _walletStorageService.loadWalletData(walletAddress);
+      String walletId = wallet
+          .getAddress(addressIndex: AddressIndex.peek(index: 0))
+          .address
+          .asString();
+
+      _walletData = await _walletStorageService.loadWalletData(walletId);
 
       if (_walletData != null) {
         // If offline data is available, use it to update the UI
@@ -341,10 +342,12 @@ class SharedWalletState extends State<SharedWallet> {
 
       wallet = await walletService.createSharedWallet(widget.descriptor);
 
-      myAddresses.add(wallet
-          .getAddress(addressIndex: AddressIndex.peek(index: 0))
-          .address
-          .asString());
+      for (int i = 0; i < 100; i++) {
+        final addressInfo = wallet.getAddress(
+          addressIndex: AddressIndex.peek(index: i),
+        );
+        myAddresses.add(addressInfo.address.toString());
+      }
 
       setState(() {
         isWalletInitialized = true;
@@ -362,8 +365,6 @@ class SharedWalletState extends State<SharedWallet> {
         _descriptorName = widget.descriptorName!.isNotEmpty
             ? widget.descriptorName!
             : newName;
-
-        address = walletService.getAddress(wallet);
       });
 
       final compositeKey = '${widget.mnemonic}_descriptor_$_descriptorName';
@@ -389,6 +390,7 @@ class SharedWalletState extends State<SharedWallet> {
       externalWalletPolicy = wallet.policies(KeychainKind.externalChain)!;
       policy = jsonDecode(externalWalletPolicy.asString());
 
+      // print('ciao');
       walletService.printInChunks(externalWalletPolicy.toString());
 
       // Convert mnemonic to object
@@ -524,11 +526,6 @@ class SharedWalletState extends State<SharedWallet> {
       }
     });
 
-    String walletAddress = walletService.getAddress(wallet);
-    setState(() {
-      address = walletAddress;
-    });
-
     Map<String, int> balance = await walletService.getBitcoinBalance(address);
 
     setState(() {
@@ -562,6 +559,7 @@ class SharedWalletState extends State<SharedWallet> {
     if (isAddressUsed && !myAddresses.contains(address)) {
       myAddresses.add(address);
     }
+
     print('myaddresses: $myAddresses');
 
     await walletService.saveLocalData(
@@ -727,6 +725,8 @@ class SharedWalletState extends State<SharedWallet> {
             onRefresh: () async {
               final List<ConnectivityResult> connectivityResult =
                   await (Connectivity().checkConnectivity());
+
+              print('Myaddresses: $myAddresses');
 
               setState(() {
                 _isRefreshing = true;

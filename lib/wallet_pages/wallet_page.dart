@@ -138,6 +138,13 @@ class WalletPageState extends State<WalletPage> {
     // Restore wallet from the saved mnemonic
     wallet = await walletService.loadSavedWallet();
 
+    for (int i = 0; i < 20; i++) {
+      final addressInfo = wallet.getAddress(
+        addressIndex: AddressIndex.peek(index: i),
+      );
+      myAddresses.add(addressInfo.address.toString());
+    }
+
     setState(() {
       isWalletInitialized = true;
     });

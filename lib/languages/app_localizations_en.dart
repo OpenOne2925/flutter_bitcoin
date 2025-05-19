@@ -1,5 +1,5 @@
 const Map<String, String> localizedStringsEn = {
-  'welcome': 'Welcome to ShareHaven!',
+  'welcome': 'Welcome to SharedHaven!',
   'version': 'Version',
   'welcoming_description': 'Your Bitcoin wallet companion.',
 

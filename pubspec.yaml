@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.5.9
+version: 1.6.1
 
 environment:
   sdk: ^3.5.1
@@ -37,8 +37,6 @@ dependencies:
   bdk_flutter: # ^0.31.2
     git:
       url: https://github.com/LtbLightning/bdk-flutter.git
-  sdk_flutter: # Portal Flutter Bindings
-    path: ./portal-sdk-flutter-master
   http: ^1.2.2
   hive: ^2.0.0
   hive_flutter: ^1.1.0
@@ -63,9 +61,7 @@ dependencies:
   share_plus: ^10.0.0
   nfc_manager: ^3.5.0
   intl: ^0.20.2
-  bip32: ^2.0.0
-  bip39: ^1.0.6
-  hex: ^0.2.0
+  crypto: ^3.0.6
 
 dev_dependencies:
   flutter_test:

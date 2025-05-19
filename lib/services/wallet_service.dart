@@ -1953,6 +1953,7 @@ class WalletService extends ChangeNotifier {
                 .feeRate(feeRate)
                 .finish(wallet);
           } else {
+            print(timeLockPath);
             await txBuilder
                 .addRecipient(recipientScript, amount)
                 .policyPath(KeychainKind.internalChain, timeLockPath!)
@@ -1984,15 +1985,26 @@ class WalletService extends ChangeNotifier {
             int currentHeight = await fetchCurrentBlockHeight();
             print('Current block height: $currentHeight');
 
+            final type =
+                spendingPaths[chosenPath]['type'].toString().toLowerCase();
+
             spendableUtxos = utxos.where((utxo) {
               final blockHeight = utxo['status']['block_height'];
               print(
-                'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight',
-              );
+                  'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight');
 
-              final isSpendable = blockHeight != null &&
-                  (blockHeight + timelock - 1 <= currentHeight ||
-                      timelock == 0);
+              bool isSpendable = false;
+
+              if (type.contains('relativetimelock')) {
+                isSpendable = blockHeight != null &&
+                    (blockHeight + timelock - 1 <= currentHeight ||
+                        timelock == 0);
+              } else if (type.contains('absolutetimelock')) {
+                isSpendable = timelock <= currentHeight;
+              } else {
+                // If there's no timelock type, consider it spendable by default
+                isSpendable = true;
+              }
 
               print('Is spendable: $isSpendable');
               return isSpendable;
@@ -2058,6 +2070,8 @@ class WalletService extends ChangeNotifier {
         final timelock = spendingPaths![chosenPath!]['timelock'];
         print('Timelock value: $timelock');
 
+        final type = spendingPaths[chosenPath]['type'].toString().toLowerCase();
+
         int currentHeight = await fetchCurrentBlockHeight();
         print('Current block height: $currentHeight');
 
@@ -2065,9 +2079,25 @@ class WalletService extends ChangeNotifier {
         spendableOutpoints = utxos
             .where((utxo) {
               final blockHeight = utxo['status']['block_height'];
-              return blockHeight != null &&
-                  (blockHeight + timelock - 1 <= currentHeight ||
-                      timelock == 0);
+
+              bool isSpendable = false;
+
+              if (type.contains('relativetimelock')) {
+                isSpendable = blockHeight != null &&
+                    (blockHeight + timelock - 1 <= currentHeight ||
+                        timelock == 0);
+              } else if (type.contains('absolutetimelock')) {
+                isSpendable = timelock <= currentHeight;
+              } else {
+                // No timelock type; assume spendable
+                isSpendable = true;
+              }
+
+              print(
+                'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight, isSpendable=$isSpendable',
+              );
+
+              return isSpendable;
             })
             .map((utxo) => OutPoint(txid: utxo['txid'], vout: utxo['vout']))
             .toList();

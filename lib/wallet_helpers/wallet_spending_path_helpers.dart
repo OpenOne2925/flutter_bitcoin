@@ -606,8 +606,9 @@ class WalletSpendingPathHelpers {
       titleKey: 'spending_paths_available',
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: spendingPaths.map<Widget>((pathInfo) {
+        children: spendingPaths.skip(1).map<Widget>((pathInfo) {
           // Extract aliases for the current pathInfo's fingerprints
+
           final List<String> pathAliases =
               (pathInfo['fingerprints'] as List<dynamic>)
                   .map<String>((fingerprint) {

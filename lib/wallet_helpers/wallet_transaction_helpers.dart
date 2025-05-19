@@ -75,8 +75,8 @@ class WalletTransactionHelpers {
         outputAddresses.any((addr) => myAddresses.contains(addr));
     final isInternal = isSent &&
         isReceived &&
-        inputAddresses.every((addr) => myAddresses.contains(addr)) &&
-        outputAddresses.every((addr) => myAddresses.contains(addr));
+        inputAddresses.any((addr) => myAddresses.contains(addr)) &&
+        outputAddresses.any((addr) => myAddresses.contains(addr));
 
     // Determine the actual amount sent/received
     int amount = 0;
@@ -407,8 +407,8 @@ class WalletTransactionHelpers {
         outputAddresses.any((addr) => myAddresses.contains(addr));
     final isInternal = isSent &&
         isReceived &&
-        inputAddresses.every((addr) => myAddresses.contains(addr)) &&
-        outputAddresses.every((addr) => myAddresses.contains(addr));
+        inputAddresses.any((addr) => myAddresses.contains(addr)) &&
+        outputAddresses.any((addr) => myAddresses.contains(addr));
 
     // Determine the amount sent/received
     int amount = 0;

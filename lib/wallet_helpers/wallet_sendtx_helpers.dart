@@ -191,9 +191,8 @@ class WalletSendtxHelpers {
 
       amountController.text = sendAllBalance.toString();
     } catch (e, stackTrace) {
-      Navigator.of(rootContext, rootNavigator: true).pop();
+      // Navigator.of(rootContext, rootNavigator: true).pop();
 
-      print('banana');
       print(stackTrace);
 
       SnackBarHelper.showError(rootContext, message: e.toString());
