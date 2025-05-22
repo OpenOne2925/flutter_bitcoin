@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -9,12 +8,15 @@ import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
+import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
+import 'package:flutter_wallet/lightning/lightning_page.dart';
 import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_security_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_transaction_helpers.dart';
+import 'package:ldk_node/ldk_node.dart' as ldk;
 import 'package:lottie/lottie.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -32,13 +34,13 @@ class WalletUiHelpers {
   final int currentHeight;
   String timeStamp;
   final bool isInitialized;
-  final TextEditingController pubKeyController;
+  final TextEditingController? pubKeyController;
   final SettingsProvider settingsProvider;
   final DateTime? lastRefreshed;
   final BuildContext context;
   final bool isLoading;
   final List<Map<String, dynamic>> transactions;
-  final Wallet wallet;
+  final Wallet? wallet;
   final bool isSingleWallet;
   final GlobalKey<BaseScaffoldState> baseScaffoldKey;
   final WalletSecurityHelpers securityHelper;
@@ -46,7 +48,11 @@ class WalletUiHelpers {
   final String? descriptor;
   final String? descriptorName;
   final List<Map<String, String>>? pubKeysAlias;
-  final Set<String> myAddresses;
+  final Set<String>? myAddresses;
+  final String? mnemonic;
+  final bool isLightningWallet;
+  final String? listeningAddress;
+  final ldk.PublicKey? ldkNodeId;
 
   late final WalletService walletService;
 
@@ -60,20 +66,24 @@ class WalletUiHelpers {
     required this.currentHeight,
     required this.timeStamp,
     required this.isInitialized,
-    required this.pubKeyController,
+    this.pubKeyController,
     required this.settingsProvider,
-    required this.lastRefreshed,
+    this.lastRefreshed,
     required this.context,
     required this.isLoading,
     required this.transactions,
-    required this.wallet,
+    this.wallet,
     required this.isSingleWallet,
+    required this.isLightningWallet,
     required this.baseScaffoldKey,
     required this.isRefreshing,
-    required this.myAddresses,
+    this.myAddresses,
     this.descriptor,
     this.descriptorName,
     this.pubKeysAlias,
+    this.mnemonic,
+    this.listeningAddress,
+    this.ldkNodeId,
   })  : securityHelper = WalletSecurityHelpers(
           context: context,
           descriptor: descriptor,
@@ -365,6 +375,26 @@ class WalletUiHelpers {
                                         ],
                                       ),
                                     ),
+                                    if (isSingleWallet && !isLightningWallet)
+                                      CustomButton(
+                                        onPressed: () async {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => LightningPage(
+                                                mnemonic: mnemonic.toString(),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        label: 'Lightning',
+                                        backgroundColor:
+                                            AppColors.background(context),
+                                        foregroundColor:
+                                            AppColors.text(context),
+                                        icon: Icons.thunderstorm,
+                                        iconColor: AppColors.gradient(context),
+                                      ),
                                   ],
                                 )
                               ],
@@ -380,54 +410,66 @@ class WalletUiHelpers {
                       ),
 
                       // BlockHeight and TimeStamp
-
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${AppLocalizations.of(context)!.translate('current_height')}: $currentHeight\n'
-                              '${AppLocalizations.of(context)!.translate('timestamp')}: $timeStamp',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppColors.text(context),
-                              ),
-                            ),
-                          ),
-                          if (isRefreshing) ...[
-                            Column(
-                              children: [
-                                buildMiniRefreshingIndicator(),
-                                const SizedBox(height: 4),
-                                Text(
-                                  AppLocalizations.of(context)!
-                                      .translate('refreshing'),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.text(context),
+                      ...(!isLightningWallet
+                          ? [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      '${AppLocalizations.of(context)!.translate('current_height')}: $currentHeight\n'
+                                      '${AppLocalizations.of(context)!.translate('timestamp')}: $timeStamp',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: AppColors.text(context),
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  if (isRefreshing) ...[
+                                    Column(
+                                      children: [
+                                        buildMiniRefreshingIndicator(),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          AppLocalizations.of(context)!
+                                              .translate('refreshing'),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.text(context),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 10),
+                                  ],
+                                ],
+                              ),
+                              if (lastRefreshed != null &&
+                                  DateTime.now()
+                                          .difference(lastRefreshed!)
+                                          .inHours >=
+                                      2) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  getTimeBasedMessage(),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.error(context),
+                                  ),
+                                ).animate().shake(duration: 800.ms),
                               ],
-                            ),
-                            const SizedBox(width: 10),
-                          ],
-                        ],
-                      ),
-
-                      if (lastRefreshed != null)
-                        // RefreshIndicator
-                        if (DateTime.now().difference(lastRefreshed!).inHours >=
-                            2) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            getTimeBasedMessage(),
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.error(context),
-                            ),
-                          ).animate().shake(duration: 800.ms), // Shake effect
-                        ]
+                            ]
+                          : [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Node Config: $listeningAddress'),
+                                  const SizedBox(height: 8),
+                                  SelectableText('Node: ${ldkNodeId?.hex}'),
+                                ],
+                              )
+                            ]),
                     ],
                   )
                 : _buildShimmerEffect(),
@@ -457,7 +499,7 @@ class WalletUiHelpers {
       address: address,
       baseScaffoldKey: baseScaffoldKey,
       settingsProvider: settingsProvider,
-      myAddresses: myAddresses,
+      myAddresses: myAddresses!,
     );
 
     return Card(
@@ -567,7 +609,7 @@ class WalletUiHelpers {
                           Flexible(
                             fit: FlexFit.loose,
                             child: Text(
-                              pubKeyController.text,
+                              pubKeyController!.text,
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 16,
@@ -585,7 +627,7 @@ class WalletUiHelpers {
                             onPressed: () {
                               UtilitiesService.copyToClipboard(
                                 context: context,
-                                text: pubKeyController.text,
+                                text: pubKeyController!.text,
                                 messageKey: 'pub_key_clipboard',
                               );
                             },
@@ -613,7 +655,7 @@ class WalletUiHelpers {
                       ],
                     ),
                     child: QrImageView(
-                      data: pubKeyController.text,
+                      data: pubKeyController!.text,
                       version: QrVersions.auto,
                       size: 180.0,
                       backgroundColor: AppColors.white(),
@@ -880,10 +922,10 @@ class WalletUiHelpers {
         message: AppLocalizations.of(context)!.translate('syncing_wallet'),
       );
 
-      await walletService.syncWallet(wallet);
+      await walletService.syncWallet(wallet!);
       final newHeight = await walletService.fetchCurrentBlockHeight();
 
-      final walletTransactions = wallet.listTransactions(includeRaw: true);
+      final walletTransactions = wallet!.listTransactions(includeRaw: true);
 
       // Find new transactions
       List<String> newTransactions = walletService.findNewTransactions(

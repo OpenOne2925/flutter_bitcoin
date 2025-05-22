@@ -645,6 +645,7 @@ class SharedWalletState extends State<SharedWallet> {
       transactions: _transactions,
       wallet: wallet,
       isSingleWallet: false,
+      isLightningWallet: false,
       descriptor: _descriptor,
       descriptorName: _descriptorName,
       baseScaffoldKey: baseScaffoldKey,

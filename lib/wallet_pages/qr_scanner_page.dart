@@ -92,3 +92,8 @@ bool isValidBitcoinAddress(String address) {
 
   return btcAddressRegex.hasMatch(address);
 }
+
+bool isValidBolt11(String data) {
+  return data.toLowerCase().startsWith('lnbc') ||
+      data.toLowerCase().startsWith('lntb');
+}

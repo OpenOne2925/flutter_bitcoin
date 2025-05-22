@@ -293,7 +293,7 @@ class WalletPageState extends State<WalletPage> {
   Future<void> _fetchCurrentBlockHeight() async {
     try {
       int currentHeight = await walletService.fetchCurrentBlockHeight();
-      // print('currentHeight: $currentHeight');
+      print('currentHeight: $currentHeight');
 
       String blockTimestamp =
           await walletService.fetchBlockTimestamp(currentHeight);
@@ -367,9 +367,11 @@ class WalletPageState extends State<WalletPage> {
       transactions: _transactions,
       wallet: wallet,
       isSingleWallet: true,
+      isLightningWallet: false,
       baseScaffoldKey: baseScaffoldKey,
       isRefreshing: _isRefreshing,
       myAddresses: myAddresses,
+      mnemonic: myMnemonic,
     );
 
     final walletButtonsHelper = WalletButtonsHelper(

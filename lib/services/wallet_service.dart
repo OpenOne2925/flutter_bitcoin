@@ -89,23 +89,10 @@ class WalletService extends ChangeNotifier {
   late Blockchain blockchain;
 
   // TODO: TESTNET3
-  // String get baseUrl {
-  //   switch (settingsProvider.network) {
-  //     case Network.testnet:
-  //       return 'https://blockstream.info/testnet/api';
-  //     case Network.regtest:
-  //       return 'https://regtest.open-one.it/api'; // or another regtest URL
-  //     case Network.bitcoin:
-  //     default:
-  //       return 'https://mempool.space/api';
-  //   }
-  // }
-
-  // TODO: TESTNET4
   String get baseUrl {
     switch (settingsProvider.network) {
       case Network.testnet:
-        return 'https://mempool.space/testnet4/api';
+        return 'https://mempool.space/testnet/api';
       case Network.regtest:
         return 'https://regtest.open-one.it/api'; // or another regtest URL
       case Network.bitcoin:
@@ -114,25 +101,24 @@ class WalletService extends ChangeNotifier {
     }
   }
 
-  // TODO: TESTNET3
-  // List<String> get electrumServers {
+  // TODO: TESTNET4
+  // String get baseUrl {
   //   switch (settingsProvider.network) {
   //     case Network.testnet:
-  //       return ["ssl://electrum.blockstream.info:60002"];
+  //       return 'https://mempool.space/testnet4/api';
   //     case Network.regtest:
-  //       return ["tcp://79.61.35.232:40001", "tcp://192.168.99.25:40001"];
+  //       return 'https://regtest.open-one.it/api'; // or another regtest URL
   //     case Network.bitcoin:
-  //       return ["ssl://electrum.blockstream.info:50002"];
   //     default:
-  //       return [""];
+  //       return 'https://mempool.space/api';
   //   }
   // }
 
-  // TODO: TESTNET4
+  // TODO: TESTNET3
   List<String> get electrumServers {
     switch (settingsProvider.network) {
       case Network.testnet:
-        return ["ssl://mempool.space:40002"];
+        return ["ssl://electrum.blockstream.info:60002"];
       case Network.regtest:
         return ["tcp://79.61.35.232:40001", "tcp://192.168.99.25:40001"];
       case Network.bitcoin:
@@ -141,6 +127,20 @@ class WalletService extends ChangeNotifier {
         return [""];
     }
   }
+
+  // TODO: TESTNET4
+  // List<String> get electrumServers {
+  //   switch (settingsProvider.network) {
+  //     case Network.testnet:
+  //       return ["ssl://mempool.space:40002"];
+  //     case Network.regtest:
+  //       return ["tcp://79.61.35.232:40001", "tcp://192.168.99.25:40001"];
+  //     case Network.bitcoin:
+  //       return ["ssl://electrum.blockstream.info:50002"];
+  //     default:
+  //       return [""];
+  //   }
+  // }
 
   ///
   ///
