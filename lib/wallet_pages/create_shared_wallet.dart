@@ -65,7 +65,6 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
   bool _arePublicKeysMissing = false;
 
   late final SettingsProvider settingsProvider;
-
   late final WalletService walletService;
 
   final GlobalKey<BaseScaffoldState> baseScaffoldKey =

@@ -1,48 +1,114 @@
-# Build Scripts
-build_testnet_apk.sh
+# ─────────────────────────────────────────────
+# Bash scripts (optional)
 build_mainnet_apk.sh
+build_testnet_apk.sh
 git_push_total.sh
 
+# ─────────────────────────────────────────────
 # Miscellaneous
 *.class
 *.log
 *.pyc
 *.swp
+*.sw?
+*.out
+*.bak
+*~
+*.backup*
 .DS_Store
-.atom/
-.buildlog/
 .history
-.svn/
+.project
+.classpath
+.c9/
+.RELEASE_NOTES.md
 migrate_working_dir/
 
-# IntelliJ related
+# ─────────────────────────────────────────────
+# IDEs and Editors
+.idea/
+.vscode/
+.atom/
 *.iml
 *.ipr
 *.iws
-.idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
+# ─────────────────────────────────────────────
+# Dart & Flutter
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
+.packages
 .pub-cache/
 .pub/
-/build/
+build/
+*.lock
+!pubspec.lock
 
-# Symbolication related
+# Symbolication & Obfuscation
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Generated documentation
+**/doc/api/
+
+# ─────────────────────────────────────────────
+# Android
+android/.gradle/
+android/captures/
+android/local.properties
+android/key.properties
+**/android/**/GeneratedPluginRegistrant.java
+**/android/**/gradle-wrapper.jar
+**/android/gradlew
+**/android/gradlew.bat
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# ─────────────────────────────────────────────
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/
+ios/Flutter/App.framework/
+ios/Flutter/Flutter.framework/
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/.last_build_id
+ios/Pods.xcodeproj/
+**/ios/**/*.mode1v3
+**/ios/**/*.mode2v3
+**/ios/**/*.pbxuser
+**/ios/*.perspectivev3
+**/ios/**/xcuserdata
+**/ios/.generated/
+
+# ─────────────────────────────────────────────
+# macOS
+macos/Flutter/
+macos/.dart_tool/
+DerivedData/
+
+# ─────────────────────────────────────────────
+# Linux
+linux/flutter/
+linux/.dart_tool/
+
+# ─────────────────────────────────────────────
+# Windows
+windows/flutter/
+windows/.dart_tool/
+
+# ─────────────────────────────────────────────
+# Web
+web/.dart_tool/
+**/web/**/.last_build_id
+
+# ─────────────────────────────────────────────
+# Keystore Files (Sensitive)
+*.jks
+
+# ─────────────────────────────────────────────
+# Exceptions (for test data)
+!/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages

@@ -1345,10 +1345,10 @@ class WalletService extends ChangeNotifier {
     void traverse(dynamic node, List<int> currentPath, List<String> idPath) {
       if (node == null) return;
 
-      // // Debugging: Print the current node and paths being processed
-      // print('Traversing Node: ${node['id'] ?? 'No ID'}');
-      // print('Current Path: $currentPath');
-      // print('ID Path: $idPath');
+      // Debugging: Print the current node and paths being processed
+      print('Traversing Node: ${node['id'] ?? 'No ID'}');
+      print('Current Path: $currentPath');
+      print('ID Path: $idPath');
 
       // Check if the node itself has a matching fingerprint
       if (node['fingerprint'] == targetFingerprint) {
@@ -1362,9 +1362,9 @@ class WalletService extends ChangeNotifier {
       // Check if the node contains `keys` with matching fingerprints
       if (node['keys'] != null) {
         for (var key in node['keys']) {
-          // print('Checking Key Fingerprint: ${key['fingerprint']}');
+          print('Checking Key Fingerprint: ${key['fingerprint']}');
           if (key['fingerprint'] == targetFingerprint) {
-            // print('Match Found in Keys: Adding Path');
+            print('Match Found in Keys: Adding Path');
             result.add({
               'ids': [...idPath, node['id']],
               'indexes': currentPath,
@@ -1376,7 +1376,7 @@ class WalletService extends ChangeNotifier {
       // Recursively traverse children if the node has `items`
       if (node['items'] != null) {
         for (int i = 0; i < node['items'].length; i++) {
-          // print('Traversing Child at Index: $i');
+          print('Traversing Child at Index: $i');
           traverse(
             node['items'][i],
             [...currentPath, i],
@@ -1389,7 +1389,7 @@ class WalletService extends ChangeNotifier {
     // Start traversing from the root policy
     traverse(policy, [], []);
 
-    // print('Final Result: $result');
+    print('Final Result: $result');
     return result;
   }
 
@@ -1880,7 +1880,7 @@ class WalletService extends ChangeNotifier {
 
     try {
       // Build the transaction
-      final txBuilder = TxBuilder();
+      var txBuilder = TxBuilder();
 
       final recipientAddress = await Address.fromString(
         s: recipientAddressStr,
@@ -1901,7 +1901,7 @@ class WalletService extends ChangeNotifier {
       // print(externalWalletPolicy.contribution());
 
       // printPrettyJson(internalWalletPolicy!.asString());
-      // printPrettyJson(externalWalletPolicy!.asString());
+      printPrettyJson(externalWalletPolicy.asString());
 
       // const String targetFingerprint = "fb94d032";
 
@@ -2102,7 +2102,6 @@ class WalletService extends ChangeNotifier {
             .map((utxo) => OutPoint(txid: utxo['txid'], vout: utxo['vout']))
             .toList();
       }
-      // TODO: Working transactions with no internet connection
 
       if (chosenPath == 0) {
         print('MultiSig Builder');
@@ -2110,17 +2109,70 @@ class WalletService extends ChangeNotifier {
         for (var spendableOutpoint in spendableOutpoints) {
           print('Spendable Outputs: ${spendableOutpoint.txid}');
         }
-        txBuilderResult = await txBuilder
-            // .enableRbf()
-            .addUtxos(spendableOutpoints)
-            .manuallySelectedOnly()
-            .addRecipient(recipientScript, amount) // Send to recipient
-            .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
-            .policyPath(KeychainKind.internalChain, multiSigPath!)
-            .policyPath(KeychainKind.externalChain, multiSigPath)
-            .feeRate(feeRate) // Set the fee rate (in satoshis per byte)
-            .drainTo(changeScript) // Specify the address to send the change
-            .finish(wallet); // Finalize the transaction with wallet's UTXOs
+        try {
+          txBuilder = txBuilder.addUtxos(spendableOutpoints);
+        } catch (e) {
+          print('❌ Error in addUtxos: $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder = txBuilder.manuallySelectedOnly();
+        } catch (e) {
+          print('❌ Error in manuallySelectedOnly: $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder = txBuilder.addRecipient(recipientScript, amount);
+        } catch (e) {
+          print('❌ Error in addRecipient: $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder = txBuilder.drainWallet();
+        } catch (e) {
+          print('❌ Error in drainWallet: $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder =
+              txBuilder.policyPath(KeychainKind.internalChain, multiSigPath!);
+        } catch (e) {
+          print('❌ Error in policyPath (internal): $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder =
+              txBuilder.policyPath(KeychainKind.externalChain, multiSigPath);
+        } catch (e) {
+          print('❌ Error in policyPath (external): $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder = txBuilder.feeRate(feeRate);
+        } catch (e) {
+          print('❌ Error in feeRate: $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder = txBuilder.drainTo(changeScript);
+        } catch (e) {
+          print('❌ Error in drainTo: $e');
+          rethrow;
+        }
+
+        try {
+          txBuilderResult = await txBuilder.finish(wallet);
+        } catch (e) {
+          print('❌ Error in finish(): $e');
+          rethrow;
+        }
 
         print('Transaction Built');
       } else {
