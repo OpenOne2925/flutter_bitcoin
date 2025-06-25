@@ -7,6 +7,11 @@
 # Keep Google Tink classes
 -keep class com.google.crypto.tink.** { *; }
 
+# Keep Flutter plugins
+-keep class io.flutter.plugin.** { *; }
+-keep class io.flutter.embedding.engine.FlutterEngine { *; }
+-keep class io.flutter.plugins.pathprovider.** { *; }
+
 
 -dontwarn com.google.errorprone.annotations.CanIgnoreReturnValue
 -dontwarn com.google.errorprone.annotations.CheckReturnValue

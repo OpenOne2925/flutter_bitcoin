@@ -18,10 +18,14 @@ import 'package:flutter_wallet/hive/wallet_data.dart';
 import 'package:flutter_wallet/wallet_pages/wallet_page.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_breez_liquid/flutter_breez_liquid.dart' as liquid_sdk;
 
 void main() async {
   // Ensure all Flutter bindings are initialized before running Hive
   WidgetsFlutterBinding.ensureInitialized();
+
+  // TODO: Nodeless implementation
+  await liquid_sdk.initialize();
 
   await Hive.initFlutter(); // Initialize Hive
 
@@ -83,7 +87,6 @@ Future<List<int>> _getEncryptionKey() async {
 }
 
 // 🔹 Wrapper to Ensure SettingsProvider Loads Before UI
-
 class MyAppWrapper extends StatefulWidget {
   const MyAppWrapper({super.key});
 

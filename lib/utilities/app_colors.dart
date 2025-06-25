@@ -106,3 +106,11 @@ class AppColors {
         : lightPrimary(context);
   }
 }
+
+extension ColorOpacityExtension on Color {
+  Color opaque(double opacity) {
+    assert(opacity >= 0 && opacity <= 1, 'Opacity must be between 0 and 1');
+
+    return withAlpha((opacity * 255).toInt());
+  }
+}

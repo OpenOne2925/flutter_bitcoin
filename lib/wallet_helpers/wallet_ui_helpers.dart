@@ -16,7 +16,6 @@ import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_security_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_transaction_helpers.dart';
-import 'package:ldk_node/ldk_node.dart' as ldk;
 import 'package:lottie/lottie.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -52,7 +51,6 @@ class WalletUiHelpers {
   final String? mnemonic;
   final bool isLightningWallet;
   final String? listeningAddress;
-  final ldk.PublicKey? ldkNodeId;
 
   late final WalletService walletService;
 
@@ -83,7 +81,6 @@ class WalletUiHelpers {
     this.pubKeysAlias,
     this.mnemonic,
     this.listeningAddress,
-    this.ldkNodeId,
   })  : securityHelper = WalletSecurityHelpers(
           context: context,
           descriptor: descriptor,
@@ -396,7 +393,7 @@ class WalletUiHelpers {
                                         iconColor: AppColors.gradient(context),
                                       ),
                                   ],
-                                )
+                                ),
                               ],
                             ),
                           ],
@@ -461,14 +458,14 @@ class WalletUiHelpers {
                               ],
                             ]
                           : [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Node Config: $listeningAddress'),
-                                  const SizedBox(height: 8),
-                                  SelectableText('Node: ${ldkNodeId?.hex}'),
-                                ],
-                              )
+                              // Column(
+                              //   crossAxisAlignment: CrossAxisAlignment.start,
+                              //   children: [
+                              //     Text('Node Config: $listeningAddress'),
+                              //     const SizedBox(height: 8),
+                              //     SelectableText('Node: ${ldkNodeId?.hex}'),
+                              //   ],
+                              // ),
                             ]),
                     ],
                   )
