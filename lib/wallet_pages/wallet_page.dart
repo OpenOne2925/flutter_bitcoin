@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
+import 'package:flutter_wallet/lightning/lightning_page.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
@@ -15,6 +16,7 @@ import 'package:flutter_wallet/wallet_helpers/wallet_ui_helpers.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:hive/hive.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 
 class WalletPage extends StatefulWidget {
@@ -46,6 +48,7 @@ class WalletPageState extends State<WalletPage> {
   bool isInitialized = false;
   bool isWalletInitialized = false;
   bool _isRefreshing = false;
+  bool _showLightning = false;
 
   // Wallet and Transaction Data
   String address = '';
@@ -323,6 +326,22 @@ class WalletPageState extends State<WalletPage> {
     });
   }
 
+  void _handleLightningComplete() {
+    setState(() => _showLightning = true);
+
+    // Wait for the animation duration, then navigate
+    Future.delayed(const Duration(milliseconds: 800), () {
+      setState(() => _showLightning = false);
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LightningPage(mnemonic: myMnemonic),
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final GlobalKey<BaseScaffoldState> baseScaffoldKey =
@@ -372,6 +391,7 @@ class WalletPageState extends State<WalletPage> {
       isRefreshing: _isRefreshing,
       myAddresses: myAddresses,
       mnemonic: myMnemonic,
+      lightningCallback: _handleLightningComplete,
     );
 
     final walletButtonsHelper = WalletButtonsHelper(
@@ -483,6 +503,16 @@ class WalletPageState extends State<WalletPage> {
               ],
             ),
           ),
+          if (_showLightning)
+            Positioned.fill(
+              child: Container(
+                child: Lottie.asset(
+                  'assets/animations/lightning.json',
+                  fit: BoxFit.cover,
+                  repeat: false,
+                ),
+              ),
+            ),
         ],
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/lightning/payment_type.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class UniversalPaymentBottomSheet extends StatelessWidget {
   final PaymentType type;
@@ -14,6 +15,8 @@ class UniversalPaymentBottomSheet extends StatelessWidget {
   final bool loading;
   final BigInt? minLimit;
   final BigInt? maxLimit;
+  final VoidCallback? onScanQr;
+  final VoidCallback? onCheckRefunds;
 
   const UniversalPaymentBottomSheet({
     super.key,
@@ -28,12 +31,14 @@ class UniversalPaymentBottomSheet extends StatelessWidget {
     required this.loading,
     this.minLimit,
     this.maxLimit,
+    this.onScanQr,
+    this.onCheckRefunds,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isReceive = type.name.startsWith("receive");
-    final isBitcoin = type.name.contains("Bitcoin");
+    final isReceive = type.isReceive;
+    final network = type.displayNetwork;
 
     return Container(
       decoration: BoxDecoration(
@@ -52,7 +57,7 @@ class UniversalPaymentBottomSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              "${isReceive ? 'Receive' : 'Send'} ${isBitcoin ? 'Bitcoin' : 'Liquid'}",
+              "${type.displayAction} $network",
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 20,
@@ -61,6 +66,7 @@ class UniversalPaymentBottomSheet extends StatelessWidget {
                 letterSpacing: 0.5,
               ),
             ),
+
             const SizedBox(height: 16),
 
             // Destination input
@@ -68,7 +74,14 @@ class UniversalPaymentBottomSheet extends StatelessWidget {
               _customTextField(
                 context: context,
                 controller: destController!,
-                label: "Destination (${isBitcoin ? "BTC" : "Liquid"})",
+                label: "Destination ($network)",
+                suffixIcon: onScanQr != null
+                    ? IconButton(
+                        icon: const Icon(Icons.qr_code_scanner),
+                        tooltip: 'Scan QR Code',
+                        onPressed: onScanQr,
+                      )
+                    : null,
               ),
 
             // Amount input
@@ -105,15 +118,15 @@ class UniversalPaymentBottomSheet extends StatelessWidget {
                 ),
               ),
 
-            if (result != null)
-              Text(
-                result!,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.primary(context),
-                  fontSize: 14,
-                ),
-              ),
+            // if (result != null)
+            //   Text(
+            //     result!,
+            //     textAlign: TextAlign.center,
+            //     style: TextStyle(
+            //       color: AppColors.primary(context),
+            //       fontSize: 14,
+            //     ),
+            //   ),
 
             if (addressOrUri != null)
               Padding(
@@ -122,6 +135,25 @@ class UniversalPaymentBottomSheet extends StatelessWidget {
                   "${isReceive ? 'Payment URI/Address:\n' : ''}$addressOrUri",
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13),
+                ),
+              ),
+
+            if (addressOrUri != null && isReceive)
+              Padding(
+                padding: const EdgeInsets.only(top: 12.0),
+                child: Center(
+                  child: Container(
+                    color: Colors.white,
+                    padding: const EdgeInsets.all(8.0),
+                    child: SizedBox(
+                      width: 200,
+                      height: 200,
+                      child: QrImageView(
+                        data: addressOrUri!,
+                        version: QrVersions.auto,
+                      ),
+                    ),
+                  ),
                 ),
               ),
 
@@ -153,10 +185,29 @@ class UniversalPaymentBottomSheet extends StatelessWidget {
                     ),
                     onPressed: onSubmit,
                     child: Text(
-                      isReceive ? "Generate Address" : "Send Payment",
+                      isReceive ? "Generate Invoice" : "Send Payment",
                       style: const TextStyle(fontSize: 16),
                     ),
                   ),
+
+            if (onCheckRefunds != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 16.0),
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.refresh),
+                  label: const Text("Check refunds"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary(context),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                  onPressed: loading ? null : onCheckRefunds,
+                ),
+              ),
           ],
         ),
       ),
@@ -168,6 +219,7 @@ class UniversalPaymentBottomSheet extends StatelessWidget {
     required TextEditingController controller,
     required String label,
     TextInputType keyboardType = TextInputType.text,
+    Widget? suffixIcon,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -180,6 +232,7 @@ class UniversalPaymentBottomSheet extends StatelessWidget {
           labelStyle: TextStyle(color: AppColors.accent(context)),
           filled: true,
           fillColor: AppColors.container(context),
+          suffixIcon: suffixIcon,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide:

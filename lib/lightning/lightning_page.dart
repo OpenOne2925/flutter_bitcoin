@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_breez_liquid/flutter_breez_liquid.dart' as liquid_sdk;
-import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/lightning/receive_bitcoin_bottom_sheet.dart';
+import 'package:flutter_wallet/lightning/receive_lightning_bottom_sheet.dart';
 import 'package:flutter_wallet/lightning/sdk_instance.dart';
 import 'package:flutter_wallet/lightning/receive_liquid_bottom_sheet.dart';
 import 'package:flutter_wallet/lightning/send_bitcoin_bottom_sheet.dart';
+import 'package:flutter_wallet/lightning/send_lightning_bottom_sheet.dart';
 import 'package:flutter_wallet/lightning/send_liquid_bottom_sheet.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
-import 'package:flutter_wallet/utilities/inkwell_button.dart';
-import 'package:flutter_wallet/wallet_pages/qr_scanner_page.dart';
-import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
-import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 class LightningPage extends StatefulWidget {
   final String mnemonic;
@@ -103,289 +99,30 @@ class _LightningPageState extends State<LightningPage> {
     });
   }
 
-  Future<void> _createInvoice(BuildContext context) async {
-    try {
-      final limits = await breezSDKLiquid.instance!.fetchLightningLimits();
-      // print(
-      //   "Receive min: ${limits.receive.minSat}, max: ${limits.receive.maxSat}",
-      // );
-
-      // Ask user for amount
-      final controller = TextEditingController();
-      final amountSat = await DialogHelper.buildCustomStatefulDialog<BigInt?>(
+  void _lightningOperations(
+    BuildContext context,
+    String operation,
+  ) {
+    if (operation == "receive") {
+      showModalBottomSheet(
         context: context,
-        titleKey: "enter_amount", // Use your i18n key or replace with string
-        showCloseButton: true,
-        showAssistant: false,
-        assistantMessages: const ["Specify how much you'd like to receive."],
-        contentBuilder: (setDialogState, updateAssistant) {
-          return TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(hintText: "Amount in sats"),
-          );
-        },
-        actionsBuilder: (setDialogState) {
-          return [
-            InkwellButton(
-              onTap: () {
-                final parsed = BigInt.tryParse(controller.text.trim());
-                Navigator.of(context, rootNavigator: true).pop(parsed);
-              },
-              label: AppLocalizations.of(context)!.translate('create_invoice'),
-              backgroundColor: AppColors.background(context),
-              textColor: AppColors.text(context),
-              icon: Icons.payment,
-              iconColor: AppColors.gradient(context),
-            ),
-          ];
-        },
-      );
-
-      if (amountSat == null ||
-          amountSat < limits.receive.minSat ||
-          amountSat > limits.receive.maxSat) {
-        SnackBarHelper.showError(
-          context,
-          message: AppLocalizations.of(context)!.translate('invalid_amount'),
-        );
-
-        return;
-      }
-
-      final receiveAmount = liquid_sdk.ReceiveAmount_Bitcoin(
-        payerAmountSat: amountSat,
-      );
-      final prepareResponse =
-          await breezSDKLiquid.instance!.prepareReceivePayment(
-        req: liquid_sdk.PrepareReceiveRequest(
-          paymentMethod: liquid_sdk.PaymentMethod.bolt11Invoice,
-          amount: receiveAmount,
-        ),
-      );
-
-      String optionalDescription = "description";
-
-      liquid_sdk.ReceivePaymentResponse res =
-          await breezSDKLiquid.instance!.receivePayment(
-        req: liquid_sdk.ReceivePaymentRequest(
-          description: optionalDescription,
-          prepareResponse: prepareResponse,
-        ),
-      );
-
-      final invoice = res.destination;
-
-      await DialogHelper.buildCustomStatefulDialog<void>(
-        context: context,
-        titleKey: "bolt11_invoice",
-        contentBuilder: (setDialogState, updateAssistantMessage) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                color: Colors.white,
-                padding: const EdgeInsets.all(8.0),
-                child: SizedBox(
-                  width: 200,
-                  height: 200,
-                  child: QrImageView(
-                    data: invoice,
-                    version: QrVersions.auto,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                "Amount: $amountSat sats",
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ],
-          );
-        },
-        actionsBuilder: (setDialogState) {
-          return [
-            IconButton(
-              icon: Icon(
-                Icons.copy,
-                color: AppColors.cardTitle(context),
-              ),
-              tooltip: 'Copy to clipboard',
-              onPressed: () {
-                UtilitiesService.copyToClipboard(
-                  context: context,
-                  text: invoice,
-                  messageKey: 'invoice_clipboard',
-                );
-              },
-            ),
-          ];
-        },
-        showCloseButton: true,
-        showAssistant: false, // or true if you'd like it active here
-        assistantMessages: const [
-          "Scan this QR to pay the invoice.",
-          "You can copy it if needed."
-        ],
-      );
-    } catch (e) {
-      // print("Invoice creationg failed: $e");
-
-      SnackBarHelper.showError(
-        context,
-        message: AppLocalizations.of(context)!.translate('invoice_error'),
-      );
-    }
-  }
-
-  Future<void> _payInvoice(BuildContext context) async {
-    final controller = TextEditingController();
-
-    String? bolt11 = await DialogHelper.buildCustomStatefulDialog<String?>(
-      context: context,
-      titleKey: 'enter_bolt11_invoice',
-      showCloseButton: true,
-      showAssistant: false,
-      assistantMessages: const ["Paste or scan the Lightning invoice to pay."],
-      contentBuilder: (setState, updateAssistant) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                hintText:
-                    AppLocalizations.of(context)!.translate('paste_invoice'),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.qr_code_scanner),
-                  tooltip: 'Scan QR Code',
-                  onPressed: () {
-                    // 🚨 Pop the dialog and signal "scan requested"
-                    Navigator.of(context, rootNavigator: true).pop('__scan__');
-                  },
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-      actionsBuilder: (setDialogState) => [
-        InkwellButton(
-          onTap: () {
-            final value = controller.text.trim();
-            Navigator.of(context, rootNavigator: true).pop(value);
-          },
-          label: AppLocalizations.of(context)!.translate('pay'),
-          backgroundColor: AppColors.background(context),
-          textColor: AppColors.text(context),
-          icon: Icons.payment,
-          iconColor: AppColors.gradient(context),
-        ),
-      ],
-    );
-
-// 🚨 Check for scan trigger
-    if (bolt11 == '__scan__') {
-      final scanned = await Navigator.push<String>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => QRScannerPage(
-            title: 'Scan Lightning Invoice',
-            isValid: isValidBolt11,
-            extractValue: (val) => val,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(20),
           ),
         ),
+        builder: (context) => ReceiveLightningBottomSheet(),
       );
-
-      if (scanned != null && scanned.isNotEmpty) {
-        controller.text = scanned;
-
-        // 🔁 Reopen dialog with scanned value prefilled
-        bolt11 = await DialogHelper.buildCustomStatefulDialog<String?>(
-          context: context,
-          titleKey: 'enter_bolt11_invoice',
-          showCloseButton: true,
-          showAssistant: false,
-          assistantMessages: const ["Invoice scanned. Confirm to pay."],
-          contentBuilder: (setState, updateAssistant) {
-            return TextField(
-              controller: controller,
-              decoration: InputDecoration(
-                hintText:
-                    AppLocalizations.of(context)!.translate('paste_invoice'),
-              ),
-            );
-          },
-          actionsBuilder: (setDialogState) => [
-            InkwellButton(
-              onTap: () {
-                final value = controller.text.trim();
-                Navigator.of(context, rootNavigator: true).pop(value);
-              },
-              label: AppLocalizations.of(context)!.translate('pay'),
-              backgroundColor: AppColors.background(context),
-              textColor: AppColors.text(context),
-              icon: Icons.payment,
-              iconColor: AppColors.gradient(context),
-            ),
-          ],
-        );
-      }
-    }
-
-    if (bolt11 == null || bolt11.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Invoice is empty.")),
-      );
-      return;
-    }
-
-    try {
-      final prepare = await breezSDKLiquid.instance!.prepareSendPayment(
-        req: liquid_sdk.PrepareSendRequest(destination: bolt11),
-      );
-
-      final fees = prepare.feesSat;
-      // print("Estimated fees: $fees sats");
-
-      final confirm = await DialogHelper.buildCustomStatefulDialog<bool>(
+    } else {
+      showModalBottomSheet(
         context: context,
-        titleKey: "confirm_payment",
-        showCloseButton: true,
-        showAssistant: false,
-        assistantMessages: const ["Ready to send the payment?"],
-        contentBuilder: (_, __) {
-          return Text(
-            "Pay invoice?\nEstimated fee: $fees sats",
-            style: const TextStyle(fontSize: 16),
-          );
-        },
-        actionsBuilder: (_) => [
-          InkwellButton(
-            onTap: () => Navigator.of(context, rootNavigator: true).pop(true),
-            label: AppLocalizations.of(context)!.translate('send'),
-            backgroundColor: AppColors.background(context),
-            textColor: AppColors.text(context),
-            icon: Icons.payment,
-            iconColor: AppColors.gradient(context),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(20),
           ),
-        ],
+        ),
+        builder: (context) => SendLightningBottomSheet(),
       );
-
-      if (confirm != true) return;
-
-      // final sendResponse =
-      await breezSDKLiquid.instance!.sendPayment(
-        req: liquid_sdk.SendPaymentRequest(prepareResponse: prepare),
-      );
-
-      // final payment = sendResponse.payment;
-      // print('Payment: $payment');
-
-      SnackBarHelper.show(context, message: 'payment_sent');
-    } catch (e) {
-      // print("Error sending payment: $e");
-      SnackBarHelper.showError(context, message: 'failed_payment: $e)');
     }
   }
 
@@ -472,203 +209,200 @@ class _LightningPageState extends State<LightningPage> {
     return Scaffold(
       backgroundColor: AppColors.background(context),
       appBar: AppBar(
-        title: const Text("⚡ Breez Lightning Wallet"),
-        backgroundColor: AppColors.primary(context),
-        foregroundColor: AppColors.white(),
+        title: const Text("⚡ Lightning Wallet"),
+        foregroundColor: AppColors.text(context),
         elevation: 2,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.accent(context),
+                AppColors.gradient(context),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
-      body: RefreshIndicator(
-        onRefresh: _refreshLightning,
-        child: ListView(
-          padding: const EdgeInsets.all(16.0),
-          children: [
-            // 🪙 Wallet Card
-            walletInfoCard(context),
-
-            const SizedBox(height: 24),
-
-            // ⚡ Send / Receive Buttons
-            Column(
+      body: Stack(
+        children: [
+          // 1️⃣ Gradient background
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.accent(context),
+                  AppColors.gradient(context),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
+          RefreshIndicator(
+            onRefresh: _refreshLightning,
+            child: ListView(
+              padding: const EdgeInsets.all(16.0),
               children: [
-                _assetActionButton(
-                  icon: Icons.bolt,
-                  label: "Lightning",
-                  onTap: () => _showActionSheet(context, "lightning"),
+                // 🪙 Wallet Card
+                walletInfoCard(context),
+
+                const SizedBox(height: 24),
+
+                // ⚡ Send / Receive Buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _assetActionButton(
+                      icon: Icons.bolt,
+                      label: "Lightning",
+                      onTap: () => _showActionSheet(context, "lightning"),
+                    ),
+                    _assetActionButton(
+                      icon: Icons.water_drop,
+                      label: "Liquid",
+                      onTap: () => _showActionSheet(context, "liquid"),
+                    ),
+                    _assetActionButton(
+                      icon: Icons.currency_bitcoin,
+                      label: "Bitcoin",
+                      onTap: () => _showActionSheet(context, "bitcoin"),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                _assetActionButton(
-                  icon: Icons.water_drop,
-                  label: "Liquid",
-                  onTap: () => _showActionSheet(context, "liquid"),
+
+                const SizedBox(height: 20),
+
+                const Text(
+                  "Payments",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                const SizedBox(height: 12),
-                _assetActionButton(
-                  icon: Icons.currency_bitcoin,
-                  label: "Bitcoin",
-                  onTap: () => _showActionSheet(context, "bitcoin"),
+
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 400, // Or use MediaQuery to make it dynamic
+                  child: StreamBuilder<List<liquid_sdk.Payment>>(
+                    stream: breezSDKLiquid.paymentsStream,
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return const Center(
+                            child: Text("No payments recorded."));
+                      }
+
+                      final payments = snapshot.data!;
+
+                      return ListView.builder(
+                        itemCount: payments.length,
+                        itemBuilder: (context, index) {
+                          final p = payments[index];
+                          final isSent = p.amountSat.isNegative;
+
+                          final statusColor = {
+                                'complete': Colors.green,
+                                'pending': Colors.orange,
+                                'failed': Colors.red,
+                              }[p.status.toString().split('.').last] ??
+                              Colors.grey;
+
+                          final formattedAmount =
+                              "${(p.amountSat.abs() ~/ BigInt.from(1000))} sats";
+
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.dialog(context),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      AppColors.background(context).opaque(0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                )
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                // Side accent
+                                Container(
+                                  width: 6,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    color: isSent
+                                        ? Colors.redAccent
+                                        : AppColors.lightSecondary(context),
+                                    borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(12),
+                                        bottomLeft: Radius.circular(12)),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    leading: Icon(
+                                      Icons.bolt,
+                                      size: 28,
+                                      color: isSent
+                                          ? AppColors.error(context)
+                                          : AppColors.icon(context),
+                                    ),
+                                    title: Text(
+                                      isSent ? "Sent" : "Received",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.text(context),
+                                      ),
+                                    ),
+                                    subtitle: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "To: ${p.destination?.substring(0, 10)}...",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.text(context),
+                                          ),
+                                        ),
+                                        Text(
+                                          "Amount: $formattedAmount",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.text(context),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    trailing: Chip(
+                                      label: Text(
+                                        p.status.toString().split('.').last,
+                                        style: TextStyle(
+                                          color: AppColors.text(context),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      backgroundColor: statusColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
-
-            const SizedBox(height: 20),
-
-            const Text(
-              "Payments",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 400, // Or use MediaQuery to make it dynamic
-              child: StreamBuilder<List<liquid_sdk.Payment>>(
-                stream: breezSDKLiquid.paymentsStream,
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return const Center(child: Text("No payments recorded."));
-                  }
-
-                  final payments = snapshot.data!;
-
-                  // for (final p in payments) {
-                  //   debugPrint("🔍 Payment:");
-                  //   debugPrint("  Status: ${p.status}");
-                  //   debugPrint("  Type: ${p.paymentType}");
-                  //   debugPrint("  Amount: ${p.amountSat}");
-                  //   debugPrint("  Destination: ${p.destination}");
-                  //   debugPrint("  Txid: ${p.txId}");
-                  // }
-
-                  return ListView.builder(
-                    itemCount: payments.length,
-                    itemBuilder: (context, index) {
-                      final p = payments[index];
-                      final isSent = p.amountSat.isNegative;
-
-                      final statusColor = {
-                            'complete': Colors.green,
-                            'pending': Colors.orange,
-                            'failed': Colors.red,
-                          }[p.status.toString().split('.').last] ??
-                          Colors.grey;
-
-                      final formattedAmount =
-                          "${(p.amountSat.abs() ~/ BigInt.from(1000))} sats";
-
-                      return Container(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.container(context),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.background(context).opaque(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            )
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            // Side accent
-                            Container(
-                              width: 6,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                color: isSent
-                                    ? Colors.redAccent
-                                    : AppColors.lightSecondary(context),
-                                borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(12),
-                                    bottomLeft: Radius.circular(12)),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                leading: Icon(
-                                  Icons.bolt,
-                                  size: 28,
-                                  color: isSent
-                                      ? Colors.redAccent
-                                      : AppColors.icon(context),
-                                ),
-                                title: Text(
-                                  isSent ? "Sent" : "Received",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.text(context),
-                                  ),
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                        "To: ${p.destination?.substring(0, 10)}...",
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: AppColors.text(context))),
-                                    Text("Amount: $formattedAmount",
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: AppColors.text(context))),
-                                  ],
-                                ),
-                                trailing: Chip(
-                                  label: Text(
-                                    p.status.toString().split('.').last,
-                                    style: const TextStyle(
-                                        color: Colors.white, fontSize: 12),
-                                  ),
-                                  backgroundColor: statusColor,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-
-            // const SizedBox(height: 16),
-            // const Text("Logs",
-            //     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            // const SizedBox(height: 8),
-            // Container(
-            //   height: 100,
-            //   width: double.infinity,
-            //   padding: const EdgeInsets.all(8),
-            //   decoration: BoxDecoration(
-            //     color: AppColors.container(context),
-            //     borderRadius: BorderRadius.circular(12),
-            //   ),
-            //   child: StreamBuilder<liquid_sdk.LogEntry>(
-            //     stream: breezSDKLiquid.logStream,
-            //     builder: (context, snapshot) {
-            //       if (!snapshot.hasData) {
-            //         return const Text("Waiting for logs...");
-            //       }
-            //       return SingleChildScrollView(
-            //         child: Text(
-            //           snapshot.data!.line,
-            //           style: TextStyle(
-            //             fontSize: 12,
-            //             color: AppColors.text(context),
-            //           ),
-            //         ),
-            //       );
-            //     },
-            //   ),
-            // ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -676,14 +410,7 @@ class _LightningPageState extends State<LightningPage> {
   Widget walletInfoCard(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.container(context),
-            AppColors.container(context).opaque(0.8)
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppColors.dialog(context),
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
@@ -856,23 +583,30 @@ class _LightningPageState extends State<LightningPage> {
     required String label,
     required VoidCallback onTap,
   }) {
-    return ElevatedButton.icon(
-      onPressed: onTap,
-      icon: Icon(
-        icon,
-        size: 22,
-        color: AppColors.white(),
-      ),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary(context),
-        foregroundColor: AppColors.white(),
-        minimumSize: const Size.fromHeight(52),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ElevatedButton(
+          onPressed: onTap,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.gradient(context),
+            foregroundColor: AppColors.icon(context),
+            shape: const CircleBorder(),
+            padding: const EdgeInsets.all(18),
+            elevation: 4,
+          ),
+          child: Icon(icon, size: 28),
         ),
-        elevation: 3,
-      ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: AppColors.text(context),
+          ),
+        ),
+      ],
     );
   }
 
@@ -893,19 +627,19 @@ class _LightningPageState extends State<LightningPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: const Icon(Icons.arrow_downward),
-                title: Text("Receive ${_capitalize(assetType)}"),
-                onTap: () {
-                  Navigator.pop(context);
-                  _handleAssetAction(assetType, "receive");
-                },
-              ),
-              ListTile(
                 leading: const Icon(Icons.arrow_upward),
                 title: Text("Send ${_capitalize(assetType)}"),
                 onTap: () {
                   Navigator.pop(context);
                   _handleAssetAction(assetType, "send");
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.arrow_downward),
+                title: Text("Receive ${_capitalize(assetType)}"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleAssetAction(assetType, "receive");
                 },
               ),
             ],
@@ -917,8 +651,7 @@ class _LightningPageState extends State<LightningPage> {
 
   void _handleAssetAction(String assetType, String direction) {
     if (assetType == "lightning") {
-      if (direction == "receive") _createInvoice(context);
-      if (direction == "send") _payInvoice(context);
+      _lightningOperations(context, direction);
     } else if (assetType == "liquid") {
       _liquidOperations(context, direction);
     } else if (assetType == "bitcoin") {

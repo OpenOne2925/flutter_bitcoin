@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_wallet/lightning/lightning_page.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 
 class SlideToLightning extends StatefulWidget {
   final String mnemonic;
+  final VoidCallback? onCompleted;
 
-  const SlideToLightning({super.key, required this.mnemonic});
+  const SlideToLightning({
+    super.key,
+    required this.mnemonic,
+    required this.onCompleted,
+  });
 
   @override
   State<StatefulWidget> createState() => SlideToLightningState();
@@ -47,17 +51,11 @@ class SlideToLightningState extends State<SlideToLightning> {
 
       HapticFeedback.mediumImpact();
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => LightningPage(mnemonic: widget.mnemonic),
-        ),
-      ).then((_) {
-        // When coming back, reset the slider
-        setState(() {
-          _completed = false;
-          _dragPosition = 0;
-        });
+      widget.onCompleted!();
+
+      setState(() {
+        _completed = false;
+        _dragPosition = 0;
       });
     }
   }
@@ -129,7 +127,7 @@ class SlideToLightningState extends State<SlideToLightning> {
                       ],
                     ),
                     child: Icon(
-                      Icons.thunderstorm,
+                      Icons.bolt,
                       color: AppColors.gradient(context),
                       size: 30,
                     ),

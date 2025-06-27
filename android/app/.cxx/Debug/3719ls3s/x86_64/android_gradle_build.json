@@ -4,14 +4,14 @@
   ],
   "cleanCommandsComponents": [
     [
-      "/usr/bin/ninja",
+      "/home/ciprian/android-sdk/cmake/3.22.1/bin/ninja",
       "-C",
       "/home/ciprian/Desktop/flutterProjects/flutter_wallet/android/app/.cxx/Debug/3719ls3s/x86_64",
       "clean"
     ]
   ],
   "buildTargetsCommandComponents": [
-    "/usr/bin/ninja",
+    "/home/ciprian/android-sdk/cmake/3.22.1/bin/ninja",
     "-C",
     "/home/ciprian/Desktop/flutterProjects/flutter_wallet/android/app/.cxx/Debug/3719ls3s/x86_64",
     "{LIST_OF_TARGETS_TO_BUILD}"

@@ -24,7 +24,6 @@ void main() async {
   // Ensure all Flutter bindings are initialized before running Hive
   WidgetsFlutterBinding.ensureInitialized();
 
-  // TODO: Nodeless implementation
   await liquid_sdk.initialize();
 
   await Hive.initFlutter(); // Initialize Hive

@@ -50,6 +50,7 @@ class WalletUiHelpers {
   final String? mnemonic;
   final bool isLightningWallet;
   final String? listeningAddress;
+  final VoidCallback? lightningCallback;
 
   late final WalletService walletService;
 
@@ -80,6 +81,7 @@ class WalletUiHelpers {
     this.pubKeysAlias,
     this.mnemonic,
     this.listeningAddress,
+    this.lightningCallback,
   })  : securityHelper = WalletSecurityHelpers(
           context: context,
           descriptor: descriptor,
@@ -378,6 +380,8 @@ class WalletUiHelpers {
                                             const BoxConstraints(maxWidth: 180),
                                         child: SlideToLightning(
                                           mnemonic: mnemonic.toString(),
+                                          onCompleted:
+                                              lightningCallback, // 🔥 this is key
                                         ),
                                       ),
                                   ],

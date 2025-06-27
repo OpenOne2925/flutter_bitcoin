@@ -10,14 +10,17 @@ class BreezSDKLiquid {
   factory BreezSDKLiquid() => _singleton;
 
   BreezSDKLiquid._internal() {
-    initializeLogStream();
+    // TODO: removed, check what it does and if is needed
+    // initializeLogStream();
   }
 
   liquid_sdk.BindingLiquidSdk? _instance;
 
   liquid_sdk.BindingLiquidSdk? get instance => _instance;
 
-  Future<void> connect({required liquid_sdk.ConnectRequest req}) async {
+  Future<void> connect({
+    required liquid_sdk.ConnectRequest req,
+  }) async {
     try {
       _instance = await liquid_sdk.connect(req: req);
       _initializeEventsStream(_instance!);
@@ -45,8 +48,7 @@ class BreezSDKLiquid {
   }
 
   Future<liquid_sdk.GetInfoResponse> _getInfo(
-    liquid_sdk.BindingLiquidSdk sdk,
-  ) async {
+      liquid_sdk.BindingLiquidSdk sdk) async {
     final walletInfo = await sdk.getInfo();
     _walletInfoController.add(walletInfo);
     return walletInfo;
@@ -107,71 +109,64 @@ class BreezSDKLiquid {
   /* TODO: Liquid - Log statements are added for debugging purposes, should be removed after early development stage is complete & events are behaving as expected.*/
   /// Subscribes to SdkEvent's stream
   void _subscribeToEventsStream(liquid_sdk.BindingLiquidSdk sdk) {
-    _breezEventsSubscription = _breezEventsStream?.listen((event) async {
-      if (event is liquid_sdk.SdkEvent_PaymentFailed) {
-        _logStreamController.add(
-          liquid_sdk.LogEntry(
-            line: "Payment Failed. ${event.details.destination}",
-            level: "WARN",
-          ),
-        );
-        _paymentResultStream.addError(PaymentException(event.details));
-      }
-      if (event is liquid_sdk.SdkEvent_PaymentPending) {
-        _logStreamController.add(
-          liquid_sdk.LogEntry(
-            line: "Payment Pending. ${event.details.destination}",
-            level: "INFO",
-          ),
-        );
-        _paymentResultStream.add(event.details);
-      }
-      if (event is liquid_sdk.SdkEvent_PaymentRefunded) {
-        _logStreamController.add(
-          liquid_sdk.LogEntry(
-            line: "Payment Refunded. ${event.details.destination}",
-            level: "INFO",
-          ),
-        );
-        _paymentResultStream.add(event.details);
-      }
-      if (event is liquid_sdk.SdkEvent_PaymentRefundPending) {
-        _logStreamController.add(
-          liquid_sdk.LogEntry(
-            line: "Pending Payment Refund. ${event.details.destination}",
-            level: "INFO",
-          ),
-        );
-        _paymentResultStream.add(event.details);
-      }
-      if (event is liquid_sdk.SdkEvent_PaymentSucceeded) {
-        _logStreamController.add(
-          liquid_sdk.LogEntry(
-            line: "Payment Succeeded. ${event.details.destination}",
-            level: "INFO",
-          ),
-        );
-        _paymentResultStream.add(event.details);
-      }
-      if (event is liquid_sdk.SdkEvent_PaymentWaitingConfirmation) {
-        _logStreamController.add(
-          liquid_sdk.LogEntry(
-            line: "Payment Waiting Confirmation. ${event.details.destination}",
-            level: "INFO",
-          ),
-        );
-        _paymentResultStream.add(event.details);
-      }
-      if (event is liquid_sdk.SdkEvent_Synced) {
-        _logStreamController.add(
-          const liquid_sdk.LogEntry(
-            line: "Received Synced event.",
-            level: "INFO",
-          ),
-        );
-      }
-      await _fetchWalletData(sdk);
-    });
+    _breezEventsSubscription = _breezEventsStream?.listen(
+      (event) async {
+        if (event is liquid_sdk.SdkEvent_PaymentFailed) {
+          _logStreamController.add(
+            liquid_sdk.LogEntry(
+                line: "Payment Failed. ${event.details.destination}",
+                level: "WARN"),
+          );
+          _paymentResultStream.addError(PaymentException(event.details));
+        }
+        if (event is liquid_sdk.SdkEvent_PaymentPending) {
+          _logStreamController.add(
+            liquid_sdk.LogEntry(
+                line: "Payment Pending. ${event.details.destination}",
+                level: "INFO"),
+          );
+          _paymentResultStream.add(event.details);
+        }
+        if (event is liquid_sdk.SdkEvent_PaymentRefunded) {
+          _logStreamController.add(
+            liquid_sdk.LogEntry(
+                line: "Payment Refunded. ${event.details.destination}",
+                level: "INFO"),
+          );
+          _paymentResultStream.add(event.details);
+        }
+        if (event is liquid_sdk.SdkEvent_PaymentRefundPending) {
+          _logStreamController.add(
+            liquid_sdk.LogEntry(
+                line: "Pending Payment Refund. ${event.details.destination}",
+                level: "INFO"),
+          );
+          _paymentResultStream.add(event.details);
+        }
+        if (event is liquid_sdk.SdkEvent_PaymentSucceeded) {
+          _logStreamController.add(
+            liquid_sdk.LogEntry(
+                line: "Payment Succeeded. ${event.details.destination}",
+                level: "INFO"),
+          );
+          _paymentResultStream.add(event.details);
+        }
+        if (event is liquid_sdk.SdkEvent_PaymentWaitingConfirmation) {
+          _logStreamController.add(
+            liquid_sdk.LogEntry(
+                line:
+                    "Payment Waiting Confirmation. ${event.details.destination}",
+                level: "INFO"),
+          );
+          _paymentResultStream.add(event.details);
+        }
+        if (event is liquid_sdk.SdkEvent_Synced) {
+          _logStreamController.add(const liquid_sdk.LogEntry(
+              line: "Received Synced event.", level: "INFO"));
+        }
+        await _fetchWalletData(sdk);
+      },
+    );
   }
 
   final _logStreamController =
@@ -181,14 +176,11 @@ class BreezSDKLiquid {
 
   /// Subscribes to SDK's logs stream
   void _subscribeToLogStream() {
-    _breezLogSubscription = _breezLogStream?.listen(
-      (logEntry) {
-        _logStreamController.add(logEntry);
-      },
-      onError: (e) {
-        _logStreamController.addError(e);
-      },
-    );
+    _breezLogSubscription = _breezLogStream?.listen((logEntry) {
+      _logStreamController.add(logEntry);
+    }, onError: (e) {
+      _logStreamController.addError(e);
+    });
   }
 
   /// Unsubscribes from SDK's event & log streams.

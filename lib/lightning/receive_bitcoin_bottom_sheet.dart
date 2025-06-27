@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_wallet/lightning/sdk_instance.dart';
 import 'package:flutter_wallet/lightning/payment_type.dart' as pt;
 import 'package:flutter_wallet/lightning/universal_payment_bottom_sheet.dart';
+import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 
 class ReceiveBitcoinBottomSheet extends StatefulWidget {
@@ -174,6 +175,7 @@ class ReceiveBitcoinBottomSheetState extends State<ReceiveBitcoinBottomSheet> {
         final controller = TextEditingController();
 
         return AlertDialog(
+          backgroundColor: AppColors.dialog(context),
           title: TextField(
             controller: controller,
             decoration: InputDecoration(hintText: "Enter BTC Address"),
@@ -185,7 +187,8 @@ class ReceiveBitcoinBottomSheetState extends State<ReceiveBitcoinBottomSheet> {
             ),
             TextButton(
               child: Text("OK"),
-              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              onPressed: () => Navigator.of(context, rootNavigator: true)
+                  .pop(controller.text.trim()),
             ),
           ],
         );
@@ -211,13 +214,8 @@ class ReceiveBitcoinBottomSheetState extends State<ReceiveBitcoinBottomSheet> {
           loading: _loading,
           minLimit: _minLimit,
           maxLimit: _maxLimit,
+          onCheckRefunds: _handleRefundables,
         ),
-        const SizedBox(height: 16),
-        ElevatedButton.icon(
-          icon: const Icon(Icons.refresh),
-          label: const Text("Check refunds"),
-          onPressed: _loading ? null : _handleRefundables,
-        )
       ],
     );
   }
