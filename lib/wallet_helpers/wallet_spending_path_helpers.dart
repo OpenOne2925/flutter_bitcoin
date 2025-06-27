@@ -174,7 +174,7 @@ class WalletSpendingPathHelpers {
     int index,
     int length,
   ) {
-    print('Spending paths: $path');
+    // print('Spending paths: $path');
 
     // Extract aliases for the current pathInfo's fingerprints
     final List<String> pathAliases =
@@ -194,8 +194,8 @@ class WalletSpendingPathHelpers {
             ? 'after'
             : 'none';
 
-    print('Timelock for the path: $timelock');
-    print('Current blockchain height: $currentHeight');
+    // print('Timelock for the path: $timelock');
+    // print('Current blockchain height: $currentHeight');
 
     String timeRemaining = 'Spendable';
 
@@ -265,7 +265,7 @@ class WalletSpendingPathHelpers {
 
       final totalSeconds = remainingBlocks * avgBlockTime;
       timeRemaining = walletService.formatTime(totalSeconds, context);
-      print('TimeRemaining: $timeRemaining');
+      // print('TimeRemaining: $timeRemaining');
 
       if (i == 0) {
         waitingTransactions.add(

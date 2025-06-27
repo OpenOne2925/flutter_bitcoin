@@ -93,10 +93,10 @@ class WalletSendtxHelpersBackup {
 
     double? customFeeRate;
 
-    print('selectedPath: $selectedPath');
-    print('selectedIndex: $selectedIndex');
+    // print('selectedPath: $selectedPath');
+    // print('selectedIndex: $selectedIndex');
 
-    print('index: $index');
+    // print('index: $index');
 
     if (isFromSpendingPath == true) {
       int sendAllBalance = 0;
@@ -307,7 +307,7 @@ class WalletSendtxHelpersBackup {
                 children: [
                   FeeSelector(
                     onFeeSelected: (double selectedFee) {
-                      print("Selected fee: $selectedFee sat/vB");
+                      // print("Selected fee: $selectedFee sat/vB");
                       setDialogState(() {
                         customFeeRate = selectedFee;
                       });
@@ -478,11 +478,11 @@ class WalletSendtxHelpersBackup {
                             selectedIndex = extractedData
                                 .indexOf(newValue); // Update the index
                           });
-                          print(selectedPath);
-                          print(selectedIndex);
+                          // print(selectedPath);
+                          // print(selectedIndex);
                         } else {
                           // Optionally handle the selection of unselectable items
-                          print("This item is unavailable.");
+                          // print("This item is unavailable.");
                         }
                       },
                       selectedItemBuilder: (BuildContext context) {
@@ -591,12 +591,12 @@ class WalletSendtxHelpersBackup {
 
                       final String recipientAddress =
                           recipientController.text.toString();
-                      print('Selected Index: $selectedIndex');
+                      // print('Selected Index: $selectedIndex');
 
                       int sendAllBalance = 0;
 
-                      print(
-                          'Available Balance: ${wallet.getBalance().spendable}');
+                      // print(
+                      //     'Available Balance: ${wallet.getBalance().spendable}');
 
                       if (isSingleWallet) {
                         sendAllBalance =
@@ -624,7 +624,7 @@ class WalletSendtxHelpersBackup {
 
                       amountController.text = sendAllBalance.toString();
                     } catch (e) {
-                      print('Error: $e');
+                      // print('Error: $e');
 
                       await DialogHelper.showErrorDialog(
                         context: rootContext,
@@ -781,7 +781,7 @@ class WalletSendtxHelpersBackup {
                         // Now, attempt to parse
                         int? amount = int.parse(amountController.text);
 
-                        print('Amount: $amount');
+                        // print('Amount: $amount');
 
                         if (isSingleWallet) {
                           await walletService.sendSingleTx(
@@ -807,10 +807,10 @@ class WalletSendtxHelpersBackup {
                           );
                         }
                       } else {
-                        print('selectedPath: $selectedPath');
-                        print('selectedIndex: $selectedIndex');
+                        // print('selectedPath: $selectedPath');
+                        // print('selectedIndex: $selectedIndex');
 
-                        print('index: $index');
+                        // print('index: $index');
                         result = await walletService.signBroadcastTx(
                           psbtController!.text,
                           descriptor.toString(),

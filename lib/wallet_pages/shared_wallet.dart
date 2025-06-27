@@ -326,7 +326,9 @@ class SharedWalletState extends State<SharedWallet> {
         });
       }
     } catch (e, stackTrace) {
+      print(e);
       print("Error creating or fetching balance for wallet: $stackTrace");
+
       throw ("Error creating or fetching balance for wallet: $e");
     } finally {
       setState(() {
@@ -451,7 +453,7 @@ class SharedWalletState extends State<SharedWallet> {
         _timeStamp = blockTimestamp;
       });
     } catch (e) {
-      print('Syncing error: $e'); // Debugging log
+      // print('Syncing error: $e'); // Debugging log
       throw Exception('Syncing error: $e'); // Properly throw an error
     }
   }
@@ -560,7 +562,7 @@ class SharedWalletState extends State<SharedWallet> {
       myAddresses.add(address);
     }
 
-    print('myaddresses: $myAddresses');
+    // print('myaddresses: $myAddresses');
 
     await walletService.saveLocalData(
       wallet,
@@ -727,7 +729,7 @@ class SharedWalletState extends State<SharedWallet> {
               final List<ConnectivityResult> connectivityResult =
                   await (Connectivity().checkConnectivity());
 
-              print('Myaddresses: $myAddresses');
+              // print('Myaddresses: $myAddresses');
 
               setState(() {
                 _isRefreshing = true;

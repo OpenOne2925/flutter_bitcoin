@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
@@ -61,7 +60,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
     _walletService =
         WalletService(Provider.of<SettingsProvider>(context, listen: false));
 
-    print(Provider.of<SettingsProvider>(context, listen: false).network);
+    // print(Provider.of<SettingsProvider>(context, listen: false).network);
 
     // Add a listner to the TextEditingController
     _descriptorController.addListener(() {

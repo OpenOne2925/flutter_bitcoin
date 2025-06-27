@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:breez_liquid/breez_liquid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/lightning/sdk_instance.dart';
-import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:flutter_wallet/lightning/payment_type.dart' as pt;
+import 'package:flutter_wallet/lightning/universal_payment_bottom_sheet.dart';
+import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 
 class ReceiveBitcoinBottomSheet extends StatefulWidget {
   const ReceiveBitcoinBottomSheet({super.key});
@@ -115,76 +119,106 @@ class ReceiveBitcoinBottomSheetState extends State<ReceiveBitcoinBottomSheet> {
     }
   }
 
+  Future<void> _handleRefundables() async {
+    try {
+      // List maps eligible for refund
+      List<RefundableSwap> refundables =
+          await breezSDKLiquid.instance!.listRefundables();
+
+      if (refundables.isEmpty) {
+        // print("No refundable swaps found.");
+        SnackBarHelper.show(context, message: "No refunds pending.");
+        return;
+      }
+
+      String? destinationAddress = await _promptForRefundAddress();
+      if (destinationAddress == null || destinationAddress.isEmpty) {
+        // print("Refund canceld by user");
+        return;
+      }
+
+      // Get recommended fees from Breez
+      RecommendedFees fees = await breezSDKLiquid.instance!.recommendedFees();
+      int feeRateSatPerVbyte = int.parse(fees.halfHourFee.toString());
+
+      for (var refundable in refundables) {
+        try {
+          RefundRequest req = RefundRequest(
+            swapAddress: refundable.swapAddress,
+            refundAddress: destinationAddress,
+            feeRateSatPerVbyte: feeRateSatPerVbyte,
+          );
+
+          RefundResponse resp = await breezSDKLiquid.instance!.refund(req: req);
+          // print("Refund Transaction sent: ${resp.refundTxId}");
+
+          SnackBarHelper.show(context,
+              message: "Refund Sent, TXID: ${resp.refundTxId}");
+        } catch (e) {
+          // print("Refund failed for swap ${refundable.swapAddress}: $e");
+          SnackBarHelper.showError(context, message: "Refund failed: $e");
+        }
+      }
+
+      setState(() => _error = null);
+    } catch (e) {
+      // print("Refund failed: $e");
+      setState(() => _error = "Refund failed: $e");
+    }
+  }
+
+  Future<String?> _promptForRefundAddress() async {
+    String? input = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+
+        return AlertDialog(
+          title: TextField(
+            controller: controller,
+            decoration: InputDecoration(hintText: "Enter BTC Address"),
+          ),
+          actions: [
+            TextButton(
+              child: Text("Cancel"),
+              onPressed: () => Navigator.pop(context, null),
+            ),
+            TextButton(
+              child: Text("OK"),
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+            ),
+          ],
+        );
+      },
+    );
+
+    return input;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        top: 16,
-        left: 16,
-        right: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              "Receive Bitcoin",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Amount in sats (optional)",
-              ),
-            ),
-            if (_minLimit != null && _maxLimit != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4.0),
-                child: Text(
-                  "Min: $_minLimit, Max: $_maxLimit sats",
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.unavailableColor,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 12),
-            if (_error != null)
-              Text(
-                _error!,
-                style: TextStyle(
-                  color: AppColors.error(context),
-                ),
-              ),
-            if (_fees != null)
-              Text(
-                "Estimated Fees: $_fees sats",
-                style: TextStyle(
-                  color: AppColors.primary(context),
-                ),
-              ),
-            if (_uri != null)
-              SelectableText(
-                "Payment URI_ \n$_uri",
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14),
-              ),
-            const SizedBox(height: 12),
-            _loading
-                ? const CircularProgressIndicator()
-                : ElevatedButton(
-                    onPressed: _prepareReceiveBTC,
-                    child: const Text("Generate Address"),
-                  ),
-          ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        UniversalPaymentBottomSheet(
+          type: pt.PaymentType.receiveBitcoin,
+          amountController: _amountController,
+          onSubmit: _prepareReceiveBTC,
+          result: null,
+          error: _error,
+          fees: _fees,
+          addressOrUri: _uri,
+          loading: _loading,
+          minLimit: _minLimit,
+          maxLimit: _maxLimit,
         ),
-      ),
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.refresh),
+          label: const Text("Check refunds"),
+          onPressed: _loading ? null : _handleRefundables,
+        )
+      ],
     );
   }
 }

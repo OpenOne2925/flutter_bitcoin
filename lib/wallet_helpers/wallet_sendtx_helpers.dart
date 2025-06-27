@@ -100,8 +100,8 @@ class WalletSendtxHelpers {
       selectedIndex = index ?? 0;
     }
 
-    print('SelectedIndex: $selectedIndex');
-    print('SelectedPath: $selectedPath');
+    // print('SelectedIndex: $selectedIndex');
+    // print('SelectedPath: $selectedPath');
 
     showPSBT = isCreating;
 
@@ -193,6 +193,7 @@ class WalletSendtxHelpers {
     } catch (e, stackTrace) {
       // Navigator.of(rootContext, rootNavigator: true).pop();
 
+      print(e);
       print(stackTrace);
 
       SnackBarHelper.showError(rootContext, message: e.toString());
@@ -580,7 +581,7 @@ class WalletSendtxHelpers {
 
       amountController.text = sendAllBalance.toString();
     } catch (e) {
-      print("Error: $e");
+      // print("Error: $e");
 
       await DialogHelper.showErrorDialog(
         context: context,

@@ -322,12 +322,12 @@ class BaseScaffoldState extends State<BaseScaffold> {
                         List<String> keyParts =
                             compositeKey.split('_descriptor_');
                         if (keyParts.length != 2) {
-                          print("Error: Invalid composite key format");
+                          // print("Error: Invalid composite key format");
                           return;
                         }
 
                         if (updatedDescriptorName.isEmpty) {
-                          print("Error: Descriptor name cannot be empty");
+                          // print("Error: Descriptor name cannot be empty");
                           return;
                         }
 
@@ -366,10 +366,10 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
                             // Check if old key exists before deleting
                             if (box.containsKey(oldCompositeKey)) {
-                              print("Deleting old key: $oldCompositeKey");
+                              // print("Deleting old key: $oldCompositeKey");
                               box.delete(oldCompositeKey);
                             } else {
-                              print("Old key not found, skipping deletion.");
+                              // print("Old key not found, skipping deletion.");
                             }
 
                             // Force Hive to commit changes
@@ -813,7 +813,7 @@ class BaseScaffoldState extends State<BaseScaffold> {
                           );
                         }
                       } else {
-                        print("Dialog dismissed without changes.");
+                        // print("Dialog dismissed without changes.");
                       }
                     },
                     onTap: () {

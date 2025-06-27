@@ -8,11 +8,10 @@ import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/services/utilities_service.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
-import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
-import 'package:flutter_wallet/lightning/lightning_page.dart';
 import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
+import 'package:flutter_wallet/widget_helpers/slide_to_lightning.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_security_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_transaction_helpers.dart';
@@ -362,9 +361,10 @@ class WalletUiHelpers {
                                                         ),
                                                         children: [
                                                           TextSpan(
-                                                              text:
-                                                                  settingsProvider
-                                                                      .currency),
+                                                            text:
+                                                                settingsProvider
+                                                                    .currency,
+                                                          ),
                                                         ],
                                                       ),
                                                     )
@@ -373,24 +373,12 @@ class WalletUiHelpers {
                                       ),
                                     ),
                                     if (isSingleWallet && !isLightningWallet)
-                                      CustomButton(
-                                        onPressed: () async {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => LightningPage(
-                                                mnemonic: mnemonic.toString(),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        label: 'Lightning',
-                                        backgroundColor:
-                                            AppColors.background(context),
-                                        foregroundColor:
-                                            AppColors.text(context),
-                                        icon: Icons.thunderstorm,
-                                        iconColor: AppColors.gradient(context),
+                                      ConstrainedBox(
+                                        constraints:
+                                            const BoxConstraints(maxWidth: 180),
+                                        child: SlideToLightning(
+                                          mnemonic: mnemonic.toString(),
+                                        ),
                                       ),
                                   ],
                                 ),

@@ -1,7 +1,8 @@
 import 'package:breez_liquid/breez_liquid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/lightning/sdk_instance.dart';
-import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:flutter_wallet/lightning/universal_payment_bottom_sheet.dart';
+import 'package:flutter_wallet/lightning/payment_type.dart' as pt;
 
 class SendBitcoinBottomSheet extends StatefulWidget {
   const SendBitcoinBottomSheet({super.key});
@@ -85,7 +86,7 @@ class SendBitcoinBottomSheetState extends State<SendBitcoinBottomSheet> {
       });
     } catch (e) {
       setState(() => _error = "Send failed: $e");
-      print("❌ Send failed: $e");
+      // print("❌ Send failed: $e");
     } finally {
       setState(() => _loading = false);
       // print("🔁 Send operation completed");
@@ -94,64 +95,16 @@ class SendBitcoinBottomSheetState extends State<SendBitcoinBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        top: 16,
-        left: 16,
-        right: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              "Send Bitcoin",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _destController,
-              decoration: const InputDecoration(
-                labelText: "Destination (BIP21 or BTC Address)",
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Amount in sats (optional)",
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (_error != null)
-              Text(
-                _error!,
-                style: TextStyle(
-                  color: AppColors.error(context),
-                ),
-              ),
-            if (_result != null)
-              Text(
-                _result!,
-                style: TextStyle(
-                  color: AppColors.primary(context),
-                ),
-              ),
-            const SizedBox(height: 12),
-            _loading
-                ? const CircularProgressIndicator()
-                : ElevatedButton(
-                    onPressed: _sendBitcoin,
-                    child: const Text("Send BTC"),
-                  ),
-          ],
-        ),
-      ),
+    return UniversalPaymentBottomSheet(
+      type: pt.PaymentType.sendBitcoin,
+      amountController: _amountController,
+      destController: _destController,
+      onSubmit: _sendBitcoin,
+      result: _result,
+      error: _error,
+      fees: null, // Not used here
+      addressOrUri: null, // Not used here
+      loading: _loading,
     );
   }
 }

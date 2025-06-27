@@ -281,7 +281,7 @@ class WalletPageState extends State<WalletPage> {
     if (isAddressUsed && !myAddresses.contains(address)) {
       myAddresses.add(address);
     }
-    print('myaddresses: $myAddresses');
+    // print('myaddresses: $myAddresses');
 
     await walletService.saveLocalData(
       wallet,
@@ -293,7 +293,7 @@ class WalletPageState extends State<WalletPage> {
   Future<void> _fetchCurrentBlockHeight() async {
     try {
       int currentHeight = await walletService.fetchCurrentBlockHeight();
-      print('currentHeight: $currentHeight');
+      // print('currentHeight: $currentHeight');
 
       String blockTimestamp =
           await walletService.fetchBlockTimestamp(currentHeight);
@@ -305,7 +305,7 @@ class WalletPageState extends State<WalletPage> {
         _timeStamp = blockTimestamp;
       });
     } catch (e) {
-      print('Syncing error: $e'); // Debugging log
+      // print('Syncing error: $e'); // Debugging log
       throw Exception('Syncing error: $e'); // Properly throw an error
     }
   }

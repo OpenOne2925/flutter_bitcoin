@@ -106,9 +106,9 @@ class _LightningPageState extends State<LightningPage> {
   Future<void> _createInvoice(BuildContext context) async {
     try {
       final limits = await breezSDKLiquid.instance!.fetchLightningLimits();
-      print(
-        "Receive min: ${limits.receive.minSat}, max: ${limits.receive.maxSat}",
-      );
+      // print(
+      //   "Receive min: ${limits.receive.minSat}, max: ${limits.receive.maxSat}",
+      // );
 
       // Ask user for amount
       final controller = TextEditingController();
@@ -229,7 +229,7 @@ class _LightningPageState extends State<LightningPage> {
         ],
       );
     } catch (e) {
-      print("Invoice creationg failed: $e");
+      // print("Invoice creationg failed: $e");
 
       SnackBarHelper.showError(
         context,
@@ -346,7 +346,7 @@ class _LightningPageState extends State<LightningPage> {
       );
 
       final fees = prepare.feesSat;
-      print("Estimated fees: $fees sats");
+      // print("Estimated fees: $fees sats");
 
       final confirm = await DialogHelper.buildCustomStatefulDialog<bool>(
         context: context,
@@ -374,16 +374,17 @@ class _LightningPageState extends State<LightningPage> {
 
       if (confirm != true) return;
 
-      final sendResponse = await breezSDKLiquid.instance!.sendPayment(
+      // final sendResponse =
+      await breezSDKLiquid.instance!.sendPayment(
         req: liquid_sdk.SendPaymentRequest(prepareResponse: prepare),
       );
 
-      final payment = sendResponse.payment;
-      print('Payment: $payment');
+      // final payment = sendResponse.payment;
+      // print('Payment: $payment');
 
       SnackBarHelper.show(context, message: 'payment_sent');
     } catch (e) {
-      print("Error sending payment: $e");
+      // print("Error sending payment: $e");
       SnackBarHelper.showError(context, message: 'failed_payment: $e)');
     }
   }
@@ -482,202 +483,29 @@ class _LightningPageState extends State<LightningPage> {
           padding: const EdgeInsets.all(16.0),
           children: [
             // 🪙 Wallet Card
-            Card(
-              color: AppColors.container(context),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              elevation: 6,
-              shadowColor: AppColors.primary(context).opaque(0.3),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.account_balance_wallet,
-                            color: AppColors.icon(context)),
-                        const SizedBox(width: 8),
-                        const Text("Wallet Info",
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    StreamBuilder<liquid_sdk.GetInfoResponse>(
-                      stream: breezSDKLiquid.walletInfoStream,
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-                        final info = snapshot.data!;
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text("Node ID:",
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            SelectableText(
-                              info.walletInfo.pubkey,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.text(context),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    Divider(color: AppColors.icon(context).opaque(0.3)),
-                    const SizedBox(height: 12),
-                    Text(
-                      "Balance: $_balance sats\n"
-                      "Pending Send: $_pendingSend\n"
-                      "Pending Receive: $_pendingReceive",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: AppColors.text(context),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            walletInfoCard(context),
 
             const SizedBox(height: 24),
 
             // ⚡ Send / Receive Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            Column(
               children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _createInvoice(context),
-                    icon: const Icon(Icons.bolt),
-                    label: const Text("Receive Lightning"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary(context),
-                      foregroundColor: AppColors.white(),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 4,
-                    ),
-                  ),
+                _assetActionButton(
+                  icon: Icons.bolt,
+                  label: "Lightning",
+                  onTap: () => _showActionSheet(context, "lightning"),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _payInvoice(context),
-                    icon: const Icon(Icons.send),
-                    label: const Text("Send Lightning"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary(context),
-                      foregroundColor: AppColors.white(),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 4,
-                    ),
-                  ),
+                const SizedBox(height: 12),
+                _assetActionButton(
+                  icon: Icons.water_drop,
+                  label: "Liquid",
+                  onTap: () => _showActionSheet(context, "liquid"),
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _liquidOperations(context, "receive"),
-                    icon: Icon(Icons.swap_horiz),
-                    label: const Text("Receive Liquid"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary(context),
-                      foregroundColor: AppColors.white(),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 4,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _liquidOperations(context, "send"),
-                    icon: Icon(Icons.swap_horiz),
-                    label: const Text("Send Liquid"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary(context),
-                      foregroundColor: AppColors.white(),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _bitcoinOperations(context, "receive"),
-                    icon: Icon(Icons.swap_horiz),
-                    label: const Text("Receive Bitcoin"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary(context),
-                      foregroundColor: AppColors.white(),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 4,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _bitcoinOperations(context, "send"),
-                    icon: Icon(Icons.swap_horiz),
-                    label: const Text("Send Bitcoin"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary(context),
-                      foregroundColor: AppColors.white(),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 4,
-                    ),
-                  ),
+                const SizedBox(height: 12),
+                _assetActionButton(
+                  icon: Icons.currency_bitcoin,
+                  label: "Bitcoin",
+                  onTap: () => _showActionSheet(context, "bitcoin"),
                 ),
               ],
             ),
@@ -843,5 +671,265 @@ class _LightningPageState extends State<LightningPage> {
         ),
       ),
     );
+  }
+
+  Widget walletInfoCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.container(context),
+            AppColors.container(context).opaque(0.8)
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary(context).opaque(0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(
+          color: AppColors.primary(context).opaque(0.4),
+          width: 1.2,
+        ),
+      ),
+      margin: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 12,
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _glowingIcon(context),
+              const SizedBox(width: 10),
+              Text(
+                "Wallet Info",
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.text(context),
+                ),
+              )
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Node ID
+          StreamBuilder<liquid_sdk.GetInfoResponse>(
+            stream: breezSDKLiquid.walletInfoStream,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final info = snapshot.data!;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Node ID",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.accent(context),
+                      fontSize: 14,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.container(context),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppColors.accent(context).opaque(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: SelectableText(
+                            info.walletInfo.pubkey,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.text(context),
+                              fontFamily: "monospace",
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(
+                            Icons.copy,
+                            color: AppColors.cardTitle(context),
+                            size: 18,
+                          ),
+                          tooltip: "Copy Node ID",
+                          onPressed: () {
+                            UtilitiesService.copyToClipboard(
+                              context: context,
+                              text: info.walletInfo.pubkey,
+                              messageKey: 'node_ID_clipboard',
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          Divider(
+            color: AppColors.accent(context).opaque(0.3),
+            thickness: 1,
+          ),
+          const SizedBox(height: 5),
+
+          // Balance section
+          Text(
+            "Balance",
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
+              color: AppColors.accent(context),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "Available: $_balance sats\n"
+            "Pending Send: $_pendingSend\n"
+            "Pending Receive: $_pendingReceive",
+            style: TextStyle(
+              fontSize: 15,
+              color: AppColors.text(context),
+              height: 1.4,
+            ),
+            textAlign: TextAlign.left,
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _glowingIcon(BuildContext context) {
+    return TweenAnimationBuilder(
+      tween: Tween(begin: 0.3, end: 0.7),
+      duration: const Duration(seconds: 2),
+      curve: Curves.easeInOut,
+      builder: (context, glow, child) {
+        return Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent(context).opaque(glow),
+                blurRadius: 12,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Icon(
+            Icons.account_balance_wallet_rounded,
+            color: AppColors.icon(context),
+            size: 32,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _assetActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      icon: Icon(
+        icon,
+        size: 22,
+        color: AppColors.white(),
+      ),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.primary(context),
+        foregroundColor: AppColors.white(),
+        minimumSize: const Size.fromHeight(52),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        elevation: 3,
+      ),
+    );
+  }
+
+  void _showActionSheet(
+    BuildContext context,
+    String assetType,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.arrow_downward),
+                title: Text("Receive ${_capitalize(assetType)}"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleAssetAction(assetType, "receive");
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.arrow_upward),
+                title: Text("Send ${_capitalize(assetType)}"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _handleAssetAction(assetType, "send");
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _handleAssetAction(String assetType, String direction) {
+    if (assetType == "lightning") {
+      if (direction == "receive") _createInvoice(context);
+      if (direction == "send") _payInvoice(context);
+    } else if (assetType == "liquid") {
+      _liquidOperations(context, direction);
+    } else if (assetType == "bitcoin") {
+      _bitcoinOperations(context, direction);
+    }
+  }
+
+  String _capitalize(String str) {
+    if (str.isEmpty) {
+      return str;
+    }
+    return str[0].toUpperCase() + str.substring(1);
   }
 }

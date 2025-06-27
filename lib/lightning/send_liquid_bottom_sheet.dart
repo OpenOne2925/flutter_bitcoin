@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_breez_liquid/flutter_breez_liquid.dart';
 import 'package:flutter_wallet/lightning/sdk_instance.dart';
-import 'package:flutter_wallet/utilities/app_colors.dart';
+import 'package:flutter_wallet/lightning/universal_payment_bottom_sheet.dart';
+import 'package:flutter_wallet/lightning/payment_type.dart' as pt;
 
 class SendLiquidBottomSheet extends StatefulWidget {
   const SendLiquidBottomSheet({super.key});
@@ -73,61 +74,16 @@ class SendLiquidBottomSheetState extends State<SendLiquidBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        top: 16,
-        left: 16,
-        right: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              "Send Liquid Payment",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _destController,
-              decoration: const InputDecoration(
-                labelText: "Destination (BIP21 or Liquid Address)",
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration:
-                  const InputDecoration(labelText: "Amount in sats (optional)"),
-            ),
-            const SizedBox(height: 12),
-            if (_error != null)
-              Text(
-                _error!,
-                style: TextStyle(color: AppColors.error(context)),
-              ),
-            if (_result != null)
-              Text(
-                _result!,
-                style: TextStyle(
-                  color: AppColors.primary(context),
-                ),
-              ),
-            const SizedBox(height: 12),
-            _loading
-                ? const CircularProgressIndicator()
-                : ElevatedButton(
-                    onPressed: _sendLiquid,
-                    child: const Text("Send Payment"),
-                  ),
-          ],
-        ),
-      ),
+    return UniversalPaymentBottomSheet(
+      type: pt.PaymentType.sendLiquid,
+      amountController: _amountController,
+      destController: _destController,
+      onSubmit: _sendLiquid,
+      result: _result,
+      error: _error,
+      fees: null, // Not displayed for send liquid
+      addressOrUri: null, // Not applicable here
+      loading: _loading,
     );
   }
 }
