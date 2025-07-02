@@ -100,8 +100,8 @@ class WalletSendtxHelpers {
       selectedIndex = index ?? 0;
     }
 
-    print('SelectedIndex: $selectedIndex');
-    print('SelectedPath: $selectedPath');
+    // print('SelectedIndex: $selectedIndex');
+    // print('SelectedPath: $selectedPath');
 
     showPSBT = isCreating;
 
@@ -657,8 +657,13 @@ class WalletSendtxHelpers {
                   messageKey: 'psbt_clipboard',
                 );
 
-                Navigator.of(rootContext, rootNavigator: true).pop();
-                Navigator.of(rootContext, rootNavigator: true).pop();
+                // if (Navigator.of(rootContext).canPop()) {
+                //   Navigator.of(rootContext, rootNavigator: true).pop();
+                // }
+                // if (Navigator.of(rootContext).canPop()) {
+                //   Navigator.of(rootContext, rootNavigator: true).pop();
+                // }
+                // Navigator.of(rootContext, rootNavigator: true).pop();
               },
               label: AppLocalizations.of(rootContext)!.translate('copy'),
               backgroundColor: AppColors.text(context),
@@ -703,8 +708,8 @@ class WalletSendtxHelpers {
                   }
                 }
 
-                Navigator.of(rootContext, rootNavigator: true).pop();
-                Navigator.of(rootContext, rootNavigator: true).pop();
+                // Navigator.of(rootContext, rootNavigator: true).pop();
+                // Navigator.of(rootContext, rootNavigator: true).pop();
               },
               label: AppLocalizations.of(rootContext)!.translate('save'),
               backgroundColor: AppColors.text(context),
@@ -716,7 +721,7 @@ class WalletSendtxHelpers {
             // Share Button
             InkwellButton(
               onTap: () {
-                Share.share(result);
+                SharePlus.instance.share(ShareParams(text: result));
               },
               label: AppLocalizations.of(rootContext)!.translate('share'),
               backgroundColor: AppColors.text(context),

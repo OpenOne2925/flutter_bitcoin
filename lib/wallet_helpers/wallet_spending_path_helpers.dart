@@ -31,6 +31,7 @@ class WalletSpendingPathHelpers {
   final String address;
   final BigInt avBalance;
   final void Function(String newAddress)? onNewAddressGenerated;
+  final String? descriptor;
 
   bool _isUserInteracting = false;
   bool _isScrollingForward = true;
@@ -54,9 +55,9 @@ class WalletSpendingPathHelpers {
     required this.address,
     required this.avBalance,
     required this.onNewAddressGenerated,
+    this.descriptor,
 
     // SharedWallet Variables
-    String? descriptor,
     String? myFingerPrint,
     List<String>? signersList,
   }) : sendTxHelper = WalletSendtxHelpers(
@@ -174,7 +175,7 @@ class WalletSpendingPathHelpers {
     int index,
     int length,
   ) {
-    print('Spending paths: $path');
+    // print('Spending paths: $path');
 
     // Extract aliases for the current pathInfo's fingerprints
     final List<String> pathAliases =
@@ -194,8 +195,8 @@ class WalletSpendingPathHelpers {
             ? 'after'
             : 'none';
 
-    print('Timelock for the path: $timelock');
-    print('Current blockchain height: $currentHeight');
+    // print('Timelock for the path: $timelock');
+    // print('Current blockchain height: $currentHeight');
 
     String timeRemaining = 'Spendable';
 
@@ -265,7 +266,7 @@ class WalletSpendingPathHelpers {
 
       final totalSeconds = remainingBlocks * avgBlockTime;
       timeRemaining = walletService.formatTime(totalSeconds, context);
-      print('TimeRemaining: $timeRemaining');
+      // print('TimeRemaining: $timeRemaining');
 
       if (i == 0) {
         waitingTransactions.add(
@@ -363,6 +364,10 @@ class WalletSpendingPathHelpers {
       }
     }
 
+    // print('Thresh: ${path['threshold']}');
+    // print('Aliases: ${pathAliases.length}');
+    // print('Type: $timelockType');
+
     return Stack(
       children: [
         // 🌟 Main Card
@@ -421,6 +426,7 @@ class WalletSpendingPathHelpers {
                     const SizedBox(width: 10),
 
                     // Send available balance from spending path
+
                     GestureDetector(
                       onTap: () async {
                         final rootContext = context;
@@ -498,8 +504,10 @@ class WalletSpendingPathHelpers {
                               amount: totalSpendable,
                             );
                           } finally {
-                            Navigator.of(rootContext, rootNavigator: true)
-                                .pop();
+                            Navigator.of(
+                              rootContext,
+                              rootNavigator: true,
+                            ).pop();
                           }
                         }
                       },
@@ -511,6 +519,199 @@ class WalletSpendingPathHelpers {
                         size: 22,
                       ),
                     ),
+
+                    const SizedBox(width: 10),
+
+                    // BACKUP Transaction Creation
+
+                    if ((path['threshold'] == null || path['threshold'] == 1) &&
+                        pathAliases.isNotEmpty &&
+                        (timelockType == 'older' || timelockType == 'after'))
+                      GestureDetector(
+                        onTap: () async {
+                          final rootContext = context;
+
+                          final singleWallet = await walletService
+                              .createOrRestoreWallet(mnemonic);
+
+                          final recipient = singleWallet
+                              .getAddress(
+                                  addressIndex:
+                                      const AddressIndex.peek(index: 0))
+                              .address
+                              .asString();
+
+                          int backupSpendable = 0;
+
+                          for (var utxo in utxos) {
+                            final status = utxo['status'];
+                            final confirmed =
+                                status != null && status['confirmed'] == true;
+
+                            if (confirmed) {
+                              backupSpendable +=
+                                  int.parse(utxo['value'].toString());
+
+                              continue;
+                            }
+                          }
+
+                          final shouldContinue = await showDialog<bool>(
+                            context: rootContext,
+                            builder: (ctx) => AlertDialog(
+                              backgroundColor: AppColors.dialog(context),
+                              title: const Text("Confirm Backup Transaction"),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    "You are about to create and sign a backup transaction with the following details:",
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    "Destination Address:\n$recipient",
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    "This transaction will be signed using the 1-of-N timelock path (older/after).\n\n"
+                                    "You can broadcast this transaction later using Bitcoin Core, other platforms, or the last button of the spending card in this app.",
+                                  ),
+                                ],
+                              ),
+                              actions: [
+                                TextButton(
+                                  child: const Text("Cancel"),
+                                  onPressed: () => Navigator.of(ctx).pop(false),
+                                ),
+                                ElevatedButton(
+                                  child: const Text("Continue"),
+                                  onPressed: () => Navigator.of(ctx).pop(true),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          // Bail out if user cancels
+                          if (shouldContinue != true) return;
+
+                          // print(recipient);
+                          // print('totalSpendable: $totalSpendable');
+
+                          final result = await walletService.createBackupTx(
+                            descriptor.toString(),
+                            mnemonic,
+                            recipient,
+                            BigInt.from(backupSpendable),
+                            index,
+                            avBalance,
+                            spendingPaths: spendingPaths,
+                            isSendAllBalance: true,
+                          );
+
+                          // print('Rezuldado');
+                          // print(result);
+
+                          final finalResult =
+                              await walletService.createBackupTx(
+                            descriptor.toString(),
+                            mnemonic,
+                            recipient,
+                            BigInt.from(int.parse(result.toString())),
+                            index,
+                            avBalance,
+                            spendingPaths: spendingPaths,
+                          );
+
+                          // print('RezuldadoFinal');
+
+                          sendTxHelper.showPSBTDialog(
+                            finalResult.toString(),
+                            rootContext,
+                          );
+
+                          // print(finalResult);
+                        },
+                        child: Icon(
+                          Icons.backup,
+                          color: AppColors.icon(context),
+                          size: 22,
+                        ),
+                      ),
+
+                    const SizedBox(width: 10),
+
+                    // BACKUP Transaction Broadcast
+
+                    if ((path['threshold'] == null || path['threshold'] == 1) &&
+                        pathAliases.isNotEmpty &&
+                        (timelockType == 'older' || timelockType == 'after'))
+                      GestureDetector(
+                        onTap: () async {
+                          final psbtString = await showDialog<String>(
+                            context: context,
+                            builder: (context) {
+                              String input = '';
+                              return AlertDialog(
+                                backgroundColor: AppColors.dialog(context),
+                                title: const Text('Enter PSBT String'),
+                                content: TextField(
+                                  autofocus: true,
+                                  maxLines: null,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Paste your PSBT here',
+                                  ),
+                                  onChanged: (value) => input = value,
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(), // Cancel
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context)
+                                        .pop(input), // Return input
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+
+                          if (psbtString == null || psbtString.trim().isEmpty) {
+                            SnackBarHelper.showError(
+                              context,
+                              message:
+                                  "PSBT string is empty or canceled. Signing aborted.",
+                            );
+                            return;
+                          }
+
+                          try {
+                            await walletService
+                                .broadcastBackupTx(psbtString.trim());
+
+                            SnackBarHelper.show(
+                              context,
+                              message: "PSBT broadcast successfully.",
+                            );
+                          } catch (e) {
+                            SnackBarHelper.showError(
+                              context,
+                              message:
+                                  "Failed to broadcast PSBT: ${e.toString()}",
+                            );
+                          }
+                        },
+                        child: Icon(
+                          Icons.sign_language,
+                          color: AppColors.icon(context),
+                          size: 22,
+                        ),
+                      ),
                   ],
                 ),
 
@@ -585,7 +786,7 @@ class WalletSpendingPathHelpers {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                '${path['threshold']} of ${pathAliases.length}',
+                '${path['threshold']}/${pathAliases.length}',
                 style: TextStyle(
                   color: AppColors.gradient(context),
                   fontSize: 12,

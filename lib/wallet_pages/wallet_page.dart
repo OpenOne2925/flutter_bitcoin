@@ -118,6 +118,8 @@ class WalletPageState extends State<WalletPage> {
         trueMnemonic,
       );
 
+      // print('secretKey: ${receivingSecretKey.asString()}');
+
       // print('pubkey: $receivingPublicKey');
 
       // Extract spending paths
@@ -281,7 +283,7 @@ class WalletPageState extends State<WalletPage> {
     if (isAddressUsed && !myAddresses.contains(address)) {
       myAddresses.add(address);
     }
-    print('myaddresses: $myAddresses');
+    // print('myaddresses: $myAddresses');
 
     await walletService.saveLocalData(
       wallet,

@@ -391,7 +391,7 @@ class SharedWalletState extends State<SharedWallet> {
       policy = jsonDecode(externalWalletPolicy.asString());
 
       // print('ciao');
-      walletService.printInChunks(externalWalletPolicy.toString());
+      // walletService.printInChunks(externalWalletPolicy.toString());
 
       // Convert mnemonic to object
       Mnemonic trueMnemonic = await Mnemonic.fromString(widget.mnemonic);
@@ -560,7 +560,7 @@ class SharedWalletState extends State<SharedWallet> {
       myAddresses.add(address);
     }
 
-    print('myaddresses: $myAddresses');
+    // print('myaddresses: $myAddresses');
 
     await walletService.saveLocalData(
       wallet,
@@ -726,7 +726,7 @@ class SharedWalletState extends State<SharedWallet> {
               final List<ConnectivityResult> connectivityResult =
                   await (Connectivity().checkConnectivity());
 
-              print('Myaddresses: $myAddresses');
+              // print('Myaddresses: $myAddresses');
 
               setState(() {
                 _isRefreshing = true;

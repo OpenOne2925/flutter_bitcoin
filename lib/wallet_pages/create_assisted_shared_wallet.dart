@@ -52,8 +52,8 @@ class CreateAssistedSharedWalletPageState
   String _descriptorName = "";
   List<Map<String, dynamic>> timelockConditions = [];
 
-  bool _isDuplicateDescriptor = false;
-  bool _isDescriptorNameMissing = false;
+  // bool _isDuplicateDescriptor = false;
+  final bool _isDescriptorNameMissing = false;
   bool _isYourPubKeyMissing = false;
   bool _arePublicKeysMissing = false;
 
@@ -95,9 +95,9 @@ class CreateAssistedSharedWalletPageState
         mnemonic,
       );
 
-      print(receivingPublicKey
-          .toString()
-          .substring(0, receivingPublicKey.toString().length - 2));
+      // print(receivingPublicKey
+      //     .toString()
+      //     .substring(0, receivingPublicKey.toString().length - 2));
 
       setState(() {
         if (isGenerating) {
@@ -113,18 +113,18 @@ class CreateAssistedSharedWalletPageState
     }
   }
 
-  bool _isDuplicateDescriptorName(String descriptorName) {
-    final descriptorBox = Hive.box('descriptorBox');
+  // bool _isDuplicateDescriptorName(String descriptorName) {
+  //   final descriptorBox = Hive.box('descriptorBox');
 
-    // Iterate through all keys and check if any key contains the same descriptor name
-    for (var key in descriptorBox.keys) {
-      // print('Key: $key');
-      if (key.toString().contains(descriptorName.trim())) {
-        return true; // Duplicate found
-      }
-    }
-    return false; // No duplicate found
-  }
+  //   // Iterate through all keys and check if any key contains the same descriptor name
+  //   for (var key in descriptorBox.keys) {
+  //     // print('Key: $key');
+  //     if (key.toString().contains(descriptorName.trim())) {
+  //       return true; // Duplicate found
+  //     }
+  //   }
+  //   return false; // No duplicate found
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -149,8 +149,8 @@ class CreateAssistedSharedWalletPageState
                       setState(() {
                         _descriptorName = _descriptorNameController.text.trim();
 
-                        _isDuplicateDescriptor =
-                            _isDuplicateDescriptorName(_descriptorName);
+                        // _isDuplicateDescriptor =
+                        //     _isDuplicateDescriptorName(_descriptorName);
                       });
                     },
                     decoration: CustomTextFieldStyles.textFieldDecoration(
@@ -485,46 +485,46 @@ class CreateAssistedSharedWalletPageState
   }
 
   void _createDescriptor() async {
-    print('🚀 Starting descriptor creation...');
+    // print('🚀 Starting descriptor creation...');
 
     // Step 1: Validate inputs
-    print('🧪 Validating inputs...');
+    // print('🧪 Validating inputs...');
     _validateInputs();
 
     if (_arePublicKeysMissing || _isYourPubKeyMissing) {
-      print('❌ Validation failed: Missing descriptor fields.');
+      // print('❌ Validation failed: Missing descriptor fields.');
       return;
     }
-    print('✅ Validation passed.');
+    // print('✅ Validation passed.');
 
     // Step 2: Extract and sort public keys
-    print('🔍 Extracting public keys from user input...');
+    // print('🔍 Extracting public keys from user input...');
     List<String> extractedPublicKeys = publicKeysWithAliasMultisig
         .map((entry) => entry['publicKey']!)
         .toList()
       ..sort();
 
-    print('📋 Sorted Public Keys: $extractedPublicKeys');
+    // print('📋 Sorted Public Keys: $extractedPublicKeys');
 
     String formattedKeys =
         extractedPublicKeys.toString().replaceAll(RegExp(r'^\[|\]$'), '');
-    print('🔧 Formatted keys string for descriptor: $formattedKeys');
+    // print('🔧 Formatted keys string for descriptor: $formattedKeys');
 
     // ⚠️ Fixed: Do not prepend a key outside of multi_a
     String multi =
         'multi_a(${publicKeysWithAliasMultisig.length},$formattedKeys)';
-    print('🔗 Multi_a expression: $multi');
+    // print('🔗 Multi_a expression: $multi');
 
     String finalDescriptor;
 
     _handleTimelocks(); // Optional: Add debug log inside that method if needed
-    print('Timelock conditions after handling: $timelockConditions');
+    // print('Timelock conditions after handling: $timelockConditions');
 
     final deadKey = await mutateXpubUntilAccepted(extractedPublicKeys.first);
 
     // Step 3: Handle optional timelocks
     if (timelockConditions.isNotEmpty) {
-      print('⏱ Handling timelock conditions...');
+      // print('⏱ Handling timelock conditions...');
 
       // Sort timelocks by block/time
       timelockConditions.sort((a, b) {
@@ -533,7 +533,7 @@ class CreateAssistedSharedWalletPageState
         return getTimeLock(a).compareTo(getTimeLock(b));
       });
 
-      print('📋 Sorted timelock conditions: $timelockConditions');
+      // print('📋 Sorted timelock conditions: $timelockConditions');
 
       // Format each timelock into Miniscript
       List<String> formattedTimelocks = timelockConditions.map((condition) {
@@ -541,10 +541,10 @@ class CreateAssistedSharedWalletPageState
         String older = condition['older'] ?? '';
         String after = condition['after'] ?? '';
 
-        print('⏳ Processing timelock condition:');
-        print('  🔐 Threshold: $threshold');
-        print('  🔁 Older: $older');
-        print('  📆 After: $after');
+        // print('⏳ Processing timelock condition:');
+        // print('  🔐 Threshold: $threshold');
+        // print('  🔁 Older: $older');
+        // print('  📆 After: $after');
 
         String timeCondition = older.isNotEmpty
             ? 'older($older)'
@@ -558,46 +558,46 @@ class CreateAssistedSharedWalletPageState
             .toList()
           ..sort();
 
-        print('  🔑 Sorted pubkeys for this condition: $pubkeys');
+        // print('  🔑 Sorted pubkeys for this condition: $pubkeys');
 
         String pubkeysString = pubkeys.join(',');
         String multiCondition = pubkeys.length > 1
             ? 'multi_a($threshold,$pubkeysString)'
             : 'pk(${pubkeys.first})';
 
-        print('  🔧 Script expression: $multiCondition');
+        // print('  🔧 Script expression: $multiCondition');
 
         String result = 'and_v(v:$timeCondition,$multiCondition)';
-        print('  🧱 Final formatted timelock expression: $result');
+        // print('  🧱 Final formatted timelock expression: $result');
 
         return result;
       }).toList();
 
       // Combine the timelocks and the multi_a base
       String timelockCondition = buildTimelockCondition(formattedTimelocks);
-      print('🧩 Combined timelock condition: $timelockCondition');
+      // print('🧩 Combined timelock condition: $timelockCondition');
 
       // Use nested logic for final tr() descriptor
       finalDescriptor =
           'tr($deadKey, ${nestConditions(multi, [timelockCondition])})';
 
-      print('🧬 Final descriptor with timelocks: $finalDescriptor');
+      // print('🧬 Final descriptor with timelocks: $finalDescriptor');
     } else {
       // No timelocks, just use multi_a in tr()
-      print('🟢 No timelock conditions. Using only multisig policy.');
+      // print('🟢 No timelock conditions. Using only multisig policy.');
       finalDescriptor = 'tr($deadKey,$multi)';
-      print('🧬 Final descriptor: $finalDescriptor');
+      // print('🧬 Final descriptor: $finalDescriptor');
     }
 
     // Clean and store descriptor
     finalDescriptor = finalDescriptor.replaceAll(' ', '');
-    print('✅ Final descriptor after cleaning: $finalDescriptor');
+    // print('✅ Final descriptor after cleaning: $finalDescriptor');
 
     setState(() {
       _finalDescriptor = finalDescriptor;
     });
 
-    print('📦 Descriptor stored to state.');
+    // print('📦 Descriptor stored to state.');
 
     _createDescriptorDialog(context);
   }
@@ -610,7 +610,7 @@ class CreateAssistedSharedWalletPageState
   }
 
   Future<String> mutateXpubUntilAccepted(String xpub) async {
-    print('🧪 Starting xpub mutation process...');
+    // print('🧪 Starting xpub mutation process...');
     final chars = xpub.split('');
 
     for (int i = 0; i < chars.length; i++) {
@@ -623,8 +623,8 @@ class CreateAssistedSharedWalletPageState
         final mutated = chars.join();
 
         // Log mutation attempt
-        print('🔄 Trying mutation at index $i: "$original" → "$replacement"');
-        print('📦 Mutated xpub: $mutated');
+        // print('🔄 Trying mutation at index $i: "$original" → "$replacement"');
+        // print('📦 Mutated xpub: $mutated');
 
         final descriptorStr =
             'tr($mutated,pk(0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798))';
@@ -634,7 +634,7 @@ class CreateAssistedSharedWalletPageState
             descriptor: descriptorStr,
             network: settingsProvider.network,
           );
-          print('✅ Descriptor accepted with mutated xpub.');
+          // print('✅ Descriptor accepted with mutated xpub.');
           return mutated;
         } catch (e) {
           print('❌ Rejected: $e');
@@ -1041,7 +1041,7 @@ class CreateAssistedSharedWalletPageState
 
   void _navigateToSharedWallet() async {
     bool isValid = await _validateDescriptor(_finalDescriptor);
-    print(isValid);
+    // print(isValid);
     // setState(() {
     //   _status = 'Loading';
     // });
@@ -1051,7 +1051,7 @@ class CreateAssistedSharedWalletPageState
       //   _status = 'Success';
       // });
 
-      walletService.printInChunks(_finalDescriptor.toString());
+      // walletService.printInChunks(_finalDescriptor.toString());
 
       Navigator.push(
         context,
@@ -1081,7 +1081,7 @@ class CreateAssistedSharedWalletPageState
         context,
       );
 
-      print(result.toString());
+      // print(result.toString());
 
       // setState(() {
       //   _isDescriptorValid = result.isValid;

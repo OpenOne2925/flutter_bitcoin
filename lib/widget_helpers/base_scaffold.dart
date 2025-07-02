@@ -322,12 +322,12 @@ class BaseScaffoldState extends State<BaseScaffold> {
                         List<String> keyParts =
                             compositeKey.split('_descriptor_');
                         if (keyParts.length != 2) {
-                          print("Error: Invalid composite key format");
+                          // print("Error: Invalid composite key format");
                           return;
                         }
 
                         if (updatedDescriptorName.isEmpty) {
-                          print("Error: Descriptor name cannot be empty");
+                          // print("Error: Descriptor name cannot be empty");
                           return;
                         }
 
@@ -359,18 +359,20 @@ class BaseScaffoldState extends State<BaseScaffold> {
                             var savedData = box.get(newCompositeKey);
                             if (savedData != null) {
                               // print("Successfully saved to new key: $newCompositeKey");
-                            } else {
-                              print(
-                                  "Error: Data did not save correctly to new key.");
                             }
+                            // else {
+                            //   print(
+                            //       "Error: Data did not save correctly to new key.");
+                            // }
 
                             // Check if old key exists before deleting
                             if (box.containsKey(oldCompositeKey)) {
-                              print("Deleting old key: $oldCompositeKey");
+                              // print("Deleting old key: $oldCompositeKey");
                               box.delete(oldCompositeKey);
-                            } else {
-                              print("Old key not found, skipping deletion.");
                             }
+                            // else {
+                            //   print("Old key not found, skipping deletion.");
+                            // }
 
                             // Force Hive to commit changes
                             await box.compact();
@@ -812,9 +814,10 @@ class BaseScaffoldState extends State<BaseScaffold> {
                             ),
                           );
                         }
-                      } else {
-                        print("Dialog dismissed without changes.");
                       }
+                      //  else {
+                      //   print("Dialog dismissed without changes.");
+                      // }
                     },
                     onTap: () {
                       Navigator.push(

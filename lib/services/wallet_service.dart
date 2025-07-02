@@ -181,35 +181,35 @@ class WalletService extends ChangeNotifier {
     BuildContext context,
   ) async {
     try {
-      print('🔐 Validating descriptor...');
-      print('📬 Public Key: $publicKey');
-      print('🧾 Descriptor (full):');
-      printInChunks(descriptorStr);
+      // print('🔐 Validating descriptor...');
+      // print('📬 Public Key: $publicKey');
+      // print('🧾 Descriptor (full):');
+      // printInChunks(descriptorStr);
 
       final last3 = publicKey.substring(0, publicKey.length - 3);
-      print('🔍 Checking if descriptor contains pubkey: "$last3"');
+      // print('🔍 Checking if descriptor contains pubkey: "$last3"');
 
       if (descriptorStr.contains(last3)) {
-        print('✅ Match found. Attempting to create descriptor...');
+        // print('✅ Match found. Attempting to create descriptor...');
 
         final descriptor = await Descriptor.create(
           descriptor: descriptorStr,
           network: settingsProvider.network,
         );
 
-        print('🏗️ Descriptor created successfully.');
+        // print('🏗️ Descriptor created successfully.');
 
-        print('💾 Attempting to create wallet in memory...');
+        // print('💾 Attempting to create wallet in memory...');
         await Wallet.create(
           descriptor: descriptor,
           network: settingsProvider.network,
           databaseConfig: const DatabaseConfig.memory(),
         );
-        print('🎉 Wallet creation successful.');
+        // print('🎉 Wallet creation successful.');
 
         return ValidationResult(isValid: true);
       } else {
-        print('❌ Descriptor does NOT contain expected public key fragment.');
+        // print('❌ Descriptor does NOT contain expected public key fragment.');
         return ValidationResult(
           isValid: false,
           errorMessage: AppLocalizations.of(
@@ -278,7 +278,7 @@ class WalletService extends ChangeNotifier {
     try {
       await blockchainInit(); // Ensure blockchain is initialized before usage
 
-      print('Blockchain initialized');
+      // print('Blockchain initialized');
 
       await wallet.sync(blockchain: blockchain);
     } catch (e) {
@@ -295,7 +295,7 @@ class WalletService extends ChangeNotifier {
       // .peek(index: 0),
     );
 
-    print('New Address generated: ${addressInfo.address.asString()}');
+    // print('New Address generated: ${addressInfo.address.asString()}');
 
     return addressInfo.address.asString();
   }
@@ -308,13 +308,13 @@ class WalletService extends ChangeNotifier {
         wallet.getBalance().spendable.toString(),
       );
 
-      print('confirmedBalance: $confirmedBalance');
+      // print('confirmedBalance: $confirmedBalance');
 
       final int pendingBalance = int.parse(
         wallet.getBalance().untrustedPending.toString(),
       );
 
-      print('pendingBalance: $pendingBalance');
+      // print('pendingBalance: $pendingBalance');
 
       return {
         "confirmedBalance": confirmedBalance,
@@ -336,11 +336,9 @@ class WalletService extends ChangeNotifier {
     try {
       final feeRate = customFeeRate ?? await getFeeRate();
 
-      print(customFeeRate);
-
-      print(feeRate);
-
-      print(availableBalance);
+      // print(customFeeRate);
+      // print(feeRate);
+      // print(availableBalance);
 
       final recipient = await Address.fromString(
         s: recipientAddress,
@@ -400,7 +398,7 @@ class WalletService extends ChangeNotifier {
             ),
           ),
         );
-        print("Connected to Electrum server: $url");
+        // print("Connected to Electrum server: $url");
         return;
       } catch (e) {
         print(
@@ -531,7 +529,7 @@ class WalletService extends ChangeNotifier {
       // Decode JSON response
       final int jsonData = json.decode(response.body);
 
-      print(response.body);
+      // print(response.body);
 
       return jsonData;
     } else {
@@ -549,12 +547,12 @@ class WalletService extends ChangeNotifier {
   Future<String> fetchBlockTimestamp(int height) async {
     try {
       String currentHash = await blockchain.getBlockHash(height: height);
-      print('currentHash: $currentHash');
+      // print('currentHash: $currentHash');
 
       // API endpoint to fetch block details
       final String blockApiUrl = '$baseUrl/block/$currentHash';
 
-      print(blockApiUrl);
+      // print(blockApiUrl);
 
       // Make GET request to fetch block details
       final response = await http.get(Uri.parse(blockApiUrl));
@@ -723,7 +721,7 @@ class WalletService extends ChangeNotifier {
             'value': value,
           });
 
-          print('[DEBUG] Decoded UTXOs: $finalUtxos');
+          // print('[DEBUG] Decoded UTXOs: $finalUtxos');
         } else {
           print('[ERROR] Failed to fetch tx $txid: ${txResponse.statusCode}');
         }
@@ -819,73 +817,6 @@ class WalletService extends ChangeNotifier {
     );
   }
 
-  // void printTransactionDetails() async {
-  //   try {
-  //     List<TransactionDetails> transactions =
-  //         wallet.listTransactions(includeRaw: true);
-
-  //     if (transactions.isEmpty) {
-  //       print("No transactions found.");
-  //       return;
-  //     }
-
-  //     // ✅ Sort transactions: Unconfirmed first, then by block height (ascending)
-  //     transactions.sort((a, b) {
-  //       int aHeight =
-  //           a.confirmationTime?.height ?? 0; // Treat unconfirmed as height = 0
-  //       int bHeight = b.confirmationTime?.height ?? 0;
-  //       return bHeight.compareTo(aHeight);
-  //     });
-
-  //     print("\n===== Transaction History (Sorted) =====");
-  //     for (var tx in transactions) {
-  //       // Extract sender & receiver
-  //       List<String> senders = [];
-  //       List<String> receivers = [];
-
-  //       final inputs = tx.transaction!.input();
-
-  //       // Process inputs (senders)
-  //       for (final input in inputs) {
-  //         try {
-  //           final senderAddress = await getAddressFromScriptInput(input);
-  //           senders.add(senderAddress.toString());
-  //         } catch (e) {
-  //           print("Error fetching sender address: $e");
-  //         }
-  //       }
-
-  //       final outputs = tx.transaction!.output();
-
-  //       // Process outputs (receivers)
-  //       for (final output in outputs) {
-  //         try {
-  //           final receiverAddress = await getAddressFromScriptOutput(output);
-  //           receivers.add(receiverAddress.toString());
-  //         } catch (e) {
-  //           print("Error fetching receiver address: $e");
-  //         }
-  //       }
-
-  //       print("""
-  //             ----------------------------
-  //             TxID: ${tx.txid}
-  //             Received: ${tx.received} Sats
-  //             Sent: ${tx.sent} Sats
-  //             Fee: ${tx.fee ?? 'Unknown'} Sats
-  //             Confirmed: ${tx.confirmationTime != null ? 'Yes' : 'No'}
-  //             Block Height: ${tx.confirmationTime?.height ?? 'Pending'}
-  //             Block Time: ${tx.confirmationTime?.timestamp ?? 'Pending'}
-  //             Senders: ${senders.isNotEmpty ? senders.join(", ") : "Unknown"}
-  //             Receivers: ${receivers.isNotEmpty ? receivers.join(", ") : "Unknown"}
-  //             ----------------------------
-  //             """);
-  //     }
-  //   } catch (e) {
-  //     print("Error fetching transactions: $e");
-  //   }
-  // }
-
   void validateAddress(String address) async {
     try {
       await Address.fromString(s: address, network: settingsProvider.network);
@@ -978,26 +909,26 @@ class WalletService extends ChangeNotifier {
     List<String> walletTxIds = walletTransactions
         .map((tx) => tx.txid.toString().toLowerCase())
         .toList();
-    print("🔎 Checking for new transactions...");
+    // print("🔎 Checking for new transactions...");
 
     // Find new transactions
     List<String> newTransactions =
         walletTxIds.where((txid) => !apiTxIds.contains(txid)).toList();
 
     // Debugging Output
-    print("✅ Total API Transactions: ${apiTransactions.length}");
+    // print("✅ Total API Transactions: ${apiTransactions.length}");
     // printInChunks(apiTxIds.toString());
 
-    print("✅ Total Wallet Transactions: ${walletTxIds.length}");
+    // print("✅ Total Wallet Transactions: ${walletTxIds.length}");
     // printInChunks(walletTxIds.toString());
 
-    if (newTransactions.isNotEmpty) {
-      print("🆕 New Transactions Found: ${newTransactions.length}");
+    // if (newTransactions.isNotEmpty) {
+    //   print("🆕 New Transactions Found: ${newTransactions.length}");
 
-      print("🆕 New Transactions Detected: ${newTransactions.join(", ")}");
-    } else {
-      print("✅ No new transactions.");
-    }
+    //   print("🆕 New Transactions Detected: ${newTransactions.join(", ")}");
+    // } else {
+    //   print("✅ No new transactions.");
+    // }
 
     return newTransactions;
   }
@@ -1110,9 +1041,9 @@ class WalletService extends ChangeNotifier {
   ) async {
     await syncWallet(wallet);
 
-    final utxos = wallet.getBalance();
-    print("Available UTXOs: ${utxos.total.toInt()}");
-    print(wallet.getAddress(addressIndex: AddressIndex.peek(index: 0)));
+    // final utxos = wallet.getBalance();
+    // print("Available UTXOs: ${utxos.total.toInt()}");
+    // print(wallet.getAddress(addressIndex: AddressIndex.peek(index: 0)));
 
     try {
       // Build the transaction
@@ -1179,14 +1110,21 @@ class WalletService extends ChangeNotifier {
   Future<Wallet> createSharedWallet(String descriptor) async {
     // print(settingsProvider.network);
 
-    return wallet = await Wallet.create(
-      descriptor: await Descriptor.create(
-        descriptor: descriptor,
-        network: settingsProvider.network,
-      ),
+    Descriptor descriptorReal = await Descriptor.create(
+      descriptor: descriptor,
+      network: settingsProvider.network,
+    );
+
+    // print("Checksum Descriptor");
+    // printInChunks(descriptorReal.asString());
+
+    wallet = await Wallet.create(
+      descriptor: descriptorReal,
       network: settingsProvider.network,
       databaseConfig: const DatabaseConfig.memory(),
     );
+
+    return wallet;
   }
 
   Future<void> saveLocalData(
@@ -1301,36 +1239,36 @@ class WalletService extends ChangeNotifier {
     DerivationPath unHardenedPath,
     Mnemonic mnemonic,
   ) async {
-    print("🔐 Starting key derivation process...");
-    print("🧠 Mnemonic: $mnemonic");
-    print("📌 Network: ${settingsProvider.network}");
-    print("📍 Hardened path: $hardenedPath");
-    print("📍 Unhardened path: $unHardenedPath");
+    // print("🔐 Starting key derivation process...");
+    // print("🧠 Mnemonic: $mnemonic");
+    // print("📌 Network: ${settingsProvider.network}");
+    // print("📍 Hardened path: $hardenedPath");
+    // print("📍 Unhardened path: $unHardenedPath");
 
     // Create the root secret key from the mnemonic
     final secretKey = await DescriptorSecretKey.create(
       network: settingsProvider.network,
       mnemonic: mnemonic,
     );
-    print("✅ Root secret key created: ${secretKey.asString()}");
+    // print("✅ Root secret key created: ${secretKey.asString()}");
 
     // Derive the key at the hardened path
     final derivedSecretKey = secretKey.derive(hardenedPath);
-    print("📍 Derived hardened secret key: ${derivedSecretKey.asString()}");
+    // print("📍 Derived hardened secret key: ${derivedSecretKey.asString()}");
 
     // Extend the derived secret key further using the unhardened path
     final derivedExtendedSecretKey = derivedSecretKey.extend(unHardenedPath);
-    print("🔁 Extended secret key: ${derivedExtendedSecretKey.asString()}");
+    // print("🔁 Extended secret key: ${derivedExtendedSecretKey.asString()}");
 
     // Convert the derived secret key to its public counterpart
     final publicKey = derivedSecretKey.toPublic();
-    print("🔓 Public key from hardened key: ${publicKey.asString()}");
+    // print("🔓 Public key from hardened key: ${publicKey.asString()}");
 
     // Extend the public key using the same unhardened path
     final derivedExtendedPublicKey = publicKey.extend(path: unHardenedPath);
-    print("🔁 Extended public key: ${derivedExtendedPublicKey.asString()}");
+    // print("🔁 Extended public key: ${derivedExtendedPublicKey.asString()}");
 
-    print("✅ Key derivation complete");
+    // print("✅ Key derivation complete");
 
     return (derivedExtendedSecretKey, derivedExtendedPublicKey);
   }
@@ -1346,13 +1284,13 @@ class WalletService extends ChangeNotifier {
       if (node == null) return;
 
       // Debugging: Print the current node and paths being processed
-      print('Traversing Node: ${node['id'] ?? 'No ID'}');
-      print('Current Path: $currentPath');
-      print('ID Path: $idPath');
+      // print('Traversing Node: ${node['id'] ?? 'No ID'}');
+      // print('Current Path: $currentPath');
+      // print('ID Path: $idPath');
 
       // Check if the node itself has a matching fingerprint
       if (node['fingerprint'] == targetFingerprint) {
-        print('Match Found in Node: ${node['id']}');
+        // print('Match Found in Node: ${node['id']}');
         result.add({
           'ids': [...idPath, node['id']],
           'indexes': currentPath,
@@ -1362,9 +1300,9 @@ class WalletService extends ChangeNotifier {
       // Check if the node contains `keys` with matching fingerprints
       if (node['keys'] != null) {
         for (var key in node['keys']) {
-          print('Checking Key Fingerprint: ${key['fingerprint']}');
+          // print('Checking Key Fingerprint: ${key['fingerprint']}');
           if (key['fingerprint'] == targetFingerprint) {
-            print('Match Found in Keys: Adding Path');
+            // print('Match Found in Keys: Adding Path');
             result.add({
               'ids': [...idPath, node['id']],
               'indexes': currentPath,
@@ -1376,7 +1314,7 @@ class WalletService extends ChangeNotifier {
       // Recursively traverse children if the node has `items`
       if (node['items'] != null) {
         for (int i = 0; i < node['items'].length; i++) {
-          print('Traversing Child at Index: $i');
+          // print('Traversing Child at Index: $i');
           traverse(
             node['items'][i],
             [...currentPath, i],
@@ -1389,7 +1327,7 @@ class WalletService extends ChangeNotifier {
     // Start traversing from the root policy
     traverse(policy, [], []);
 
-    print('Final Result: $result');
+    // print('Final Result: $result');
     return result;
   }
 
@@ -1510,8 +1448,8 @@ class WalletService extends ChangeNotifier {
       List<String> path,
       List<dynamic>? parentItems,
     ) {
-      print(
-          "Traversing node: ${node['id'] ?? 'Unknown ID'}, Path: ${path.join(' > ')}");
+      // print(
+      //     "Traversing node: ${node['id'] ?? 'Unknown ID'}, Path: ${path.join(' > ')}");
 
       // Check if this node has keys
       if (node['keys'] != null) {
@@ -1541,7 +1479,7 @@ class WalletService extends ChangeNotifier {
           }
         }
 
-        print("Path found in node: ${node['id'] ?? 'Unknown ID'}");
+        // print("Path found in node: ${node['id'] ?? 'Unknown ID'}");
         result.add({
           'type': type, // Type reflects sibling constraints
           'threshold': node['threshold'],
@@ -1549,13 +1487,13 @@ class WalletService extends ChangeNotifier {
           'path': path.join(' > '),
           'timelock': timelockValue,
         });
-        print("Added to result: ${result.last}");
+        // print("Added to result: ${result.last}");
       }
 
       // Check if this node has a direct fingerprint reference (e.g., SCHNORRSIGNATURE)
       if (node['type'] == 'SCHNORRSIGNATURE') {
-        print(
-            "Checking SCHNORRSIGNATURE in node: ${node['id'] ?? 'Unknown ID'}");
+        // print(
+        //     "Checking SCHNORRSIGNATURE in node: ${node['id'] ?? 'Unknown ID'}");
         String type = "SCHNORRSIGNATURE";
         int? timelockValue;
 
@@ -1584,8 +1522,8 @@ class WalletService extends ChangeNotifier {
 
       // Recursively traverse child nodes in "items"
       if (node['items'] != null) {
-        print(
-            "Node has child items: ${node['items'].length} found in node: ${node['id'] ?? 'Unknown ID'}");
+        // print(
+        //     "Node has child items: ${node['items'].length} found in node: ${node['id'] ?? 'Unknown ID'}");
         List<dynamic> items = node['items'];
         for (int i = 0; i < items.length; i++) {
           traverse(
@@ -1597,14 +1535,15 @@ class WalletService extends ChangeNotifier {
             items,
           );
         }
-      } else {
-        print("No child items in node: ${node['id'] ?? 'Unknown ID'}");
       }
+      //  else {
+      //   print("No child items in node: ${node['id'] ?? 'Unknown ID'}");
+      // }
     }
 
-    print("Starting traversal for all paths");
+    // print("Starting traversal for all paths");
     traverse(json, [], null);
-    print("Traversal complete. Results: $result");
+    // print("Traversal complete. Results: $result");
     return result;
   }
 
@@ -1835,8 +1774,8 @@ class WalletService extends ChangeNotifier {
         // totalSpending = amount + BigInt.from(feeRate);
 
         totalSpending = amount;
-        print("Total Spending: $totalSpending");
-        print("Available Balance: ${avBalance}");
+        // print("Total Spending: $totalSpending");
+        // print("Available Balance: ${avBalance}");
         // Check If there are enough funds available
         if (avBalance < totalSpending) {
           // Exit early if no confirmed UTXOs are available
@@ -1848,14 +1787,14 @@ class WalletService extends ChangeNotifier {
     } else {
       await syncWallet(wallet);
       utxos = wallet.getBalance();
-      print("Available UTXOs: ${utxos.confirmed}");
+      // print("Available UTXOs: ${utxos.confirmed}");
 
       if (!isSendAllBalance) {
         // totalSpending = amount + BigInt.from(feeRate);
 
         totalSpending = amount;
-        print("Total Spending: $totalSpending");
-        print("Confirmed Utxos: ${utxos.spendable}");
+        // print("Total Spending: $totalSpending");
+        // print("Confirmed Utxos: ${utxos.spendable}");
         // Check If there are enough funds available
         if (utxos.spendable < totalSpending) {
           // Exit early if no confirmed UTXOs are available
@@ -1870,7 +1809,7 @@ class WalletService extends ChangeNotifier {
 
     final feeRate = customFeeRate ?? await getFeeRate();
 
-    print('Custom Fee Rate: $customFeeRate');
+    // print('Custom Fee Rate: $customFeeRate');
 
     List<OutPoint> spendableOutpoints = [];
 
@@ -1901,7 +1840,7 @@ class WalletService extends ChangeNotifier {
       // print(externalWalletPolicy.contribution());
 
       // printPrettyJson(internalWalletPolicy!.asString());
-      printPrettyJson(externalWalletPolicy.asString());
+      // printPrettyJson(externalWalletPolicy.asString());
 
       // const String targetFingerprint = "fb94d032";
 
@@ -1943,7 +1882,7 @@ class WalletService extends ChangeNotifier {
 
       if (isSendAllBalance) {
         // print(internalChangeAddress.address.asString());
-        print('AmountSendAll: ${amount.toInt()}');
+        // print('AmountSendAll: ${amount.toInt()}');
         try {
           if (chosenPath == 0) {
             await txBuilder
@@ -1953,7 +1892,7 @@ class WalletService extends ChangeNotifier {
                 .feeRate(feeRate)
                 .finish(wallet);
           } else {
-            print(timeLockPath);
+            // print(timeLockPath);
             await txBuilder
                 .addRecipient(recipientScript, amount)
                 .policyPath(KeychainKind.internalChain, timeLockPath!)
@@ -1976,22 +1915,22 @@ class WalletService extends ChangeNotifier {
           if (chosenPath == 0) {
             spendableUtxos = utxos;
           } else {
-            print(chosenPath);
-            print(spendingPaths);
+            // print(chosenPath);
+            // print(spendingPaths);
 
             final timelock = spendingPaths![chosenPath!]['timelock'];
-            print('Timelock value: $timelock');
+            // print('Timelock value: $timelock');
 
             int currentHeight = await fetchCurrentBlockHeight();
-            print('Current block height: $currentHeight');
+            // print('Current block height: $currentHeight');
 
             final type =
                 spendingPaths[chosenPath]['type'].toString().toLowerCase();
 
             spendableUtxos = utxos.where((utxo) {
               final blockHeight = utxo['status']['block_height'];
-              print(
-                  'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight');
+              // print(
+              //     'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight');
 
               bool isSpendable = false;
 
@@ -2006,16 +1945,16 @@ class WalletService extends ChangeNotifier {
                 isSpendable = true;
               }
 
-              print('Is spendable: $isSpendable');
+              // print('Is spendable: $isSpendable');
               return isSpendable;
             }).toList();
 
-            print('Spendable UTXOs found: ${spendableUtxos.length}');
-            for (var spendableUtxo in spendableUtxos) {
-              print(
-                'Spendable UTXO: txid=${spendableUtxo['txid']}, blockHeight=${spendableUtxo['status']['block_height']}',
-              );
-            }
+            // print('Spendable UTXOs found: ${spendableUtxos.length}');
+            // for (var spendableUtxo in spendableUtxos) {
+            //   print(
+            //     'Spendable UTXO: txid=${spendableUtxo['txid']}, blockHeight=${spendableUtxo['status']['block_height']}',
+            //   );
+            // }
           }
 
           // Sum the value of spendable UTXOs
@@ -2024,7 +1963,7 @@ class WalletService extends ChangeNotifier {
             (sum, utxo) => sum + (int.parse(utxo['value'].toString())),
           );
 
-          print('totalSpendableBalance: $totalSpendableBalance');
+          // print('totalSpendableBalance: $totalSpendableBalance');
           // for (var spendableUtxo in spendableUtxos) {
           //   print("Spendable Outputs: ${spendableUtxo['txid']}");
           // }
@@ -2053,8 +1992,8 @@ class WalletService extends ChangeNotifier {
           }
         }
       }
-      print('Spending: $amount');
-      print('LocalUtxos: $localUtxos');
+      // print('Spending: $amount');
+      // print('LocalUtxos: $localUtxos');
 
       final utxos = localUtxos ?? await getUtxos();
 
@@ -2065,15 +2004,15 @@ class WalletService extends ChangeNotifier {
             .map((utxo) => OutPoint(txid: utxo['txid'], vout: utxo['vout']))
             .toList();
       } else {
-        print(spendingPaths);
+        // print(spendingPaths);
 
         final timelock = spendingPaths![chosenPath!]['timelock'];
-        print('Timelock value: $timelock');
+        // print('Timelock value: $timelock');
 
         final type = spendingPaths[chosenPath]['type'].toString().toLowerCase();
 
         int currentHeight = await fetchCurrentBlockHeight();
-        print('Current block height: $currentHeight');
+        // print('Current block height: $currentHeight');
 
         // Filter spendable UTXOs
         spendableOutpoints = utxos
@@ -2093,9 +2032,9 @@ class WalletService extends ChangeNotifier {
                 isSpendable = true;
               }
 
-              print(
-                'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight, isSpendable=$isSpendable',
-              );
+              // print(
+              //   'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight, isSpendable=$isSpendable',
+              // );
 
               return isSpendable;
             })
@@ -2104,11 +2043,11 @@ class WalletService extends ChangeNotifier {
       }
 
       if (chosenPath == 0) {
-        print('MultiSig Builder');
+        // print('MultiSig Builder');
 
-        for (var spendableOutpoint in spendableOutpoints) {
-          print('Spendable Outputs: ${spendableOutpoint.txid}');
-        }
+        // for (var spendableOutpoint in spendableOutpoints) {
+        //   print('Spendable Outputs: ${spendableOutpoint.txid}');
+        // }
         try {
           txBuilder = txBuilder.addUtxos(spendableOutpoints);
         } catch (e) {
@@ -2174,14 +2113,14 @@ class WalletService extends ChangeNotifier {
           rethrow;
         }
 
-        print('Transaction Built');
+        // print('Transaction Built');
       } else {
-        print('TimeLock Builder');
-        for (var spendableOutpoint in spendableOutpoints) {
-          print('Spendable Outputs: ${spendableOutpoint.txid}');
-        }
+        // print('TimeLock Builder');
+        // for (var spendableOutpoint in spendableOutpoints) {
+        //   print('Spendable Outputs: ${spendableOutpoint.txid}');
+        // }
 
-        print('Sending: $amount');
+        // print('Sending: $amount');
         txBuilderResult = await txBuilder
             // .enableRbf()
             // .enableRbfWithSequence(olderValue)
@@ -2195,7 +2134,7 @@ class WalletService extends ChangeNotifier {
             .drainTo(changeScript) // Specify the address to send the change
             .finish(wallet); // Finalize the transaction with wallet's UTXOs
 
-        print('Transaction Built');
+        // print('Transaction Built');
       }
 
       try {
@@ -2212,29 +2151,29 @@ class WalletService extends ChangeNotifier {
         );
 
         if (signed) {
-          print('Signing returned true');
+          // print('Signing returned true');
 
           // printInChunks(txBuilderResult.$1.asString());
 
-          print('Sending');
+          // print('Sending');
           final tx = txBuilderResult.$1.extractTx();
 
-          for (var input in tx.input()) {
-            print("Input sequence number: ${input.previousOutput.txid}");
-          }
+          // for (var input in tx.input()) {
+          //   print("Input sequence number: ${input.previousOutput.txid}");
+          // }
 
-          final isLockTime = tx.isLockTimeEnabled();
-          print('LockTime enabled: $isLockTime');
+          // final isLockTime = tx.isLockTimeEnabled();
+          // print('LockTime enabled: $isLockTime');
 
-          final lockTime = tx.lockTime();
-          print('LockTime: $lockTime');
+          // final lockTime = tx.lockTime();
+          // print('LockTime: $lockTime');
 
           await blockchain.broadcast(transaction: tx);
-          print('Transaction sent');
+          // print('Transaction sent');
 
           return null;
         } else {
-          print('Signing returned false');
+          // print('Signing returned false');
 
           // printInChunks(txBuilderResult.$1.asString());
 
@@ -2252,6 +2191,494 @@ class WalletService extends ChangeNotifier {
 
       throw Exception("Error: ${e.toString()}");
     }
+  }
+
+  Future<String?> createBackupTx(
+    String descriptor,
+    String mnemonic,
+    String recipientAddressStr,
+    BigInt amount,
+    int? chosenPath,
+    BigInt avBalance, {
+    bool isSendAllBalance = false,
+    List<Map<String, dynamic>>? spendingPaths,
+    double? customFeeRate,
+    List<dynamic>? localUtxos,
+  }) async {
+    Map<String, Uint32List>? multiSigPath;
+    Map<String, Uint32List>? timeLockPath;
+
+    // print('Bool: $multiSig');
+    Mnemonic trueMnemonic = await Mnemonic.fromString(mnemonic);
+
+    final hardenedDerivationPath = await DerivationPath.create(
+      path: "m/86h/1h/0h",
+    );
+
+    final receivingDerivationPath = await DerivationPath.create(path: "m/0");
+
+    final (receivingSecretKey, receivingPublicKey) = await deriveDescriptorKeys(
+      hardenedDerivationPath,
+      receivingDerivationPath,
+      trueMnemonic,
+    );
+
+    // print(receivingPublicKey);
+
+    // Extract the content inside square brackets
+    final RegExp regex = RegExp(r'\[([^\]]+)\]');
+    final Match? match = regex.firstMatch(receivingPublicKey.asString());
+
+    final String targetFingerprint = match!.group(1)!.split('/')[0];
+    // print("Fingerprint: $targetFingerprint");
+
+    descriptor = (chosenPath == 0)
+        ? replacePubKeyWithPrivKeyMultiSig(
+            descriptor,
+            receivingPublicKey.toString(),
+            receivingSecretKey.toString(),
+          )
+        : replacePubKeyWithPrivKeyOlder(
+            chosenPath,
+            descriptor,
+            receivingPublicKey.toString(),
+            receivingSecretKey.toString(),
+          );
+
+    printInChunks('Sending Descriptor: $descriptor');
+
+    wallet = await createSharedWallet(descriptor);
+
+    final List<ConnectivityResult> connectivityResult =
+        await (Connectivity().checkConnectivity());
+
+    final Balance utxos;
+    // final List<LocalUtxo> unspent;
+
+    BigInt totalSpending;
+
+    if (connectivityResult.contains(ConnectivityResult.none)) {
+      if (!isSendAllBalance) {
+        // totalSpending = amount + BigInt.from(feeRate);
+
+        totalSpending = amount;
+        // print("Total Spending: $totalSpending");
+        // print("Available Balance: $avBalance");
+        // Check If there are enough funds available
+        if (avBalance < totalSpending) {
+          // Exit early if no confirmed UTXOs are available
+          throw Exception(
+            "Not enough confirmed funds available. Please wait until your transactions confirm.",
+          );
+        }
+      }
+    } else {
+      await syncWallet(wallet);
+      utxos = wallet.getBalance();
+      // print("Available UTXOs: ${utxos.confirmed}");
+
+      if (!isSendAllBalance) {
+        // totalSpending = amount + BigInt.from(feeRate);
+
+        totalSpending = amount;
+        // print("Total Spending: $totalSpending");
+        // print("Confirmed Utxos: ${utxos.spendable}");
+        // Check If there are enough funds available
+        if (utxos.spendable < totalSpending) {
+          // Exit early if no confirmed UTXOs are available
+          throw Exception(
+            "Not enough confirmed funds available. Please wait until your transactions confirm.",
+          );
+        }
+      }
+
+      // unspent = wallet.listUnspent();
+    }
+
+    final feeRate = customFeeRate ?? await getFeeRate();
+
+    // print('Custom Fee Rate: $customFeeRate');
+
+    List<OutPoint> spendableOutpoints = [];
+
+    // for (var utxo in unspent) {
+    //   print('UTXO: ${utxo.outpoint.txid}, Amount: ${utxo.txout.value}');
+    // }
+
+    try {
+      // Build the transaction
+      var txBuilder = TxBuilder();
+
+      final recipientAddress = await Address.fromString(
+        s: recipientAddressStr,
+        network: wallet.network(),
+      );
+      final recipientScript = recipientAddress.scriptPubkey();
+
+      var internalChangeAddress = wallet.getInternalAddress(
+        addressIndex: const AddressIndex.peek(index: 0),
+      );
+
+      final changeScript = internalChangeAddress.address.scriptPubkey();
+
+      // final internalWalletPolicy = wallet.policies(KeychainKind.internalChain);
+      final Policy externalWalletPolicy =
+          wallet.policies(KeychainKind.externalChain)!;
+
+      // print(externalWalletPolicy.contribution());
+
+      // printPrettyJson(internalWalletPolicy!.asString());
+      // printPrettyJson(externalWalletPolicy.asString());
+
+      // const String targetFingerprint = "fb94d032";
+
+      final Map<String, dynamic> policy = jsonDecode(
+        externalWalletPolicy.asString(),
+      );
+
+      final path = extractAllPathsToFingerprint(policy, targetFingerprint);
+
+      // print(path);
+
+      if (chosenPath == 0) {
+        // First Path: Direct MULTISIG
+        multiSigPath = {
+          for (int i = 0; i < path[0]["ids"].length - 1; i++)
+            path[0]["ids"][i]: Uint32List.fromList([path[0]["indexes"][i]]),
+        };
+
+        // print("Generated multiSigPath: $multiSigPath");
+      } else {
+        timeLockPath = {
+          for (int i = 0; i < path[chosenPath!]["ids"].length - 1; i++)
+            path[chosenPath]["ids"][i]: Uint32List.fromList(
+              i ==
+                      path[chosenPath]["ids"].length -
+                          2 // Check if it's the second-to-last item
+                  ? [0, 1] // Select both indexes for the last `THRESH` node
+                  : [path[chosenPath]["indexes"][i]],
+            ),
+        };
+
+        // print("Generated timeLockPath: $timeLockPath");
+      }
+
+      // Build the transaction:
+      (PartiallySignedTransaction, TransactionDetails) txBuilderResult;
+
+      // await syncWallet(wallet);
+
+      if (isSendAllBalance) {
+        // print(internalChangeAddress.address.asString());
+        // print('AmountSendAll: ${amount.toInt()}');
+        try {
+          if (chosenPath == 0) {
+            await txBuilder
+                .addRecipient(recipientScript, amount)
+                .policyPath(KeychainKind.internalChain, multiSigPath!)
+                .policyPath(KeychainKind.externalChain, multiSigPath)
+                .feeRate(feeRate)
+                .finish(wallet);
+          } else {
+            // print(timeLockPath);
+            await txBuilder
+                .addRecipient(recipientScript, amount)
+                .policyPath(KeychainKind.internalChain, timeLockPath!)
+                .policyPath(KeychainKind.externalChain, timeLockPath)
+                .feeRate(feeRate)
+                .finish(wallet);
+          }
+
+          return amount.toString();
+        } catch (e) {
+          print('Error: $e');
+
+          final utxos = await getUtxos();
+
+          // print(spendingPaths);
+          // print(chosenPath);
+
+          List<dynamic> spendableUtxos = [];
+
+          if (chosenPath == 0) {
+            spendableUtxos = utxos;
+          } else {
+            // print(chosenPath);
+            // print(spendingPaths);
+
+            // final timelock = spendingPaths![chosenPath!]['timelock'];
+            // print('Timelock value: $timelock');
+
+            // int currentHeight = await fetchCurrentBlockHeight();
+            // print('Current block height: $currentHeight');
+
+            spendableUtxos = utxos.where((utxo) {
+              final status = utxo['status'];
+              final confirmed = status != null && status['confirmed'] == true;
+
+              // print(
+              //     'Evaluating UTXO: txid=${utxo['txid']}, confirmed=$confirmed');
+
+              return confirmed;
+            }).toList();
+
+            // print('Spendable UTXOs found: ${spendableUtxos.length}');
+            // for (var spendableUtxo in spendableUtxos) {
+            //   print(
+            //     'Spendable UTXO: txid=${spendableUtxo['txid']}, blockHeight=${spendableUtxo['status']['block_height']}',
+            //   );
+            // }
+          }
+
+          // Sum the value of spendable UTXOs
+          final totalSpendableBalance = spendableUtxos.fold<int>(
+            0,
+            (sum, utxo) => sum + (int.parse(utxo['value'].toString())),
+          );
+
+          // print('totalSpendableBalance: $totalSpendableBalance');
+          // for (var spendableUtxo in spendableUtxos) {
+          //   print("Spendable Outputs: ${spendableUtxo['txid']}");
+          // }
+          // Handle insufficient funds
+          if (e.toString().contains("InsufficientFundsException")) {
+            print(e);
+            final RegExp regex = RegExp(r'Needed: (\d+), Available: (\d+)');
+            final match = regex.firstMatch(e.toString());
+            if (match != null) {
+              final int neededAmount = int.parse(match.group(1)!);
+              final int availableAmount = int.parse(match.group(2)!);
+              final int fee = neededAmount - availableAmount;
+              final int sendAllBalance = totalSpendableBalance - fee;
+
+              if (sendAllBalance > 0) {
+                return sendAllBalance
+                    .toString(); // Return adjusted send all balance
+              } else {
+                throw Exception('No balance available after fee deduction');
+              }
+            } else {
+              throw Exception('Failed to extract Needed amount from exception');
+            }
+          } else {
+            rethrow; // Re-throw unhandled exceptions
+          }
+        }
+      }
+
+      // print('Spending: $amount');
+      // print('LocalUtxos: $localUtxos');
+
+      final utxos = localUtxos ?? await getUtxos();
+
+      // spendingPaths = extractAllPaths(policy);
+
+      if (chosenPath == 0) {
+        spendableOutpoints = utxos
+            .map((utxo) => OutPoint(txid: utxo['txid'], vout: utxo['vout']))
+            .toList();
+      } else {
+        // print(spendingPaths);
+
+        final timelock = spendingPaths![chosenPath!]['timelock'];
+        // print('Timelock value: $timelock');
+
+        final type = spendingPaths[chosenPath]['type'].toString().toLowerCase();
+
+        int currentHeight = await fetchCurrentBlockHeight();
+        // print('Current block height: $currentHeight');
+
+        // Filter spendable UTXOs
+        spendableOutpoints = utxos
+            .where((utxo) {
+              final blockHeight = utxo['status']['block_height'];
+
+              bool isSpendable = false;
+
+              if (type.contains('relativetimelock')) {
+                isSpendable = blockHeight != null &&
+                    (blockHeight + timelock - 1 <= currentHeight ||
+                        timelock == 0);
+              } else if (type.contains('absolutetimelock')) {
+                isSpendable = timelock <= currentHeight;
+              } else {
+                // No timelock type; assume spendable
+                isSpendable = true;
+              }
+
+              // print(
+              //   'Evaluating UTXO: txid=${utxo['txid']}, blockHeight=$blockHeight, isSpendable=$isSpendable',
+              // );
+
+              return isSpendable;
+            })
+            .map((utxo) => OutPoint(txid: utxo['txid'], vout: utxo['vout']))
+            .toList();
+      }
+
+      if (chosenPath == 0) {
+        // print('MultiSig Builder');
+
+        // for (var spendableOutpoint in spendableOutpoints) {
+        //   print('Spendable Outputs: ${spendableOutpoint.txid}');
+        // }
+        try {
+          txBuilder = txBuilder.addUtxos(spendableOutpoints);
+        } catch (e) {
+          print('❌ Error in addUtxos: $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder = txBuilder.manuallySelectedOnly();
+        } catch (e) {
+          print('❌ Error in manuallySelectedOnly: $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder = txBuilder.addRecipient(recipientScript, amount);
+        } catch (e) {
+          print('❌ Error in addRecipient: $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder = txBuilder.drainWallet();
+        } catch (e) {
+          print('❌ Error in drainWallet: $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder =
+              txBuilder.policyPath(KeychainKind.internalChain, multiSigPath!);
+        } catch (e) {
+          print('❌ Error in policyPath (internal): $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder =
+              txBuilder.policyPath(KeychainKind.externalChain, multiSigPath);
+        } catch (e) {
+          print('❌ Error in policyPath (external): $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder = txBuilder.feeRate(feeRate);
+        } catch (e) {
+          print('❌ Error in feeRate: $e');
+          rethrow;
+        }
+
+        try {
+          txBuilder = txBuilder.drainTo(changeScript);
+        } catch (e) {
+          print('❌ Error in drainTo: $e');
+          rethrow;
+        }
+
+        try {
+          txBuilderResult = await txBuilder.finish(wallet);
+        } catch (e) {
+          print('❌ Error in finish(): $e');
+          rethrow;
+        }
+
+        // print('Transaction Built');
+      } else {
+        // print('TimeLock Builder');
+        // for (var spendableOutpoint in spendableOutpoints) {
+        //   print('Spendable Outputs: ${spendableOutpoint.txid}');
+        // }
+
+        // print('Sending: $amount');
+        txBuilderResult = await txBuilder
+            // .enableRbf()
+            // .enableRbfWithSequence(olderValue)
+            // .addUtxos(spendableOutpoints)
+            // .manuallySelectedOnly()
+            .addRecipient(recipientScript, amount) // Send to recipient
+            .drainWallet() // Drain all wallet UTXOs, sending change to a custom address
+            .policyPath(KeychainKind.internalChain, timeLockPath!)
+            .policyPath(KeychainKind.externalChain, timeLockPath)
+            .feeRate(feeRate) // Set the fee rate (in satoshis per byte)
+            .drainTo(changeScript) // Specify the address to send the change
+            .finish(wallet); // Finalize the transaction with wallet's UTXOs
+
+        // print('Transaction Built');
+      }
+
+      try {
+        wallet.sign(
+          psbt: txBuilderResult.$1,
+          signOptions: const SignOptions(
+            trustWitnessUtxo: false,
+            allowAllSighashes: true,
+            removePartialSigs: true,
+            tryFinalize: true,
+            signWithTapInternalKey: true,
+            allowGrinding: true,
+          ),
+        );
+
+        // if (signed) {
+        //   print('Signing returned true');
+
+        //   // printInChunks(txBuilderResult.$1.asString());
+
+        //   print('Sending');
+        //   final tx = txBuilderResult.$1.extractTx();
+
+        //   for (var input in tx.input()) {
+        //     print("Input sequence number: ${input.previousOutput.txid}");
+        //   }
+
+        //   final isLockTime = tx.isLockTimeEnabled();
+        //   print('LockTime enabled: $isLockTime');
+
+        //   final lockTime = tx.lockTime();
+        //   print('LockTime: $lockTime');
+
+        //   // await blockchain.broadcast(transaction: tx);
+        //   // print('Transaction sent');
+
+        //   return null;
+        // } else {
+        //   print('Signing returned false');
+
+        // printInChunks(txBuilderResult.$1.asString());
+
+        final psbtString = base64Encode(txBuilderResult.$1.serialize());
+
+        return psbtString;
+        // }
+      } catch (broadcastError) {
+        print("Broadcasting error: ${broadcastError.toString()}");
+        throw Exception("Broadcasting error: ${broadcastError.toString()}");
+      }
+    } on Exception catch (e, stackTrace) {
+      print("Error: ${e.toString()}");
+      print('StackTrace: $stackTrace');
+
+      throw Exception("Error: ${e.toString()}");
+    }
+  }
+
+  Future<String?> broadcastBackupTx(String psbtString) async {
+    await blockchainInit();
+
+    final psbt = await PartiallySignedTransaction.fromString(psbtString);
+
+    // print('Sending');
+    final tx = psbt.extractTx();
+
+    await blockchain.broadcast(transaction: tx);
+    // print('Transaction sent');
+
+    return null;
   }
 
   // This method takes a PSBT, signs it with the second user and then broadcasts it
@@ -2321,24 +2748,24 @@ class WalletService extends ChangeNotifier {
       printInChunks('Transaction Signed: $psbt');
 
       if (signed) {
-        print('Signing returned true');
+        // print('Signing returned true');
         final tx = psbt.extractTx();
-        print('Extracting');
+        // print('Extracting');
 
-        final lockTime = tx.lockTime();
-        print('LockTime: $lockTime');
+        // final lockTime = tx.lockTime();
+        // print('LockTime: $lockTime');
 
-        for (var input in tx.input()) {
-          print("Input sequence number: ${input.sequence}");
-        }
+        // for (var input in tx.input()) {
+        //   print("Input sequence number: ${input.sequence}");
+        // }
 
-        final currentHeight = await blockchain.getHeight();
-        print('Current height: $currentHeight');
+        // final currentHeight = await blockchain.getHeight();
+        // print('Current height: $currentHeight');
 
         await blockchain.broadcast(transaction: tx);
-        print('Transaction sent');
+        // print('Transaction sent');
       } else {
-        print('Signing returned false');
+        // print('Signing returned false');
         // throw Exception('Not signed');
         return psbt.toString();
       }
