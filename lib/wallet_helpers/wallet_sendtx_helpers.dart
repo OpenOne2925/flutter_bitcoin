@@ -735,6 +735,142 @@ class WalletSendtxHelpers {
     );
   }
 
+  Future<void> showHEXDialog(
+    String result,
+    BuildContext context,
+  ) async {
+    final rootContext = context;
+
+    TextEditingController hex = TextEditingController();
+    hex.text = result;
+
+    return DialogHelper.buildCustomDialog(
+      context: rootContext,
+      titleKey: 'Hex created',
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.4, // Limits height
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min, // Prevents unnecessary expansion
+          children: [
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () {
+                DialogHelper.showFullscreenQrDialog(
+                  context: context,
+                  data: hex.text,
+                  titleKey: 'hex',
+                );
+              },
+              child: AbsorbPointer(
+                child: TextField(
+                  controller: hex,
+                  readOnly: true,
+                  decoration: CustomTextFieldStyles.textFieldDecoration(
+                    context: context,
+                    labelText: 'show_qr',
+                  ),
+                  style: TextStyle(
+                    color: AppColors.text(context),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Copy Button
+            InkwellButton(
+              onTap: () {
+                UtilitiesService.copyToClipboard(
+                  context: rootContext,
+                  text: result,
+                  messageKey: 'hex_clipboard',
+                );
+
+                // if (Navigator.of(rootContext).canPop()) {
+                //   Navigator.of(rootContext, rootNavigator: true).pop();
+                // }
+                // if (Navigator.of(rootContext).canPop()) {
+                //   Navigator.of(rootContext, rootNavigator: true).pop();
+                // }
+                // Navigator.of(rootContext, rootNavigator: true).pop();
+              },
+              label: AppLocalizations.of(rootContext)!.translate('copy'),
+              backgroundColor: AppColors.text(context),
+              textColor: AppColors.gradient(context),
+              icon: Icons.copy,
+              iconColor: AppColors.gradient(context),
+            ),
+
+            // Save Txt File Button
+            InkwellButton(
+              onTap: () async {
+                if (await Permission.storage.request().isGranted) {
+                  try {
+                    // Get default Downloads directory
+                    final directory = Directory('/storage/emulated/0/Download');
+                    if (!await directory.exists()) {
+                      await directory.create(recursive: true);
+                    }
+
+                    DateTime now = DateTime.now();
+                    String formattedDate =
+                        DateFormat('yyyyMMdd_HHmmss').format(now);
+                    String fileName = 'PSBT_$formattedDate.txt';
+                    String filePath = '${directory.path}/$fileName';
+                    File file = File(filePath);
+
+                    await file.writeAsString(result);
+
+                    // Optional: Show a success message to the user
+                    SnackBarHelper.show(
+                      context,
+                      message: AppLocalizations.of(context)!
+                          .translate('file_saved_successfully'),
+                    );
+                  } catch (e) {
+                    // Handle any error
+                    SnackBarHelper.showError(
+                      context,
+                      message: AppLocalizations.of(context)!
+                          .translate('file_save_error'),
+                    );
+                  }
+                }
+
+                // Navigator.of(rootContext, rootNavigator: true).pop();
+                // Navigator.of(rootContext, rootNavigator: true).pop();
+              },
+              label: AppLocalizations.of(rootContext)!.translate('save'),
+              backgroundColor: AppColors.text(context),
+              textColor: AppColors.gradient(context),
+              icon: Icons.save,
+              iconColor: AppColors.gradient(context),
+            ),
+
+            // Share Button
+            InkwellButton(
+              onTap: () {
+                SharePlus.instance.share(ShareParams(text: result));
+              },
+              label: AppLocalizations.of(rootContext)!.translate('share'),
+              backgroundColor: AppColors.text(context),
+              textColor: AppColors.gradient(context),
+              icon: Icons.share,
+              iconColor: AppColors.gradient(context),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildRecipientField() {
     return Column(
       children: [

@@ -577,7 +577,7 @@ class WalletSpendingPathHelpers {
                                   const SizedBox(height: 12),
                                   Text(
                                     "This transaction will be signed using the 1-of-N timelock path (older/after).\n\n"
-                                    "You can broadcast this transaction later using Bitcoin Core, other platforms, or the last button of the spending card in this app.",
+                                    "You can broadcast this transaction later using Bitcoin Core, or other blockchain explorers.",
                                   ),
                                 ],
                               ),
@@ -607,7 +607,7 @@ class WalletSpendingPathHelpers {
                             BigInt.from(backupSpendable),
                             index,
                             avBalance,
-                            spendingPaths: spendingPaths,
+                            spendingPaths: mySpendingPaths,
                             isSendAllBalance: true,
                           );
 
@@ -622,12 +622,12 @@ class WalletSpendingPathHelpers {
                             BigInt.from(int.parse(result.toString())),
                             index,
                             avBalance,
-                            spendingPaths: spendingPaths,
+                            spendingPaths: mySpendingPaths,
                           );
 
                           // print('RezuldadoFinal');
 
-                          sendTxHelper.showPSBTDialog(
+                          sendTxHelper.showHEXDialog(
                             finalResult.toString(),
                             rootContext,
                           );
@@ -645,73 +645,73 @@ class WalletSpendingPathHelpers {
 
                     // BACKUP Transaction Broadcast
 
-                    if ((path['threshold'] == null || path['threshold'] == 1) &&
-                        pathAliases.isNotEmpty &&
-                        (timelockType == 'older' || timelockType == 'after'))
-                      GestureDetector(
-                        onTap: () async {
-                          final psbtString = await showDialog<String>(
-                            context: context,
-                            builder: (context) {
-                              String input = '';
-                              return AlertDialog(
-                                backgroundColor: AppColors.dialog(context),
-                                title: const Text('Enter PSBT String'),
-                                content: TextField(
-                                  autofocus: true,
-                                  maxLines: null,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Paste your PSBT here',
-                                  ),
-                                  onChanged: (value) => input = value,
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(), // Cancel
-                                    child: const Text('Cancel'),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context)
-                                        .pop(input), // Return input
-                                    child: const Text('OK'),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
+                    // if ((path['threshold'] == null || path['threshold'] == 1) &&
+                    //     pathAliases.isNotEmpty &&
+                    //     (timelockType == 'older' || timelockType == 'after'))
+                    //   GestureDetector(
+                    //     onTap: () async {
+                    //       final psbtString = await showDialog<String>(
+                    //         context: context,
+                    //         builder: (context) {
+                    //           String input = '';
+                    //           return AlertDialog(
+                    //             backgroundColor: AppColors.dialog(context),
+                    //             title: const Text('Enter PSBT String'),
+                    //             content: TextField(
+                    //               autofocus: true,
+                    //               maxLines: null,
+                    //               decoration: const InputDecoration(
+                    //                 hintText: 'Paste your PSBT here',
+                    //               ),
+                    //               onChanged: (value) => input = value,
+                    //             ),
+                    //             actions: [
+                    //               TextButton(
+                    //                 onPressed: () =>
+                    //                     Navigator.of(context).pop(), // Cancel
+                    //                 child: const Text('Cancel'),
+                    //               ),
+                    //               TextButton(
+                    //                 onPressed: () => Navigator.of(context)
+                    //                     .pop(input), // Return input
+                    //                 child: const Text('OK'),
+                    //               ),
+                    //             ],
+                    //           );
+                    //         },
+                    //       );
 
-                          if (psbtString == null || psbtString.trim().isEmpty) {
-                            SnackBarHelper.showError(
-                              context,
-                              message:
-                                  "PSBT string is empty or canceled. Signing aborted.",
-                            );
-                            return;
-                          }
+                    //       if (psbtString == null || psbtString.trim().isEmpty) {
+                    //         SnackBarHelper.showError(
+                    //           context,
+                    //           message:
+                    //               "PSBT string is empty or canceled. Signing aborted.",
+                    //         );
+                    //         return;
+                    //       }
 
-                          try {
-                            await walletService
-                                .broadcastBackupTx(psbtString.trim());
+                    //       try {
+                    //         await walletService
+                    //             .broadcastBackupTx(psbtString.trim());
 
-                            SnackBarHelper.show(
-                              context,
-                              message: "PSBT broadcast successfully.",
-                            );
-                          } catch (e) {
-                            SnackBarHelper.showError(
-                              context,
-                              message:
-                                  "Failed to broadcast PSBT: ${e.toString()}",
-                            );
-                          }
-                        },
-                        child: Icon(
-                          Icons.sign_language,
-                          color: AppColors.icon(context),
-                          size: 22,
-                        ),
-                      ),
+                    //         SnackBarHelper.show(
+                    //           context,
+                    //           message: "PSBT broadcast successfully.",
+                    //         );
+                    //       } catch (e) {
+                    //         SnackBarHelper.showError(
+                    //           context,
+                    //           message:
+                    //               "Failed to broadcast PSBT: ${e.toString()}",
+                    //         );
+                    //       }
+                    //     },
+                    //     child: Icon(
+                    //       Icons.sign_language,
+                    //       color: AppColors.icon(context),
+                    //       size: 22,
+                    //     ),
+                    //   ),
                   ],
                 ),
 

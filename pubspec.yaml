@@ -62,6 +62,7 @@ dependencies:
   nfc_manager: ^4.0.2
   intl: ^0.20.2
   crypto: ^3.0.6
+  convert: ^3.1.2
 
 dev_dependencies:
   flutter_test:

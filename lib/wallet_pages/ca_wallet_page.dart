@@ -91,7 +91,7 @@ class CAWalletPageState extends State<CAWalletPage> {
 
     if (!mounted) return;
 
-    Navigator.pushNamed(
+    Navigator.pushReplacementNamed(
       context,
       '/wallet_page',
       arguments: _wallet,

@@ -12,6 +12,7 @@ import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:hive/hive.dart';
 import 'package:http/http.dart' as http;
 import 'package:english_words/english_words.dart';
+import 'package:convert/convert.dart';
 
 /// WalletService Class
 ///
@@ -1757,7 +1758,7 @@ class WalletService extends ChangeNotifier {
             receivingSecretKey.toString(),
           );
 
-    printInChunks('Sending Descriptor: $descriptor');
+    // printInChunks('Sending Descriptor: $descriptor');
 
     wallet = await createSharedWallet(descriptor);
 
@@ -2245,7 +2246,7 @@ class WalletService extends ChangeNotifier {
             receivingSecretKey.toString(),
           );
 
-    printInChunks('Sending Descriptor: $descriptor');
+    // printInChunks('Sending Descriptor: $descriptor');
 
     wallet = await createSharedWallet(descriptor);
 
@@ -2485,6 +2486,8 @@ class WalletService extends ChangeNotifier {
 
         final type = spendingPaths[chosenPath]['type'].toString().toLowerCase();
 
+        print('Type: $type');
+
         int currentHeight = await fetchCurrentBlockHeight();
         // print('Current block height: $currentHeight');
 
@@ -2624,36 +2627,17 @@ class WalletService extends ChangeNotifier {
           ),
         );
 
-        // if (signed) {
-        //   print('Signing returned true');
+        // final psbtString = base64Encode(txBuilderResult.$1.serialize());
 
-        //   // printInChunks(txBuilderResult.$1.asString());
+        final tx = txBuilderResult.$1.extractTx();
 
-        //   print('Sending');
-        //   final tx = txBuilderResult.$1.extractTx();
+        final serialized = tx.serialize();
 
-        //   for (var input in tx.input()) {
-        //     print("Input sequence number: ${input.previousOutput.txid}");
-        //   }
+        // Convert bytes to hex string
+        final rawHex = hex.encode(serialized);
+        // print('🚀 Raw tx hex: $rawHex');
 
-        //   final isLockTime = tx.isLockTimeEnabled();
-        //   print('LockTime enabled: $isLockTime');
-
-        //   final lockTime = tx.lockTime();
-        //   print('LockTime: $lockTime');
-
-        //   // await blockchain.broadcast(transaction: tx);
-        //   // print('Transaction sent');
-
-        //   return null;
-        // } else {
-        //   print('Signing returned false');
-
-        // printInChunks(txBuilderResult.$1.asString());
-
-        final psbtString = base64Encode(txBuilderResult.$1.serialize());
-
-        return psbtString;
+        return rawHex;
         // }
       } catch (broadcastError) {
         print("Broadcasting error: ${broadcastError.toString()}");
@@ -2667,19 +2651,25 @@ class WalletService extends ChangeNotifier {
     }
   }
 
-  Future<String?> broadcastBackupTx(String psbtString) async {
-    await blockchainInit();
+  // Future<String?> broadcastBackupTx(String psbtString) async {
+  //   await blockchainInit();
 
-    final psbt = await PartiallySignedTransaction.fromString(psbtString);
+  //   final psbt = await PartiallySignedTransaction.fromString(psbtString);
 
-    // print('Sending');
-    final tx = psbt.extractTx();
+  //   // print('Sending');
+  //   final tx = psbt.extractTx();
 
-    await blockchain.broadcast(transaction: tx);
-    // print('Transaction sent');
+  //   // print('serialize');
+  //   // print(tx.serialize());
 
-    return null;
-  }
+  //   // print('tostring');
+  //   // printInChunks(tx.toString());
+
+  //   // await blockchain.broadcast(transaction: tx);
+  //   // print('Transaction sent');
+
+  //   return null;
+  // }
 
   // This method takes a PSBT, signs it with the second user and then broadcasts it
   Future<String?> signBroadcastTx(
@@ -2715,7 +2705,7 @@ class WalletService extends ChangeNotifier {
             receivingSecretKey.toString(),
           );
 
-    printInChunks('Sending descriptor: $descriptor');
+    // printInChunks('Sending descriptor: $descriptor');
 
     wallet = await Wallet.create(
       descriptor: await Descriptor.create(
