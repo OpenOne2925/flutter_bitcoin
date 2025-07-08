@@ -481,8 +481,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                     foregroundColor: AppColors.gradient(context),
                     icon: Icons.qr_code_scanner,
                     iconColor: AppColors.text(context),
-                    label: AppLocalizations.of(context)!
-                        .translate('scan_qr_descriptor'),
+                    label: AppLocalizations.of(context)!.translate('scan_qr'),
                   ),
                 ),
 

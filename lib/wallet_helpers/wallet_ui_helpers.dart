@@ -168,7 +168,8 @@ class WalletUiHelpers {
                                       await walletService.getSatoshis(address);
                                     } catch (e) {
                                       SnackBarHelper.show(context,
-                                          message: e.toString());
+                                          message: AppLocalizations.of(context)!
+                                              .translate(e.toString()));
                                     }
                                   },
                                   child: Icon(

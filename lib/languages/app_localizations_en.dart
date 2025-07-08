@@ -12,9 +12,11 @@ const Map<String, String> localizedStringsEn = {
   'reset_settings': 'Reset Default Settings',
   'reset_settings_scaffold': 'Settings reset to default!',
   'reset_app': 'Reset App',
+  'begin_journey': 'Begin Your Bitcoin Journey',
 
   // Network
   'network_banner': 'Testnet Network',
+  'network': 'Network',
 
   // PIN Setup & Verification
   'enter_pin': 'Enter PIN',
@@ -46,6 +48,7 @@ const Map<String, String> localizedStringsEn = {
   'multisig_tx': 'MultiSig Transactions',
   'no_transactions_to_sign': 'No transactions to sign',
   'receive_bitcoin': 'Receive Bitcoin',
+  'height': 'Height',
 
   // Transactions & Blockchain
   'fetching_balance': 'Fetching balance...',
@@ -163,7 +166,7 @@ const Map<String, String> localizedStringsEn = {
   'saved_descriptor': 'Here is your saved descriptor',
   'saved_pub_key': 'Here is your saved public key',
   'download_descriptor': 'Download Descriptor',
-  'wallet_data': 'Wallet_Data',
+  'wallet_data': 'Wallet Data',
 
   // Buttons
   'close': 'Close',
@@ -190,6 +193,8 @@ const Map<String, String> localizedStringsEn = {
   'unconfirmed': 'Unconfirmed',
   'no_transactions_available': 'No transactions available',
   'value': 'Value',
+  'abs_timelock': 'Absolute Timelock',
+  'rel_timelock': 'Relative Timelock',
 
   // Spending Paths
   'immediately_spend': 'You ({x}) can immediately spend',
@@ -244,6 +249,9 @@ const Map<String, String> localizedStringsEn = {
   'loading': 'Loading...',
   'idle_ready_import': 'Idle - Ready to Import',
   'descriptor_valid_proceed': 'Descriptor is valid - You can proceed',
+  'assistant_scan_qr_descriptor':
+      'Tap here to scan a QrCode containing the descriptor you want to import!',
+  'scan_qr': 'Scan Qr',
 
   // Create Shared Wallet
   'create_shared_wallet': 'Create Shared Wallet',
@@ -266,6 +274,8 @@ const Map<String, String> localizedStringsEn = {
   'conditions': 'Conditions',
   'aliases': 'Aliases',
   'edit_sw_info': 'Edit Shared Wallet Details',
+  'enter_after': 'Enter After Condition',
+  'after': 'After',
 
   // Create Import Single Wallet
   'create_restore': 'Create or Restore Wallet',
@@ -304,6 +314,7 @@ const Map<String, String> localizedStringsEn = {
   'connect_internet':
       'Your wallet needs to sync with the blockchain.\n\nPlease connect to the internet to proceed.',
   'refreshing': 'Refreshing...',
+  'request_sent': 'Request sent, check your balance again in a few minutes!',
 
 // General Assistant Messages
   'assistant_welcome':

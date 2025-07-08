@@ -172,7 +172,7 @@ class WalletService extends ChangeNotifier {
       }
     } catch (e) {
       print("API failed: $e");
-      throw 'Request sent, check your balance again in 2 min!';
+      throw 'request_sent';
     }
   }
 

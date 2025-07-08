@@ -12,9 +12,11 @@ const Map<String, String> localizedStringsFr = {
   'reset_settings': 'Réinitialiser les paramètres',
   'reset_settings_scaffold': 'Paramètres réinitialisés par défaut!',
   'reset_app': 'Réinitialiser l\'application',
+  'begin_journey': 'Commencez votre aventure Bitcoin',
 
   // Network
   'network_banner': 'Réseau Testnet',
+  'network': 'Réseau',
 
   // PIN Setup & Verification
   'enter_pin': 'Entrer le code PIN',
@@ -49,6 +51,7 @@ const Map<String, String> localizedStringsFr = {
   'multisig_tx': 'Transactions MultiSig',
   'no_transactions_to_sign': 'Aucune transaction à signer',
   'receive_bitcoin': 'Recevoir des Bitcoins',
+  'height': 'Hauteur',
 
   // Transactions & Blockchain
   'fetching_balance': 'Récupération du solde...',
@@ -197,6 +200,8 @@ const Map<String, String> localizedStringsFr = {
   'unconfirmed': 'Non confirmé',
   'no_transactions_available': 'Aucune transaction disponible',
   'value': 'Valeur',
+  'abs_timelock': 'Verrouillage temporel absolu',
+  'rel_timelock': 'Verrouillage temporel relatif',
 
 // Spending Paths (Chemins de dépenses)
   'immediately_spend': 'Vous ({x}) pouvez immédiatement dépenser',
@@ -242,6 +247,9 @@ const Map<String, String> localizedStringsFr = {
   'idle_ready_import': 'Inactif - Prêt à importer',
   'descriptor_valid_proceed':
       'Le descripteur est valide - Vous pouvez continuer',
+  'assistant_scan_qr_descriptor':
+      'Appuyez ici pour scanner un QR Code contenant le descripteur à importer !',
+  'scan_qr': 'Scanner QR',
 
   // Créer un Portefeuille Partagé
   'create_shared_wallet': 'Créer un Portefeuille Partagé',
@@ -264,6 +272,8 @@ const Map<String, String> localizedStringsFr = {
   'conditions': 'Conditions',
   'aliases': 'Alias',
   'edit_sw_info': 'Modifier les détails du portefeuille partagé',
+  'enter_after': 'Entrez la condition After',
+  'after': 'Après',
 
 // Créer ou Restaurer un Portefeuille Unique
   'create_restore': 'Créer ou Restaurer un Portefeuille',
@@ -303,6 +313,8 @@ const Map<String, String> localizedStringsFr = {
   'connect_internet':
       'Votre portefeuille doit se synchroniser avec la blockchain.\n\nVeuillez vous connecter à Internet pour continuer.',
   'refreshing': 'Actualisation...',
+  'request_sent':
+      'Requête envoyée, vérifiez votre solde dans quelques minutes !',
 
 // Messages généraux de l'assistant
   'assistant_welcome':

@@ -12,9 +12,11 @@ const Map<String, String> localizedStringsIt = {
   'reset_settings': 'Ripristina impostazioni predefinite',
   'reset_settings_scaffold': 'Impostazioni ripristinate ai valori predefiniti!',
   'reset_app': 'Ripristina app',
+  'begin_journey': 'Inizia il tuo viaggio con Bitcoin',
 
   // Network
   'network_banner': 'Rete Testnet',
+  'network': 'Rete',
 
   // PIN Setup & Verification
   'enter_pin': 'Inserisci PIN',
@@ -48,6 +50,7 @@ const Map<String, String> localizedStringsIt = {
   'multisig_tx': 'Transazioni MultiSig',
   'no_transactions_to_sign': 'Nessuna transazione da firmare',
   'receive_bitcoin': 'Ricevi Bitcoin',
+  'height': 'Altezza',
 
   // Transactions & Blockchain
   'fetching_balance': 'Recupero saldo...',
@@ -194,6 +197,8 @@ const Map<String, String> localizedStringsIt = {
   'unconfirmed': 'Non confermati',
   'no_transactions_available': 'Nessuna transazione disponibile',
   'value': 'Valore',
+  'abs_timelock': 'Timelock assoluto',
+  'rel_timelock': 'Timelock relativo',
 
 // Spending Paths (Percorsi di spesa)
   'immediately_spend': 'Tu ({x}) puoi spendere immediatamente',
@@ -238,6 +243,9 @@ const Map<String, String> localizedStringsIt = {
   'loading': 'Caricamento...',
   'idle_ready_import': 'Inattivo - Pronto per l\'importazione',
   'descriptor_valid_proceed': 'Il descrittore è valido - Puoi procedere',
+  'assistant_scan_qr_descriptor':
+      'Tocca qui per scansionare un QR Code con il descrittore che vuoi importare!',
+  'scan_qr': 'Scansiona QR',
 
   // Crea Portafoglio Condiviso
   'create_shared_wallet': 'Crea Portafoglio Condiviso',
@@ -260,6 +268,8 @@ const Map<String, String> localizedStringsIt = {
   'conditions': 'Condizioni',
   'aliases': 'Alias',
   'edit_sw_info': 'Modifica Dettagli Portafoglio Condiviso',
+  'enter_after': 'Inserisci la condizione After',
+  'after': 'Dopo',
 
 // Creare o Ripristinare Portafoglio Singolo
   'create_restore': 'Crea o Ripristina Portafoglio',
@@ -298,6 +308,7 @@ const Map<String, String> localizedStringsIt = {
   'connect_internet':
       'Il tuo portafoglio deve sincronizzarsi con la blockchain.\n\nPer favore, connettiti a Internet per continuare.',
   'refreshing': 'Aggiornamento...',
+  'request_sent': 'Richiesta inviata, controlla il saldo tra qualche minuto!',
 
   // Messaggi generali dell'assistente
   'assistant_welcome':

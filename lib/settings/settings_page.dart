@@ -110,7 +110,7 @@ class SettingsPageState extends State<SettingsPage> {
                   Text(
                     isFirstTime
                         ? AppLocalizations.of(context)!
-                            .translate('settings_first_message')
+                            .translate('settings_message')
                         : AppLocalizations.of(context)!
                             .translate('settings_message'),
                     textAlign: TextAlign.center,

@@ -12,9 +12,11 @@ const Map<String, String> localizedStringsRu = {
   'reset_settings': 'Сбросить настройки по умолчанию',
   'reset_settings_scaffold': 'Настройки сброшены по умолчанию!',
   'reset_app': 'Сбросить приложение',
+  'begin_journey': 'Начните своё путешествие с Биткойном',
 
   // Сеть
   'network_banner': 'Тестовая сеть',
+  'network': 'Сеть',
 
   // Настройка и проверка PIN-кода
   'enter_pin': 'Введите PIN-код',
@@ -46,6 +48,7 @@ const Map<String, String> localizedStringsRu = {
   'multisig_tx': 'Мультиподпись транзакций',
   'no_transactions_to_sign': 'Нет транзакций для подписания',
   'receive_bitcoin': 'Получить Bitcoin',
+  'height': 'Высота',
 
   // Транзакции и блокчейн
   'fetching_balance': 'Получение баланса...',
@@ -190,6 +193,8 @@ const Map<String, String> localizedStringsRu = {
   'unconfirmed': 'Неподтверждено',
   'no_transactions_available': 'Нет доступных транзакций',
   'value': 'Значение',
+  'abs_timelock': 'Абсолютная блокировка по времени',
+  'rel_timelock': 'Относительная блокировка по времени',
 
   // Пути расходов
   'immediately_spend': 'Вы ({x}) можете потратить немедленно',
@@ -233,6 +238,9 @@ const Map<String, String> localizedStringsRu = {
   'loading': 'Загрузка...',
   'idle_ready_import': 'Ожидание - готово к импорту',
   'descriptor_valid_proceed': 'Дескриптор действителен - можно продолжать',
+  'assistant_scan_qr_descriptor':
+      'Нажмите здесь, чтобы отсканировать QR-код с нужным дескриптором!',
+  'scan_qr': 'Сканировать QR',
 
   // Создание совместного кошелька
   'create_shared_wallet': 'Создать совместный кошелек',
@@ -255,6 +263,8 @@ const Map<String, String> localizedStringsRu = {
   'conditions': 'Условия',
   'aliases': 'Псевдонимы',
   'edit_sw_info': 'Редактировать данные общего кошелька',
+  'enter_after': 'Введите условие After',
+  'after': 'После',
 
   // Создание/импорт одиночного кошелька
   'create_restore': 'Создать или восстановить кошелек',
@@ -293,6 +303,7 @@ const Map<String, String> localizedStringsRu = {
   'connect_internet':
       'Вашему кошельку необходимо синхронизироваться с блокчейном.\n\nПожалуйста, подключитесь к Интернету, чтобы продолжить.',
   'refreshing': 'Обновление...',
+  'request_sent': 'Запрос отправлен, проверьте баланс через несколько минут!',
 
   // Общие сообщения ассистента
   'assistant_welcome':

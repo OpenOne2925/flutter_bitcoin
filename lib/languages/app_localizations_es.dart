@@ -13,9 +13,11 @@ const Map<String, String> localizedStringsEs = {
   'reset_settings_scaffold':
       '¡Configuración restablecida a los valores predeterminados!',
   'reset_app': 'Restablecer aplicación',
+  'begin_journey': 'Comienza tu viaje con Bitcoin',
 
   // Network
   'network_banner': 'Red Testnet',
+  'network': 'Red',
 
   // PIN Setup & Verification
   'enter_pin': 'Ingresar PIN',
@@ -50,6 +52,7 @@ const Map<String, String> localizedStringsEs = {
   'multisig_tx': 'Transacciones MultiSig',
   'no_transactions_to_sign': 'No hay transacciones para firmar',
   'receive_bitcoin': 'Recibir Bitcoin',
+  'height': 'Altura',
 
   // Transactions & Blockchain
   'fetching_balance': 'Obteniendo saldo...',
@@ -198,6 +201,8 @@ const Map<String, String> localizedStringsEs = {
   'unconfirmed': 'No confirmado',
   'no_transactions_available': 'No hay transacciones disponibles',
   'value': 'Valor',
+  'abs_timelock': 'Bloqueo temporal absoluto',
+  'rel_timelock': 'Bloqueo temporal relativo',
 
 // Spending Paths (Rutas de gasto)
   'immediately_spend': 'Tú ({x}) puedes gastar inmediatamente',
@@ -242,6 +247,9 @@ const Map<String, String> localizedStringsEs = {
   'loading': 'Cargando...',
   'idle_ready_import': 'Inactivo - Listo para Importar',
   'descriptor_valid_proceed': 'El descriptor es válido - Puedes proceder',
+  'assistant_scan_qr_descriptor':
+      'Toca aquí para escanear un código QR con el descriptor que deseas importar!',
+  'scan_qr': 'Escanear QR',
 
 // Crear Billetera Compartida
   'create_shared_wallet': 'Crear Billetera Compartida',
@@ -264,6 +272,8 @@ const Map<String, String> localizedStringsEs = {
   'conditions': 'Condiciones',
   'aliases': 'Alias',
   'edit_sw_info': 'Editar detalles de la cartera compartida',
+  'enter_after': 'Introduce la condición After',
+  'after': 'Después',
 
   // Crear o Restaurar Billetera Única
   'create_restore': 'Crear o Restaurar Billetera',
@@ -302,6 +312,7 @@ const Map<String, String> localizedStringsEs = {
   'connect_internet':
       'Tu monedero necesita sincronizarse con la blockchain.\n\nPor favor, conéctate a Internet para continuar.',
   'refreshing': 'Actualizando...',
+  'request_sent': 'Solicitud enviada, revisa tu saldo en unos minutos!',
 
   // Mensajes generales del asistente
   'assistant_welcome':
