@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -126,60 +125,6 @@ class WalletUiHelpers {
                           Row(
                             // Wrap the two icons inside another Row
                             children: [
-                              if (settingsProvider.isRegtest) ...[
-                                GestureDetector(
-                                  onLongPress: () {
-                                    final BaseScaffoldState? baseScaffoldState =
-                                        baseScaffoldKey.currentState;
-
-                                    if (baseScaffoldState != null) {
-                                      baseScaffoldState.updateAssistantMessage(
-                                          context, 'assistant_faucet');
-                                    }
-                                  },
-                                  onTap: () async {
-                                    const faucetAddress =
-                                        'bcrt1q2d9pp5ffapy83c9z9w8k2jjvk648f899uhnwa4';
-
-                                    final hasAlreadyReceived =
-                                        transactions.any((tx) {
-                                      final vin = tx['vin'] as List<dynamic>?;
-                                      if (vin == null) return false;
-
-                                      return vin.any((input) {
-                                        final prevout = input['prevout'];
-                                        if (prevout == null) return false;
-
-                                        return prevout[
-                                                'scriptpubkey_address'] ==
-                                            faucetAddress;
-                                      });
-                                    });
-
-                                    if (hasAlreadyReceived) {
-                                      SnackBarHelper.showError(
-                                        context,
-                                        message: 'faucet_error',
-                                      );
-                                      return;
-                                    }
-
-                                    try {
-                                      await walletService.getSatoshis(address);
-                                    } catch (e) {
-                                      SnackBarHelper.show(context,
-                                          message: AppLocalizations.of(context)!
-                                              .translate(e.toString()));
-                                    }
-                                  },
-                                  child: Icon(
-                                    Icons.money,
-                                    color: AppColors.cardTitle(context),
-                                    size: 22,
-                                  ),
-                                ),
-                                SizedBox(width: 10),
-                              ],
                               GestureDetector(
                                 onLongPress: () {
                                   final BaseScaffoldState? baseScaffoldState =

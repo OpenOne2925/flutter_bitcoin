@@ -422,9 +422,8 @@ class BaseScaffoldState extends State<BaseScaffold> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             widget.title,
-            if (settingsProvider.isTestnet ||
-                settingsProvider
-                    .isRegtest) // Show the Testnet banner if `isTestnet` is true
+            if (settingsProvider
+                .isTestnet) // Show the Testnet banner if `isTestnet` is true
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(

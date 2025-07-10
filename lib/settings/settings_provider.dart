@@ -29,13 +29,12 @@ class SettingsProvider with ChangeNotifier {
   ThemeData get themeData => _themeData;
   bool get isDarkMode => _isDarkMode;
 
-  Network _network = Network.regtest;
+  Network _network = Network.testnet;
 
   Network get network => _network;
 
   bool get isMainnet => _network == Network.bitcoin;
   bool get isTestnet => _network == Network.testnet;
-  bool get isRegtest => _network == Network.regtest;
 
   SettingsProvider() {
     loadSettings(); // Initialize SharedPreferences before use
@@ -50,16 +49,16 @@ class SettingsProvider with ChangeNotifier {
     _themeData = _isDarkMode ? darkTheme : lightTheme;
     final networkString = _prefs.getString('network');
 
+    // print(networkString);
+
     if (networkString != null) {
       if (networkString.contains('bitcoin')) {
         _network = Network.bitcoin;
-      } else if (networkString.contains('regtest')) {
-        _network = Network.regtest;
       } else {
         _network = Network.testnet;
       }
     } else if (isTest) {
-      _network = Network.regtest;
+      _network = Network.testnet;
     } else {
       _network = Network.bitcoin;
     }

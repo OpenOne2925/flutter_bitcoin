@@ -82,8 +82,6 @@ class WalletService extends ChangeNotifier {
   final WalletStorageService _walletStorageService = WalletStorageService();
   final SettingsProvider settingsProvider;
 
-  final String faucetUrl = 'https://regfaucet.open-one.it';
-
   WalletService(this.settingsProvider);
 
   late Wallet wallet;
@@ -94,8 +92,6 @@ class WalletService extends ChangeNotifier {
   //   switch (settingsProvider.network) {
   //     case Network.testnet:
   //       return 'https://blockstream.info/testnet/api';
-  //     case Network.regtest:
-  //       return 'https://regtest.open-one.it/api'; // or another regtest URL
   //     case Network.bitcoin:
   //     default:
   //       return 'https://mempool.space/api';
@@ -107,8 +103,6 @@ class WalletService extends ChangeNotifier {
     switch (settingsProvider.network) {
       case Network.testnet:
         return 'https://mempool.space/testnet4/api';
-      case Network.regtest:
-        return 'https://regtest.open-one.it/api'; // or another regtest URL
       case Network.bitcoin:
       default:
         return 'https://mempool.space/api';
@@ -120,8 +114,6 @@ class WalletService extends ChangeNotifier {
   //   switch (settingsProvider.network) {
   //     case Network.testnet:
   //       return ["ssl://electrum.blockstream.info:60002"];
-  //     case Network.regtest:
-  //       return ["tcp://79.61.35.232:40001", "tcp://192.168.99.25:40001"];
   //     case Network.bitcoin:
   //       return ["ssl://electrum.blockstream.info:50002"];
   //     default:
@@ -134,8 +126,6 @@ class WalletService extends ChangeNotifier {
     switch (settingsProvider.network) {
       case Network.testnet:
         return ["ssl://mempool.space:40002"];
-      case Network.regtest:
-        return ["tcp://79.61.35.232:40001", "tcp://192.168.99.25:40001"];
       case Network.bitcoin:
         return ["ssl://electrum.blockstream.info:50002"];
       default:
@@ -157,24 +147,6 @@ class WalletService extends ChangeNotifier {
   ///
   ///
   ///
-
-  Future<void> getSatoshis(String address) async {
-    try {
-      final response = await http.get(Uri.parse("$faucetUrl/$address"));
-
-      // print(response.statusCode);
-      // print(response.body);
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        throw 'Error: ${response.body}';
-      }
-    } catch (e) {
-      print("API failed: $e");
-      throw 'request_sent';
-    }
-  }
 
   Future<ValidationResult> isValidDescriptor(
     String descriptorStr,

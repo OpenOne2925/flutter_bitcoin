@@ -1,16 +1,12 @@
-import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
-import 'package:flutter_wallet/services/wallet_service.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
-
 import 'package:flutter_wallet/utilities/app_colors.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -20,23 +16,9 @@ class SettingsPage extends StatefulWidget {
 }
 
 class SettingsPageState extends State<SettingsPage> {
-  bool isFirstTime = false;
-
   @override
   void initState() {
     super.initState();
-    checkFirstTime();
-  }
-
-  Future<void> checkFirstTime() async {
-    final prefs = await SharedPreferences.getInstance();
-    bool openedBefore = prefs.getBool('onboarding_complete') ?? false;
-
-    if (!openedBefore) {
-      setState(() {
-        isFirstTime = true;
-      });
-    }
   }
 
   @override
@@ -108,11 +90,7 @@ class SettingsPageState extends State<SettingsPage> {
                   const SizedBox(height: 20),
                   // Description
                   Text(
-                    isFirstTime
-                        ? AppLocalizations.of(context)!
-                            .translate('settings_message')
-                        : AppLocalizations.of(context)!
-                            .translate('settings_message'),
+                    AppLocalizations.of(context)!.translate('settings_message'),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
@@ -221,85 +199,6 @@ class SettingsPageState extends State<SettingsPage> {
                     menuMaxHeight:
                         250, // Limit the dropdown's height to fit 5 items
                   ),
-
-                  if (isFirstTime) ...[
-                    const SizedBox(height: 20),
-
-                    // Network Selection
-                    Text(
-                      AppLocalizations.of(context)!.translate('network'),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.cardTitle(context),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    DropdownButtonFormField<Network>(
-                      value: settingsProvider.network,
-                      items: Network.values.where((network) {
-                        if (isTest) {
-                          return network == Network.testnet ||
-                              network == Network.regtest;
-                        } else {
-                          return network == Network.bitcoin;
-                        }
-                      }).map((network) {
-                        return DropdownMenuItem(
-                          value: network,
-                          child: Text(network.name),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          settingsProvider.setNetwork(value);
-                        }
-                      },
-                      decoration: InputDecoration(
-                        enabledBorder: OutlineInputBorder(
-                          borderSide:
-                              BorderSide(color: AppColors.background(context)),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide:
-                              BorderSide(color: AppColors.primary(context)),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 10,
-                          horizontal: 12,
-                        ),
-                      ),
-                      dropdownColor: AppColors.gradient(context),
-                      isExpanded: true,
-                      menuMaxHeight: 250,
-                    ),
-
-                    const SizedBox(height: 40),
-                    CustomButton(
-                      onPressed: () async {
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setBool('onboarding_complete', true);
-
-                        Navigator.pushReplacementNamed(
-                            context, '/pin_setup_page');
-                      },
-                      backgroundColor: AppColors.background(context),
-                      foregroundColor: AppColors.text(context),
-                      icon: Icons.star,
-                      iconColor: AppColors.gradient(context),
-                      label: AppLocalizations.of(context)!
-                          .translate('begin_journey'),
-                      padding: 10.0,
-                      iconSize: 28.0,
-                    ),
-                  ],
 
                   const SizedBox(height: 40),
 

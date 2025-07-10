@@ -10,17 +10,12 @@ class AppColors {
   static bool _isTestnet(BuildContext context) =>
       _network(context) == Network.testnet;
 
-  static bool _isRegtest(BuildContext context) =>
-      _network(context) == Network.regtest;
-
   static Color primary(BuildContext context) {
-    if (_isRegtest(context)) return Colors.blue;
     if (_isTestnet(context)) return Colors.green;
     return Colors.orange;
   }
 
   static Color lightPrimary(BuildContext context) {
-    if (_isRegtest(context)) return Colors.lightBlueAccent;
     if (_isTestnet(context)) return Colors.green;
     return Colors.orangeAccent[400]!;
   }
@@ -34,19 +29,16 @@ class AppColors {
   }
 
   static Color darkPrimary(BuildContext context) {
-    if (_isRegtest(context)) return Colors.blue[700]!;
     if (_isTestnet(context)) return Colors.green[600]!;
     return Colors.deepOrange[700]!;
   }
 
   static Color lightSecondary(BuildContext context) {
-    if (_isRegtest(context)) return Colors.blue[300]!;
     if (_isTestnet(context)) return Colors.green[300]!;
     return Colors.orange[400]!;
   }
 
   static Color darkSecondary(BuildContext context) {
-    if (_isRegtest(context)) return Colors.blue[900]!;
     if (_isTestnet(context)) return Colors.green[800]!;
     return Colors.deepOrange[900]!;
   }

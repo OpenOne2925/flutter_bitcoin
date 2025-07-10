@@ -27,9 +27,7 @@ class WalletTransactionHelpers {
   void showTransactionsDialog(Map<String, dynamic> transaction) {
     final String mempoolUrl = settingsProvider.isTestnet
         ? 'https://mempool.space/testnet4'
-        : settingsProvider.isMainnet
-            ? 'https://mempool.space/'
-            : 'https://regtest.open-one.it';
+        : 'https://mempool.space/';
 
     final txid = transaction['txid'];
 

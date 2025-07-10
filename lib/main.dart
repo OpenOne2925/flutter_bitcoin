@@ -182,7 +182,7 @@ class MyApp extends StatelessWidget {
 
     if (!walletBox.containsKey('userPin')) {
       // If the user hasn't set a PIN yet
-      return '/settings';
+      return '/pin_setup_page';
       // return '/tutorial';
     } else if (walletBox.containsKey('walletMnemonic')) {
       // If the wallet mnemonic exists, navigate to PIN verification
