@@ -2,7 +2,6 @@
 # Bash scripts (optional)
 build_mainnet_apk.sh
 build_testnet_apk.sh
-git_push_total.sh
 
 # ─────────────────────────────────────────────
 # Miscellaneous
