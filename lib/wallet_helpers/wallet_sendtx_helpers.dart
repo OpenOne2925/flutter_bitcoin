@@ -29,6 +29,7 @@ class WalletSendtxHelpers {
   final bool mounted;
   final BigInt avBalance;
   final void Function(String newAddress)? onNewAddressGenerated;
+  Future<void> Function() syncWallet;
 
   TextEditingController? psbtController;
   TextEditingController? signingAmountController;
@@ -59,6 +60,7 @@ class WalletSendtxHelpers {
     required this.mounted,
     required this.avBalance,
     required this.onNewAddressGenerated,
+    required this.syncWallet,
 
     // SharedWallet Variables
     this.psbtController,
@@ -95,6 +97,7 @@ class WalletSendtxHelpers {
 
     final extractedData =
         walletService.extractDataByFingerprint(policy!, myFingerPrint!);
+
     if (extractedData.isNotEmpty) {
       selectedPath = index != null ? extractedData[index] : extractedData.first;
       selectedIndex = index ?? 0;
@@ -169,7 +172,10 @@ class WalletSendtxHelpers {
           ),
         ];
       },
-    ).then((_) => _resetForm());
+    ).then((_) {
+      _resetForm();
+      syncWallet();
+    });
   }
 
   Future<void> _handleSendAllViaSpendingPath(

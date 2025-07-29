@@ -30,6 +30,8 @@ class CreateSharedWallet extends StatefulWidget {
 }
 
 class CreateSharedWalletState extends State<CreateSharedWallet> {
+  late final WalletService _walletService;
+
   final TextEditingController _thresholdController = TextEditingController();
   List<TextEditingController> additionalPublicKeyControllers = [
     TextEditingController()
@@ -64,9 +66,6 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
   bool _isYourPubKeyMissing = false;
   bool _arePublicKeysMissing = false;
 
-  late final SettingsProvider settingsProvider;
-  late final WalletService walletService;
-
   final GlobalKey<BaseScaffoldState> baseScaffoldKey =
       GlobalKey<BaseScaffoldState>();
 
@@ -82,9 +81,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     //   }
     // });
 
-    settingsProvider = Provider.of<SettingsProvider>(context, listen: false);
-
-    walletService = WalletService(settingsProvider);
+    _walletService =
+        WalletService(Provider.of<SettingsProvider>(context, listen: false));
 
     _generatePublicKey(isGenerating: false);
   }
@@ -116,19 +114,21 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
       // print('Mnemonic: $savedMnemonic');
 
+      // TODO: "m/84h/1h/0h/0"
+
       final hardenedDerivationPath =
-          await DerivationPath.create(path: "m/86h/1h/0h");
+          await DerivationPath.create(path: "m/84h/1h/0h");
       final receivingDerivationPath = await DerivationPath.create(path: "m/0");
 
-      final (_, receivingPublicKey) = await walletService.deriveDescriptorKeys(
+      final (_, receivingPublicKey) = await _walletService.deriveDescriptorKeys(
         hardenedDerivationPath,
         receivingDerivationPath,
         mnemonic,
       );
 
-      // print(receivingPublicKey
-      //     .toString()
-      //     .substring(0, receivingPublicKey.toString().length - 2));
+      print(receivingPublicKey
+          .toString()
+          .substring(0, receivingPublicKey.toString().length - 2));
 
       setState(() {
         if (isGenerating) {
@@ -144,33 +144,10 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     }
   }
 
-  // Future<void> _generatePublicKey({bool isGenerating = true}) async {
-  //   setState(() => isLoading = true);
-  //   try {
-  //     final walletBox = Hive.box('walletBox');
-  //     final savedMnemonic = walletBox.get('walletMnemonic');
-
-  //     final receivingPublicKey =
-  //         _walletService.getXOnlyPubKey(savedMnemonic, "m/86'/1'/0'/0/0");
-
-  //     setState(() {
-  //       if (isGenerating) {
-  //         _publicKey = receivingPublicKey.toString();
-  //       }
-  //       initialPubKey = receivingPublicKey.toString();
-  //       _mnemonic = savedMnemonic;
-  //     });
-  //   } catch (e) {
-  //     print("Error generating public key: $e");
-  //   } finally {
-  //     setState(() => isLoading = false);
-  //   }
-  // }
-
   // Asynchronous method to validate the descriptor
   Future<bool> _validateDescriptor(String descriptor) async {
     try {
-      ValidationResult result = await walletService.isValidDescriptor(
+      ValidationResult result = await _walletService.isValidDescriptor(
         descriptor,
         initialPubKey.toString(),
         context,
@@ -196,7 +173,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
 
   void _navigateToSharedWallet() async {
     bool isValid = await _validateDescriptor(_finalDescriptor);
-    // print(isValid);
+    print(isValid);
     // setState(() {
     //   _status = 'Loading';
     // });
@@ -206,7 +183,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       //   _status = 'Success';
       // });
 
-      // walletService.printInChunks(_finalDescriptor.toString());
+      _walletService.printInChunks(_finalDescriptor.toString());
 
       Navigator.push(
         context,
@@ -219,12 +196,12 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
           ),
         ),
       );
-    } else {
-      print('Cannot navigate: Invalid Descriptor');
-      // setState(() {
-      //   _status = 'Cannot navigate: Invalid Descriptor';
-      // });
     }
+    // else {
+    //   setState(() {
+    //     _status = 'Cannot navigate: Invalid Descriptor';
+    //   });
+    // }
   }
 
   String buildTimelockCondition(List<String> formattedTimelocks) {
@@ -621,11 +598,11 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                         });
                         // print(isSelected);
 
-                        // print('publicKeysWithAlias: $publicKeysWithAlias');
+                        print('publicKeysWithAlias: $publicKeysWithAlias');
 
-                        // print(
-                        //     'publicKeysWithAliasMultisig: $publicKeysWithAliasMultisig');
-                        // print('selectedPubKeys: $selectedPubKeys');
+                        print(
+                            'publicKeysWithAliasMultisig: $publicKeysWithAliasMultisig');
+                        print('selectedPubKeys: $selectedPubKeys');
                       },
                       onLongPress: () {
                         _showAddPublicKeyDialog(key: key, isUpdating: true);
@@ -1172,9 +1149,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     onChanged: (value) {
                       setDialogState(() {
                         if (int.tryParse(value) != null &&
-                            int.parse(value) > 65530) {
+                            int.parse(value) > 65535) {
                           // If the entered value exceeds the max, reset it to the max
-                          olderController.text = '65530';
+                          olderController.text = '65535';
                           olderController.selection =
                               TextSelection.fromPosition(
                             TextPosition(
@@ -1213,8 +1190,13 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   TextFormField(
                     controller: afterController,
                     onChanged: (value) async {
+                      final settingsProvider =
+                          Provider.of<SettingsProvider>(context, listen: false);
+
+                      final WalletService wallServ =
+                          WalletService(settingsProvider);
                       final String blockApiUrl =
-                          '${walletService.baseUrl}/blocks/tip/height';
+                          '${wallServ.baseUrl}/blocks/tip/height';
 
                       try {
                         final response = await http.get(Uri.parse(blockApiUrl));
@@ -1322,7 +1304,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                             'after': afterController.text,
                             'pubkeys': jsonEncode(newPubkeys),
                           });
-                          // print(timelockConditions);
+                          print(timelockConditions);
                         });
 
                         // Close the dialog after adding the condition
@@ -1405,172 +1387,95 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     // print('Updated Timelock Conditions: $timelockConditions');
   }
 
-  void _createDescriptor() async {
-    // print('🚀 Starting descriptor creation...');
+  void _createDescriptor() {
+    print('Starting descriptor creation...');
 
-    // Step 1: Validate inputs
-    // print('🧪 Validating inputs...');
+    // Validate inputs
     _validateInputs();
 
     if (_isDescriptorNameMissing ||
         _isThresholdMissing ||
         _arePublicKeysMissing ||
         _isYourPubKeyMissing) {
-      print('❌ Validation failed: Missing descriptor fields.');
+      print('Validation failed: Missing descriptor fields.');
       return;
     }
-    // print('✅ Validation passed.');
 
-    // Step 2: Extract and sort public keys
-    // print('🔍 Extracting public keys from user input...');
+    // Extract and sort public keys
     List<String> extractedPublicKeys = publicKeysWithAliasMultisig
         .map((entry) => entry['publicKey']!)
         .toList()
       ..sort();
 
-    // print('📋 Sorted Public Keys: $extractedPublicKeys');
+    print('Extracted public keys: $extractedPublicKeys');
 
     String formattedKeys =
         extractedPublicKeys.toString().replaceAll(RegExp(r'^\[|\]$'), '');
-    // print('🔧 Formatted keys string for descriptor: $formattedKeys');
 
-    // ⚠️ Fixed: Do not prepend a key outside of multi_a
-    String multi = 'multi_a($threshold,$formattedKeys)';
-    // print('🔗 Multi_a expression: $multi');
+    String multi = 'multi($threshold,$formattedKeys)';
+    print('Multi condition: $multi');
 
     String finalDescriptor;
 
     _handleTimelocks(); // Optional: Add debug log inside that method if needed
-    // print('Timelock conditions after handling: $timelockConditions');
+    print('Timelock conditions after handling: $timelockConditions');
 
-    final deadKey = await mutateXpubUntilAccepted(extractedPublicKeys.first);
-
-    // Step 3: Handle optional timelocks
     if (timelockConditions.isNotEmpty) {
-      // print('⏱ Handling timelock conditions...');
-
-      // Sort timelocks by block/time
       timelockConditions.sort((a, b) {
         int getTimeLock(Map cond) =>
             int.tryParse(cond['older'] ?? cond['after'] ?? '0') ?? 0;
         return getTimeLock(a).compareTo(getTimeLock(b));
       });
 
-      // print('📋 Sorted timelock conditions: $timelockConditions');
+      print('Sorted timelock conditions: $timelockConditions');
 
-      // Format each timelock into Miniscript
       List<String> formattedTimelocks = timelockConditions.map((condition) {
         String threshold = condition['threshold'];
-        String older = condition['older'] ?? '';
-        String after = condition['after'] ?? '';
+        String older = condition['older'];
+        String after = condition['after'];
 
-        // print('⏳ Processing timelock condition:');
-        // print('  🔐 Threshold: $threshold');
-        // print('  🔁 Older: $older');
-        // print('  📆 After: $after');
+        print('olderCondition: $older');
+        print('afterCondition: $after');
 
         String timeCondition = older.isNotEmpty
             ? 'older($older)'
             : after.isNotEmpty
                 ? 'after($after)'
-                : throw Exception(
-                    '⚠️ Timelock condition missing `older` or `after` value');
+                : throw Exception('Missing TimeLock condition');
 
         List<String> pubkeys = (condition['pubkeys'] as List)
             .map((key) => key['publicKey'] as String)
             .toList()
           ..sort();
 
-        // print('  🔑 Sorted pubkeys for this condition: $pubkeys');
-
         String pubkeysString = pubkeys.join(',');
         String multiCondition = pubkeys.length > 1
-            ? 'multi_a($threshold,$pubkeysString)'
+            ? 'multi($threshold,$pubkeysString)'
             : 'pk(${pubkeys.first})';
 
-        // print('  🔧 Script expression: $multiCondition');
-
         String result = 'and_v(v:$timeCondition,$multiCondition)';
-        // print('  🧱 Final formatted timelock expression: $result');
+        print('Formatted timelock: $result');
 
         return result;
       }).toList();
 
-      // Combine the timelocks and the multi_a base
       String timelockCondition = buildTimelockCondition(formattedTimelocks);
-      // print('🧩 Combined timelock condition: $timelockCondition');
+      print('Combined timelock condition: $timelockCondition');
 
-      // Use nested logic for final tr() descriptor
-      finalDescriptor =
-          'tr($deadKey, ${nestConditions(multi, [timelockCondition])})';
-
-      // print('🧬 Final descriptor with timelocks: $finalDescriptor');
+      finalDescriptor = 'wsh(or_d($multi,$timelockCondition))';
     } else {
-      // No timelocks, just use multi_a in tr()
-      // print('🟢 No timelock conditions. Using only multisig policy.');
-      finalDescriptor = 'tr($deadKey,$multi)';
-      // print('🧬 Final descriptor: $finalDescriptor');
+      finalDescriptor = 'wsh($multi)';
     }
 
-    // Clean and store descriptor
-    finalDescriptor = finalDescriptor.replaceAll(' ', '');
-    // print('✅ Final descriptor after cleaning: $finalDescriptor');
+    print('Final descriptor before cleaning: $finalDescriptor');
 
     setState(() {
-      _finalDescriptor = finalDescriptor;
+      _finalDescriptor = finalDescriptor.replaceAll(' ', '');
     });
 
-    // print('📦 Descriptor stored to state.');
+    print('Final descriptor stored: $_finalDescriptor');
 
     _createDescriptorDialog(context);
-  }
-
-  String nestConditions(String base, List<String> conditions) {
-    for (final cond in conditions) {
-      base = 'or_d($base,$cond)';
-    }
-    return base;
-  }
-
-  Future<String> mutateXpubUntilAccepted(String xpub) async {
-    // print('🧪 Starting xpub mutation process...');
-    final chars = xpub.split('');
-
-    for (int i = 0; i < chars.length; i++) {
-      final original = chars[i];
-
-      for (final replacement in ['A', 'B', 'C', 'D']) {
-        if (replacement == original) continue;
-
-        chars[i] = replacement;
-        final mutated = chars.join();
-
-        // Log mutation attempt
-        // print('🔄 Trying mutation at index $i: "$original" → "$replacement"');
-        // print('📦 Mutated xpub: $mutated');
-
-        final descriptorStr =
-            'tr($mutated,pk(0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798))';
-
-        try {
-          await Descriptor.create(
-            descriptor: descriptorStr,
-            network: settingsProvider.network,
-          );
-          // print('✅ Descriptor accepted with mutated xpub.');
-          return mutated;
-        } catch (e) {
-          print('❌ Rejected: $e');
-          // Restore original and continue
-        }
-      }
-
-      chars[i] = original;
-    }
-
-    // print('🚫 No valid mutation found.');
-    throw Exception(
-        'Unable to generate a valid mutated xpub that Descriptor accepts.');
   }
 
   void _createDescriptorDialog(BuildContext context) {

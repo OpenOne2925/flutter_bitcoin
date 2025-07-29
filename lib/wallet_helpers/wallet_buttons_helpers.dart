@@ -20,6 +20,7 @@ class WalletButtonsHelper {
   final WalletService walletService;
   final Set<String> myAddresses;
   final void Function(String newAddress)? onNewAddressGenerated;
+  Future<void> Function() syncWallet;
 
   WalletButtonsHelper({
     required this.context,
@@ -31,6 +32,7 @@ class WalletButtonsHelper {
     required this.walletService,
     required this.myAddresses,
     required this.onNewAddressGenerated,
+    required this.syncWallet,
 
     // Common Variables
     required TextEditingController recipientController,
@@ -73,6 +75,7 @@ class WalletButtonsHelper {
           pubKeysAlias: pubKeysAlias ?? [],
           wallet: wallet,
           onNewAddressGenerated: onNewAddressGenerated,
+          syncWallet: syncWallet,
         ),
         receiveHelper = WalletReceiveHelpers(
           context: context,
