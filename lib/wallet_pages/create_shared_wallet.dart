@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:bdk_flutter/bdk_flutter.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
@@ -1148,18 +1149,15 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     controller: olderController,
                     onChanged: (value) {
                       setDialogState(() {
-                        if (int.tryParse(value) != null &&
-                            int.parse(value) > 65535) {
-                          // If the entered value exceeds the max, reset it to the max
+                        final n = int.tryParse(value);
+                        if (n != null && n > 65535) {
                           olderController.text = '65535';
                           olderController.selection =
                               TextSelection.fromPosition(
-                            TextPosition(
-                              offset: olderController.text.length,
-                            ),
+                            TextPosition(offset: olderController.text.length),
                           );
                         } else {
-                          olderController.text = value;
+                          // keep what the user typed; no extra formatting here
                         }
                       });
 
@@ -1177,6 +1175,34 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       hintText:
                           AppLocalizations.of(rootContext)!.translate('older'),
                       borderColor: AppColors.background(context),
+                    ).copyWith(
+                      // add a time-picker button on the right
+                      suffixIcon: IconButton(
+                        tooltip: AppLocalizations.of(rootContext)!
+                            .translate('pick_time'),
+                        icon: const Icon(Icons.schedule),
+                        color: AppColors.icon(context),
+                        onPressed: () async {
+                          // initial from current blocks (if any)
+                          final currentBlocks =
+                              int.tryParse(olderController.text) ?? 0;
+                          final pickedBlocks =
+                              await _pickBlocksFromTime(context, currentBlocks);
+                          if (pickedBlocks != null) {
+                            setDialogState(() {
+                              final blocks = pickedBlocks.clamp(0, 65535);
+                              olderController.text = blocks.toString();
+                              olderController.selection =
+                                  TextSelection.fromPosition(
+                                TextPosition(
+                                    offset: olderController.text.length),
+                              );
+                              // mirror your existing rule: filling 'older' clears 'after'
+                              afterController.clear();
+                            });
+                          }
+                        },
+                      ),
                     ),
                     style: TextStyle(
                       color: AppColors.text(context),
@@ -1235,6 +1261,35 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       hintText:
                           AppLocalizations.of(rootContext)!.translate('after'),
                       borderColor: AppColors.background(context),
+                    ).copyWith(
+                      suffixIcon: IconButton(
+                        tooltip: AppLocalizations.of(rootContext)!
+                            .translate('pick_time'),
+                        icon: const Icon(Icons.schedule),
+                        color: AppColors.icon(context),
+                        onPressed: () async {
+                          // Pass current target height (if any) so picker can prefill a duration
+                          final int? currentTarget =
+                              int.tryParse(afterController.text.trim());
+                          final pickedTargetHeight =
+                              await _pickAfterHeightFromTime(context,
+                                  currentTargetHeight: currentTarget);
+
+                          if (pickedTargetHeight != null) {
+                            setDialogState(() {
+                              afterController.text =
+                                  pickedTargetHeight.toString();
+                              afterController.selection =
+                                  TextSelection.fromPosition(
+                                TextPosition(
+                                    offset: afterController.text.length),
+                              );
+                              // Mirror your rule: setting 'after' clears 'older'
+                              olderController.clear();
+                            });
+                          }
+                        },
+                      ),
                     ),
                     style: TextStyle(
                       color: AppColors.text(context),
@@ -1864,6 +1919,290 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
         ),
       ],
       actionsLayout: Axis.vertical,
+    );
+  }
+
+  /// Lets the user pick a relative time and converts it to blocks (≈10 min per block).
+  /// Returns the computed number of blocks, or null if cancelled.
+  Future<int?> _pickBlocksFromTime(
+      BuildContext context, int initialBlocks) async {
+    final maxBlocks = 65535;
+    final initial =
+        Duration(minutes: (initialBlocks * 10).clamp(0, maxBlocks * 10));
+    final max = Duration(minutes: maxBlocks * 10);
+
+    final dur = await _pickRelativeDuration(
+      context,
+      initial: initial,
+      max: max,
+      minuteStep: 5,
+    );
+    if (dur == null) return null;
+
+    final estBlocks = (dur.inMinutes / 10).round().clamp(0, maxBlocks);
+    return estBlocks;
+  }
+
+  Future<int?> _pickAfterHeightFromTime(
+    BuildContext context, {
+    int? currentTargetHeight,
+  }) async {
+    try {
+      final settingsProvider =
+          Provider.of<SettingsProvider>(context, listen: false);
+      final wallServ = WalletService(settingsProvider);
+      final url = '${wallServ.baseUrl}/blocks/tip/height';
+
+      final resp = await http.get(Uri.parse(url));
+      final int currHeight = json.decode(resp.body);
+
+      const int maxBlocksAhead = 262800; // ~5 years
+      final int initialBlocksAhead = (() {
+        if (currentTargetHeight == null) return 0;
+        final d = (currentTargetHeight - currHeight);
+        if (d < 0) return 0;
+        return d.clamp(0, maxBlocksAhead);
+      })();
+
+      final initial = Duration(minutes: initialBlocksAhead * 10);
+      final max = Duration(minutes: maxBlocksAhead * 10);
+
+      final dur = await _pickRelativeDuration(
+        context,
+        initial: initial,
+        max: max,
+        minuteStep: 5,
+      );
+      if (dur == null) return null;
+
+      final estBlocks = (dur.inMinutes / 10).round().clamp(0, maxBlocksAhead);
+      final estTargetHeight = currHeight + estBlocks;
+      return estTargetHeight;
+    } catch (e) {
+      print('Error in _pickAfterHeightFromTime: $e');
+      return null;
+    }
+  }
+
+  Future<Duration?> _pickRelativeDuration(
+    BuildContext context, {
+    required Duration initial,
+    required Duration max,
+    int minuteStep = 5,
+  }) {
+    // normalize initial within [0, max]
+    if (initial.isNegative) initial = Duration.zero;
+    if (initial > max) initial = max;
+
+    // --- decompose initial into y/d/h/m (approx 365d per year) ---
+    int initTotalDays = initial.inDays;
+    int years = initTotalDays ~/ 365;
+    int days = initTotalDays % 365;
+    int hours = initial.inHours % 24;
+    int minutes = initial.inMinutes % 60;
+    minutes = (minutes ~/ minuteStep) * minuteStep; // snap to step
+
+    // --- limits derived from max ---
+    final int maxTotalDays = max.inDays;
+    final int maxYears = maxTotalDays ~/ 365;
+
+    Duration buildDuration() =>
+        Duration(days: years * 365 + days, hours: hours, minutes: minutes);
+
+    // Given current `years`, how many days are allowed for that year selection
+    int daysCapForYears(int y) {
+      final usedDaysByYears = y * 365;
+      final remainingDays = maxTotalDays - usedDaysByYears;
+      if (remainingDays <= 0) return 0;
+      // If we're at the final year bucket, days cap equals remainingDays (could be <365)
+      // Otherwise we can scroll a full 0..364 range.
+      return y == maxYears ? remainingDays : 365;
+    }
+
+    // Ensure initial days fit for the initial years
+    days = days.clamp(
+        0, daysCapForYears(years) == 0 ? 0 : daysCapForYears(years) - 1);
+
+    return showModalBottomSheet<Duration>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        final bg = Theme.of(sheetCtx).dialogBackgroundColor;
+
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            // live compute and cap
+            Duration chosen = buildDuration();
+            if (chosen > max) chosen = max;
+
+            final textStyle = Theme.of(sheetCtx).textTheme.bodyMedium;
+
+            Widget _col({
+              required int itemCount,
+              required int selected,
+              required ValueChanged<int> onSelected,
+              required String Function(int) label,
+              double width = 90,
+            }) {
+              // guard selected bounds
+              final safeSelected =
+                  selected.clamp(0, (itemCount - 1).clamp(0, itemCount - 1));
+              return SizedBox(
+                width: width,
+                height: 200,
+                child: CupertinoPicker(
+                  itemExtent: 34,
+                  scrollController:
+                      FixedExtentScrollController(initialItem: safeSelected),
+                  useMagnifier: true,
+                  magnification: 1.08,
+                  onSelectedItemChanged: onSelected,
+                  children: List.generate(
+                      itemCount, (i) => Center(child: Text(label(i)))),
+                ),
+              );
+            }
+
+            // dynamic cap for days based on current years
+            final int daysCap = daysCapForYears(years);
+            final int daysCount =
+                daysCap == 0 ? 1 : (years == maxYears ? daysCap + 0 : 365);
+            // if user scrolled years so days is now out of range, clamp it
+            if (daysCount > 0 && days >= daysCount) {
+              days = daysCount - 1;
+            }
+
+            // compute live blocks (10 minutes per block)
+            final int estBlocks = (chosen.inMinutes / 10).round();
+
+            return SafeArea(
+              top: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                        blurRadius: 24,
+                        offset: Offset(0, -6),
+                        color: Colors.black38),
+                  ],
+                ),
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 12),
+                    Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Theme.of(sheetCtx)
+                            .textTheme
+                            .bodyMedium
+                            ?.color
+                            ?.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // pickers: Years / Days / Hours / Minutes
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Years
+                        _col(
+                          itemCount: maxYears + 1,
+                          selected: years,
+                          onSelected: (i) {
+                            setState(() {
+                              years = i;
+                              // clamp days to the new cap
+                              final cap = daysCapForYears(years);
+                              final newCount = cap == 0
+                                  ? 1
+                                  : (years == maxYears ? cap : 365);
+                              if (days >= newCount)
+                                days = (newCount - 1).clamp(0, newCount - 1);
+                            });
+                          },
+                          label: (i) => '$i y',
+                          width: 76,
+                        ),
+                        // Days (0..364 normally; shortened if in last year bucket)
+                        _col(
+                          itemCount: daysCount, // dynamic
+                          selected: daysCount == 0 ? 0 : days,
+                          onSelected: (i) => setState(() => days = i),
+                          label: (i) => '$i d',
+                          width: 76,
+                        ),
+                        // Hours
+                        _col(
+                          itemCount: 24,
+                          selected: hours,
+                          onSelected: (i) => setState(() => hours = i),
+                          label: (i) => '$i h',
+                          width: 72,
+                        ),
+                        // Minutes (stepped)
+                        _col(
+                          itemCount: (60 ~/ minuteStep),
+                          selected: (minutes ~/ minuteStep)
+                              .clamp(0, (60 ~/ minuteStep) - 1),
+                          onSelected: (i) =>
+                              setState(() => minutes = i * minuteStep),
+                          label: (i) => '${i * minuteStep} m',
+                          width: 78,
+                        ),
+                      ],
+                    ),
+
+                    // live hint: Y D H M  + ≈ blocks
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Text(
+                        '${chosen.inDays ~/ 365}y ${(chosen.inDays % 365)}d '
+                        '${chosen.inHours % 24}h ${chosen.inMinutes % 60}m   '
+                        '≈ $estBlocks blocks',
+                        style: textStyle,
+                      ),
+                    ),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.of(sheetCtx, rootNavigator: true)
+                                  .pop(null),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 4),
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.of(sheetCtx, rootNavigator: true)
+                                  .pop(chosen > max ? max : chosen),
+                          child: const Text('Confirm'),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
