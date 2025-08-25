@@ -1,9 +1,9 @@
 plugins {
     id "com.android.application"
-    id "kotlin-android"
+    // id "kotlin-android"
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id "dev.flutter.flutter-gradle-plugin"
-    id "org.jetbrains.kotlin.android" version "1.9.20"
+    id "org.jetbrains.kotlin.android" // version "1.9.20"
 }
 
 android {
@@ -26,7 +26,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         // minSdk = flutter.minSdkVersion
-        minSdkVersion 26
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -51,22 +51,44 @@ android {
         }
     }
 
-   applicationVariants.all { variant ->
-        variant.outputs.all { output ->
-            if (variant.buildType.name == "release") {
-                output.outputFileName = "SharedHaven-release.apk"
-            } else if (variant.buildType.name == "debug") {
-                output.outputFileName = "SharedHaven-debug.apk"
-            }
+     // 🔐 Load keystore (fail loudly if missing)
+    def keystorePropsFile = rootProject.file("key.properties")
+    def keystoreProps = new Properties()
+    if (!keystorePropsFile.exists()) {
+        throw new GradleException("Missing android/key.properties for release signing")
+    }
+    keystoreProps.load(new FileInputStream(keystorePropsFile))
+
+    signingConfigs {
+        release {
+            storeFile file(keystoreProps['storeFile'])
+            storePassword keystoreProps['storePassword']
+            keyAlias keystoreProps['keyAlias']
+            keyPassword keystoreProps['keyPassword']
         }
     }
 
     buildTypes {
         release {
             minifyEnabled true
-            shrinkResources false // Temporarily disable shrinking for debugging
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig = signingConfigs.debug
+            shrinkResources false  // you can re-enable later
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
+                          'proguard-rules.pro'
+            signingConfig signingConfigs.release   // ✅ no equals, standard Groovy DSL
+        }
+        debug {
+            // uses debug keystore implicitly
+        }
+    }
+
+    // 📦 Rename ONLY APKs (avoid touching bundle outputs)
+    applicationVariants.all { variant ->
+        variant.outputs.each { output ->
+            def name = output?.outputFileName
+            if (name != null && name.endsWith(".apk")) {
+                output.outputFileName =
+                    "SharedHaven-${variant.flavorName ?: 'noflavor'}-${variant.buildType.name}.apk"
+            }
         }
     }
 }
