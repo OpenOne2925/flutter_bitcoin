@@ -882,14 +882,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                     final result =
                         await Navigator.of(context, rootNavigator: true).push(
                       MaterialPageRoute(
-                        builder: (_) => QRScannerPage(
-                          title: 'Scan PubKey',
-                          isValid: (data) => true,
-                          // data.startsWith('cHUB') || data.startsWith('psbt'),
-                          extractValue: (data) => data,
-                          errorKey: 'invalid_pub_key',
-                        ),
-                      ),
+                          builder: (_) => const QRScannerPage(
+                              title: 'Scan Bitcoin Address')),
                     );
 
                     if (result != null) {

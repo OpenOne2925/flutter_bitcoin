@@ -463,14 +463,8 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
                       final result =
                           await Navigator.of(context, rootNavigator: true).push(
                         MaterialPageRoute(
-                          builder: (_) => QRScannerPage(
-                            title: 'Scan Descriptor',
-                            isValid: (data) => true,
-                            // data.startsWith('cHUB') || data.startsWith('psbt'),
-                            extractValue: (data) => data,
-                            errorKey: 'invalid_descriptor',
-                          ),
-                        ),
+                            builder: (_) => const QRScannerPage(
+                                title: 'Scan Bitcoin Address')),
                       );
 
                       if (result != null) {

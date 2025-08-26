@@ -183,17 +183,14 @@ class WalletButtonsHelper {
           },
           child: CustomButton(
             onPressed: () async {
+              print("[ScanButton] Opening QRScannerPage…");
               final recipientAddressStr = await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => QRScannerPage(
-                    title: 'Scan Bitcoin Address',
-                    isValid: (data) => extractBitcoinAddress(data) != null,
-                    extractValue: (data) => extractBitcoinAddress(data)!,
-                    errorKey: 'invalid_address',
-                  ),
-                ),
+                    builder: (_) =>
+                        const QRScannerPage(title: 'Scan Bitcoin Address')),
               );
+              debugPrint("[ScanButton] pop result: $recipientAddressStr");
 
               // If a valid Bitcoin address was scanned, show the transaction dialog
               if (recipientAddressStr != null) {
