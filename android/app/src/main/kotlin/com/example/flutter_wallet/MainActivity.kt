@@ -1,4 +1,4 @@
-package com.example.flutter_wallet
+package com.bitcoin.sharedhaven.testnet
 
 import io.flutter.embedding.android.FlutterActivity
 
