@@ -2033,7 +2033,14 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   magnification: 1.08,
                   onSelectedItemChanged: onSelected,
                   children: List.generate(
-                      itemCount, (i) => Center(child: Text(label(i)))),
+                    itemCount,
+                    (i) => Center(
+                      child: Text(
+                        label(i),
+                        style: textStyle,
+                      ),
+                    ),
+                  ),
                 ),
               );
             }
@@ -2061,9 +2068,10 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                   ),
                   boxShadow: const [
                     BoxShadow(
-                        blurRadius: 24,
-                        offset: Offset(0, -6),
-                        color: Colors.black38),
+                      blurRadius: 24,
+                      offset: Offset(0, -6),
+                      color: Colors.black38,
+                    ),
                   ],
                 ),
                 padding: EdgeInsets.only(
@@ -2080,7 +2088,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                             .textTheme
                             .bodyMedium
                             ?.color
-                            ?.withOpacity(0.25),
+                            ?.opaque(0.25),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -2102,8 +2110,9 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                               final newCount = cap == 0
                                   ? 1
                                   : (years == maxYears ? cap : 365);
-                              if (days >= newCount)
+                              if (days >= newCount) {
                                 days = (newCount - 1).clamp(0, newCount - 1);
+                              }
                             });
                           },
                           label: (i) => '$i y',

@@ -84,7 +84,9 @@ class WalletSpendingPathHelpers {
           onNewAddressGenerated: onNewAddressGenerated,
           syncWallet: syncWallet,
         ) {
-    _startAutoScroll(); // Start scrolling when the class is initialized
+    if (mySpendingPaths.length > 1) {
+      _startAutoScroll(); // Start scrolling when the class is initialized
+    }
   }
 
   /// Start auto-scrolling back and forth until the user interacts
@@ -270,7 +272,7 @@ class WalletSpendingPathHelpers {
 
       final totalSeconds = remainingBlocks * avgBlockTime;
       timeRemaining = walletService.formatTime(totalSeconds, context);
-      print('TimeRemaining: $timeRemaining');
+      // print('TimeRemaining: $timeRemaining');
 
       if (i == 0) {
         waitingTransactions.add(
