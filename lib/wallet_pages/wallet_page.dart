@@ -13,7 +13,7 @@ import 'package:flutter_wallet/services/wallet_storage_service.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_buttons_helpers.dart';
 import 'package:flutter_wallet/wallet_helpers/wallet_ui_helpers.dart';
 import 'package:flutter_wallet/widget_helpers/custom_bottom_sheet.dart';
-import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
+import 'package:flutter_wallet/widget_helpers/notification_helper.dart';
 import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
 
@@ -422,7 +422,7 @@ class WalletPageState extends State<WalletPage> {
                   context,
                 );
               } catch (e) {
-                SnackBarHelper.showError(context, message: 'syncing_error');
+                NotificationHelper.showError(context, message: 'syncing_error');
               } finally {
                 // Ensure animation is visible for at least 500ms
                 await Future.delayed(Duration(milliseconds: 500));

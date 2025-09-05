@@ -3,7 +3,6 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'package:bdk_flutter/bdk_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_wallet/exceptions/validation_result.dart';
 import 'package:flutter_wallet/hive/wallet_data.dart';
@@ -1596,154 +1595,12 @@ class WalletService extends ChangeNotifier {
     return signingFingerprints.toSet().toList();
   }
 
-  // /// Classify a PSBT input as RELATIVETIMELOCK, ABSOLUTETIMELOCK, MULTISIG, or UNKNOWN.
-  // String classifySpendingPath(Map<String, dynamic> psbtInput,
-  //     {bool verbose = false}) {
-  //   final wsRaw = psbtInput['witness_script'] as String? ?? "";
-  //   print("wsRaw: $wsRaw");
-
-  //   final ws = wsRaw.toLowerCase();
-  //   print("ws: $ws");
-
-  //   final seq = psbtInput['sequence'] as int?;
-  //   print("seq: $seq");
-
-  //   final partial = psbtInput['partial_sigs'];
-  //   print("partial: $partial");
-
-  //   final hasCSV = ws.contains("checksequenceverify");
-  //   final hasCLTV = ws.contains("checklocktimeverify");
-  //   final hasMS = ws.contains("checkmultisig");
-
-  //   // Hint from sequence (relative timelocks). Your original heuristic:
-  //   final likelyRelative = (seq != null && seq < 0xFFFFFFFE);
-
-  //   String result;
-
-  //   // Decide classification
-  //   if (hasCSV && likelyRelative) {
-  //     result = "RELATIVETIMELOCK";
-  //   } else if (hasCLTV) {
-  //     result = "ABSOLUTETIMELOCK";
-  //   } else if (hasMS) {
-  //     result = "MULTISIG";
-  //   } else if (partial is Map && partial.isNotEmpty) {
-  //     // Fallback: if partial sigs exist, assume multisig
-  //     result = "MULTISIG";
-  //   } else {
-  //     result = "UNKNOWN";
-  //   }
-
-  //   // Debug prints
-  //   debugPrint("[PSBT] classifySpendingPath()");
-  //   debugPrint("  - witness_script.len = ${wsRaw.length}");
-  //   if (wsRaw.isEmpty) {
-  //     debugPrint("  - witness_script EMPTY");
-  //   } else {
-  //     // Show a small, safe preview
-  //     final preview = wsRaw.length > 80 ? "${wsRaw.substring(0, 80)}…" : wsRaw;
-  //     debugPrint("  - witness_script[0..80] = $preview");
-  //   }
-
-  //   debugPrint(
-  //       "  - sequence = ${seq == null ? 'null' : '0x${seq.toRadixString(16)} (${seq})'}");
-  //   debugPrint(
-  //       "  - matches: CSV=$hasCSV, CLTV=$hasCLTV, MS=$hasMS, likelyRelative=$likelyRelative");
-
-  //   if (partial is Map) {
-  //     debugPrint("  - partial_sigs.count = ${partial.length}");
-  //   } else {
-  //     debugPrint(
-  //         "  - partial_sigs = ${partial == null ? 'null' : partial.runtimeType}");
-  //   }
-
-  //   debugPrint("  => classification = $result");
-
-  //   return result;
-  // }
-
-  // Map<String, dynamic> extractSpendingPathFromPsbt(
-  //   PartiallySignedTransaction psbt,
-  //   List<Map<String, dynamic>> spendingPaths,
-  // ) {
-  //   final serialized = psbt.jsonSerialize();
-  //   final psbtDecoded = jsonDecode(serialized) as Map<String, dynamic>;
-
-  //   printInChunks("[extractSpendingPathFromPsbt] serialized=$serialized");
-  //   print("");
-  //   print("[extractSpendingPathFromPsbt] decoded keys=${psbtDecoded.keys}");
-
-  //   final utx = psbtDecoded['unsigned_tx'] as Map?;
-  //   final lockTime = (utx?['lock_time'] as int?) ?? 0;
-  //   // print("[extractSpendingPathFromPsbt] lock_time=$lockTime");
-
-  //   final psbtInputs =
-  //       (psbtDecoded['inputs'] as List?)?.cast<Map<String, dynamic>>() ??
-  //           const [];
-
-  //   if (psbtInputs.isEmpty) {
-  //     throw Exception("No PSBT inputs found.");
-  //   }
-
-  //   print(
-  //       "[extractSpendingPathFromPsbt] numInputs=${psbtInputs.length}, firstInput=${psbtInputs.first}");
-
-  //   final pathType = classifySpendingPath(psbtInputs.first);
-  //   print("[extractSpendingPathFromPsbt] classified pathType=$pathType");
-
-  //   // Dump available spendingPaths for clarity
-  //   for (var i = 0; i < spendingPaths.length; i++) {
-  //     print(
-  //         "[extractSpendingPathFromPsbt] spendingPaths[$i] = ${spendingPaths[i]}");
-  //   }
-
-  //   Map<String, dynamic> matched;
-
-  //   switch (pathType) {
-  //     case 'ABSOLUTETIMELOCK':
-  //       print("[extractSpendingPathFromPsbt] case=ABSOLUTETIMELOCK");
-  //       matched = spendingPaths.firstWhere(
-  //         (p) =>
-  //             (p['type'] as String).contains('ABSOLUTETIMELOCK') &&
-  //             (p['timelock'] == null || p['timelock'] == lockTime),
-  //         orElse: () => spendingPaths.firstWhere(
-  //           (p) => (p['type'] as String).contains('ABSOLUTETIMELOCK'),
-  //         ),
-  //       );
-  //       break;
-
-  //     case 'RELATIVETIMELOCK':
-  //       print("[extractSpendingPathFromPsbt] case=RELATIVETIMELOCK");
-  //       matched = spendingPaths.firstWhere(
-  //         (p) => (p['type'] as String).contains('RELATIVETIMELOCK'),
-  //         orElse: () =>
-  //             throw Exception("No matching relative timelock path found."),
-  //       );
-  //       break;
-
-  //     case 'MULTISIG':
-  //       print("[extractSpendingPathFromPsbt] case=MULTISIG");
-  //       matched = spendingPaths.firstWhere(
-  //         (p) => (p['type'] as String).contains('MULTISIG'),
-  //         orElse: () => throw Exception("No matching multisig path found."),
-  //       );
-  //       break;
-
-  //     default:
-  //       print("[extractSpendingPathFromPsbt] case=UNKNOWN");
-  //       throw Exception(
-  //           "Unknown/unsupported script path; cannot match spending path.");
-  //   }
-
-  //   print("[extractSpendingPathFromPsbt] matched=$matched");
-  //   return matched;
-  // }
   Map<String, dynamic> extractSpendingPathFromPsbt(
     PartiallySignedTransaction psbt,
     List<Map<String, dynamic>> spendingPaths,
   ) {
     final serializedPsbt = psbt.jsonSerialize();
-    print("Serialized PSBT: $serializedPsbt");
+    // print("Serialized PSBT: $serializedPsbt");
 
     // Parse JSON
     final Map<String, dynamic> psbtDecoded = jsonDecode(serializedPsbt);
@@ -1755,17 +1612,17 @@ class WalletService extends ChangeNotifier {
     }
 
     final inputs = (psbtDecoded["unsigned_tx"]["input"] as List).cast<Map>();
-    print("Inputs: $inputs");
+    // print("Inputs: $inputs");
 
     final sequenceValues = inputs.map((i) => i["sequence"] as int).toSet();
-    print("Sequence values: $sequenceValues");
+    // print("Sequence values: $sequenceValues");
 
     if (sequenceValues.length != 1) {
       throw Exception("Mismatched sequence values in inputs.");
     }
 
     final sequence = sequenceValues.first;
-    print("Final sequence: $sequence");
+    // print("Final sequence: $sequence");
 
     // --- NEW: Inspect partial_sigs and map to derivation paths (for debug) ---
     final inputObjs = (psbtDecoded["inputs"] as List?) ?? const [];
@@ -1782,112 +1639,53 @@ class WalletService extends ChangeNotifier {
         } catch (_) {}
       }
 
-      final sigs =
-          (inp["partial_sigs"] as Map?)?.cast<String, dynamic>() ?? const {};
-      if (sigs.isNotEmpty) {
-        print("Input[$idx] partial_sigs count: ${sigs.length}");
-        sigs.forEach((pubkey, sigInfo) {
-          final path = derivMap[pubkey];
-          final fp = path == null
-              ? null
-              : (derivs.firstWhere(
-                  (d) => d[0] == pubkey,
-                  orElse: () => null,
-                ) as List?)?[1]?[0];
-          print("  ↳ signer pubkey: $pubkey");
-          if (path != null) {
-            // Try to infer the BIP84 'change' (…/change/index)
-            String branchHint = "";
-            try {
-              final segs = path.split('/');
-              // m / 84' / coin' / acct' / change / index
-              if (segs.length >= 6) {
-                final change = segs[4].replaceAll("'", "");
-                final index = segs[5].replaceAll("'", "");
-                branchHint = " (change=$change, index=$index)";
-              }
-            } catch (_) {}
-            print(
-                "     derivation: $path$branchHint${fp != null ? " (fp $fp)" : ""}");
-          } else {
-            print("     derivation: <not found in bip32_derivation>");
-          }
-          final sigHex = (sigInfo is Map && sigInfo["sig"] != null)
-              ? sigInfo["sig"]
-              : "<no sig>";
-          final hashTy = (sigInfo is Map && sigInfo["hash_ty"] != null)
-              ? sigInfo["hash_ty"]
-              : "<none>";
-          print("     sig hash_ty: $hashTy");
-          print(
-              "     sig (truncated): ${sigHex.toString().substring(0, sigHex.toString().length.clamp(0, 32))}...");
-        });
-      }
+      // final sigs =
+      //     (inp["partial_sigs"] as Map?)?.cast<String, dynamic>() ?? const {};
+      // if (sigs.isNotEmpty) {
+      //   // print("Input[$idx] partial_sigs count: ${sigs.length}");
+      //   sigs.forEach((pubkey, sigInfo) {
+      //     final path = derivMap[pubkey];
+      //     final fp = path == null
+      //         ? null
+      //         : (derivs.firstWhere(
+      //             (d) => d[0] == pubkey,
+      //             orElse: () => null,
+      //           ) as List?)?[1]?[0];
+      //     // print("  ↳ signer pubkey: $pubkey");
+      //     if (path != null) {
+      //       // Try to infer the BIP84 'change' (…/change/index)
+      //       String branchHint = "";
+      //       try {
+      //         final segs = path.split('/');
+      //         // m / 84' / coin' / acct' / change / index
+      //         if (segs.length >= 6) {
+      //           final change = segs[4].replaceAll("'", "");
+      //           final index = segs[5].replaceAll("'", "");
+      //           branchHint = " (change=$change, index=$index)";
+      //         }
+      //       } catch (_) {}
+      //       print(
+      //           "     derivation: $path$branchHint${fp != null ? " (fp $fp)" : ""}");
+      //     } else {
+      //       print("     derivation: <not found in bip32_derivation>");
+      //     }
+      //     final sigHex = (sigInfo is Map && sigInfo["sig"] != null)
+      //         ? sigInfo["sig"]
+      //         : "<no sig>";
+      //     final hashTy = (sigInfo is Map && sigInfo["hash_ty"] != null)
+      //         ? sigInfo["hash_ty"]
+      //         : "<none>";
+      //     print("     sig hash_ty: $hashTy");
+      //     print(
+      //         "     sig (truncated): ${sigHex.toString().substring(0, sigHex.toString().length.clamp(0, 32))}...");
+      //   });
+      // }
     }
-
-// // --- NEW: Disambiguate by mapping signer 'change' to spendingPaths index (prints only) ---
-//     if (sequence == 4294967294) {
-//       // Gather signer derivation paths -> extract BIP84 'change'
-//       final inputObjs = (psbtDecoded["inputs"] as List?) ?? const [];
-//       final signerChanges = <int>{};
-//       for (var inIdx = 0; inIdx < inputObjs.length; inIdx++) {
-//         final inp = inputObjs[inIdx] as Map;
-//         final derivs = (inp["bip32_derivation"] as List?) ?? const [];
-//         final derivMap = <String, String>{}; // pubkey -> path
-//         for (final d in derivs) {
-//           try {
-//             final pub = d[0] as String;
-//             final path =
-//                 (d[1] as List)[1] as String; // "m/84'/1'/0'/<change>/<index>"
-//             derivMap[pub] = path;
-//           } catch (_) {}
-//         }
-
-//         final sigs =
-//             (inp["partial_sigs"] as Map?)?.cast<String, dynamic>() ?? const {};
-//         sigs.forEach((pubkey, _) {
-//           final path = derivMap[pubkey];
-//           if (path != null) {
-//             try {
-//               final segs = path.split('/');
-//               if (segs.length >= 6) {
-//                 final changeStr = segs[4].replaceAll("'", "");
-//                 final change = int.parse(changeStr);
-//                 signerChanges.add(change);
-//               }
-//             } catch (_) {}
-//           }
-//         });
-//       }
-
-//       print("Derivation-based change(s) from partial_sigs: $signerChanges");
-
-//       // If exactly one change value, try to use it as the spendingPaths index
-//       if (signerChanges.length == 1) {
-//         final changeVal = signerChanges.first;
-//         if (changeVal >= 0 && changeVal < spendingPaths.length) {
-//           final candidate = spendingPaths[changeVal];
-//           print(
-//               "Index-based match from derivation → spendingPaths[$changeVal]: "
-//               "type=${candidate["type"]}, timelock=${candidate["timelock"]}");
-//           // NOTE: per your request, not altering selection; just printing.
-//           // If later you want to select here, you could `return candidate;`
-//         } else {
-//           print(
-//               "No spendingPaths[$changeVal] exists (len=${spendingPaths.length}).");
-//         }
-//       } else if (signerChanges.isEmpty) {
-//         print("No signer change inferred from derivations; cannot index-map.");
-//       } else {
-//         print(
-//             "Multiple signer changes ($signerChanges); ambiguous index mapping.");
-//       }
-//     }
 
     // --- Your original logic (unchanged) ---
     if (sequence == 4294967294) {
-      print(
-          "Sequence is 0xFFFFFFFE → could be MULTISIG or AFTER. Disambiguating via signer derivation index...");
+      // print(
+      //     "Sequence is 0xFFFFFFFE → could be MULTISIG or AFTER. Disambiguating via signer derivation index...");
 
       // 1) Collect signer derivation 'change' values from partial_sigs ↔ bip32_derivation
       final inputObjs = (psbtDecoded["inputs"] as List?) ?? const [];
@@ -1924,45 +1722,47 @@ class WalletService extends ChangeNotifier {
         });
       }
 
-      print("Derivation-based change(s) from partial_sigs: $signerChanges");
+      // print("Derivation-based change(s) from partial_sigs: $signerChanges");
 
       // 2) If exactly one change value, try to use it as spendingPaths index
       if (signerChanges.length == 1) {
         final changeVal = signerChanges.first;
         if (changeVal >= 0 && changeVal < spendingPaths.length) {
-          print(signerChanges);
-          print(spendingPaths);
+          // print(signerChanges);
+          // print(spendingPaths);
           final candidate = spendingPaths[changeVal];
-          print("Index-based match → spendingPaths[$changeVal]: "
-              "type=${candidate["type"]}, timelock=${candidate["timelock"]}");
+          // print("Index-based match → spendingPaths[$changeVal]: "
+          //     "type=${candidate["type"]}, timelock=${candidate["timelock"]}");
           return candidate;
-        } else {
-          print(
-              "No spendingPaths[$changeVal] exists (len=${spendingPaths.length}). Falling back to MULTISIG heuristic.");
         }
-      } else if (signerChanges.isEmpty) {
-        print(
-            "No signer derivation change inferred; falling back to MULTISIG heuristic.");
-      } else {
-        print(
-            "Multiple signer changes observed ($signerChanges); falling back to MULTISIG heuristic.");
+        //  else {
+        //   print(
+        //       "No spendingPaths[$changeVal] exists (len=${spendingPaths.length}). Falling back to MULTISIG heuristic.");
+        // }
       }
+      //  else if (signerChanges.isEmpty) {
+      //   print(
+      //       "No signer derivation change inferred; falling back to MULTISIG heuristic.");
+      // } else {
+      //   print(
+      //       "Multiple signer changes observed ($signerChanges); falling back to MULTISIG heuristic.");
+      // }
 
       // 3) Fallback: original MULTISIG heuristic
-      print("Fallback → MULTISIG heuristic");
+      // print("Fallback → MULTISIG heuristic");
       return spendingPaths.firstWhere(
         (path) {
-          print("Checking path for MULTISIG: $path");
+          // print("Checking path for MULTISIG: $path");
           return path["type"].toString().toUpperCase().contains("MULTISIG");
         },
         orElse: () =>
             throw Exception("No matching multisig spending path found."),
       );
     } else {
-      print("Detected TIMELOCK case");
+      // print("Detected TIMELOCK case");
       return spendingPaths.firstWhere(
         (path) {
-          print("Checking path for timelock: $path");
+          // print("Checking path for timelock: $path");
           return path["timelock"] != null && path["timelock"] == sequence;
         },
         orElse: () {
@@ -2032,10 +1832,10 @@ class WalletService extends ChangeNotifier {
   }
 
   bool _isImmediateMultisig(Map<String, dynamic>? p) {
-    print("🔎 Checking path: $p");
+    // print("🔎 Checking path: $p");
 
     if (p == null) {
-      print("❌ Path is null → returning false");
+      // print("❌ Path is null → returning false");
       return false;
     }
 
@@ -2046,13 +1846,13 @@ class WalletService extends ChangeNotifier {
     final looksMulti =
         type.contains('MULTISIG') || (threshold != null && threshold > 1);
 
-    print("➡️ type=$type");
-    print("➡️ hasTimelock=$hasTimelock");
-    print("➡️ threshold=$threshold");
-    print("➡️ looksMulti=$looksMulti");
+    // print("➡️ type=$type");
+    // print("➡️ hasTimelock=$hasTimelock");
+    // print("➡️ threshold=$threshold");
+    // print("➡️ looksMulti=$looksMulti");
 
     final result = looksMulti && !hasTimelock;
-    print("✅ Result (isImmediateMultisig) = $result");
+    // print("✅ Result (isImmediateMultisig) = $result");
 
     return result;
   }
@@ -2545,9 +2345,9 @@ class WalletService extends ChangeNotifier {
 
           final psbtString = base64Encode(txBuilderResult.$1.serialize());
 
-          print(psbtString);
+          // print(psbtString);
 
-          print('CorrectPath: $correctPath');
+          // print('CorrectPath: $correctPath');
 
           final jsonContent = {
             "psbt": psbtString,
@@ -3073,15 +2873,15 @@ class WalletService extends ChangeNotifier {
       trueMnemonic,
     );
 
-    print(spendingPaths);
-    print("-----------");
-    print(correctPath);
+    // print(spendingPaths);
+    // print("-----------");
+    // print(correctPath);
 
     final index = spendingPaths!.indexWhere(
       (path) => const DeepCollectionEquality().equals(path, correctPath),
     );
 
-    print(index);
+    // print(index);
 
     // final correctPath = _pathAt(spendingPaths!, chosenPath!);
 

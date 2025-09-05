@@ -14,7 +14,7 @@ import 'package:flutter_wallet/wallet_utility_helpers/spending_path_dropdown.dar
 import 'package:flutter_wallet/widget_helpers/custom_bottom_sheet.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
 import 'package:flutter_wallet/widget_helpers/fee_selector.dart';
-import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
+import 'package:flutter_wallet/widget_helpers/notification_helper.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
@@ -169,7 +169,7 @@ class WalletSendtxHelpers {
 
       print(stackTrace);
 
-      SnackBarHelper.showError(rootContext, message: e.toString());
+      NotificationHelper.showError(rootContext, message: e.toString());
     }
   }
 
@@ -364,14 +364,14 @@ class WalletSendtxHelpers {
 
         Navigator.of(rootContext, rootNavigator: true).pop();
 
-        SnackBarHelper.show(
+        NotificationHelper.show(
           rootContext,
           message: AppLocalizations.of(rootContext)!
               .translate('transaction_created'),
         );
       } else {
         if (isFirstTap) {
-          print(descriptor);
+          // print(descriptor);
 
           await _decodePsbt(
             extractedData,
@@ -431,7 +431,7 @@ class WalletSendtxHelpers {
 
         if (result != null) {
           await showPSBTDialog(result, rootContext);
-          SnackBarHelper.show(
+          NotificationHelper.show(
             rootContext,
             message: AppLocalizations.of(rootContext)!
                 .translate('transaction_signed'),
@@ -439,7 +439,7 @@ class WalletSendtxHelpers {
         } else {
           Navigator.of(rootContext, rootNavigator: true).pop();
 
-          SnackBarHelper.show(
+          NotificationHelper.show(
             rootContext,
             message: AppLocalizations.of(rootContext)!
                 .translate('transaction_broadcast'),
@@ -452,7 +452,7 @@ class WalletSendtxHelpers {
       print(stack);
       print(e);
 
-      SnackBarHelper.showError(rootContext, message: e.toString());
+      NotificationHelper.showError(rootContext, message: e.toString());
     }
   }
 
@@ -501,7 +501,7 @@ class WalletSendtxHelpers {
         showPSBT = true;
       });
     } catch (e) {
-      SnackBarHelper.showError(
+      NotificationHelper.showError(
         context,
         message: AppLocalizations.of(context)!.translate('invalid_psbt'),
       );
@@ -608,28 +608,22 @@ class WalletSendtxHelpers {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             // Copy Button
-            // InkwellButton(
-            //   onTap: () {
-            //     UtilitiesService.copyToClipboard(
-            //       context: rootContext,
-            //       text: result,
-            //       messageKey: 'psbt_clipboard',
-            //     );
+            InkwellButton(
+              onTap: () {
+                final psbtString = jsonDecode(result)['psbt'];
 
-            //     // if (Navigator.of(rootContext).canPop()) {
-            //     //   Navigator.of(rootContext, rootNavigator: true).pop();
-            //     // }
-            //     // if (Navigator.of(rootContext).canPop()) {
-            //     //   Navigator.of(rootContext, rootNavigator: true).pop();
-            //     // }
-            //     // Navigator.of(rootContext, rootNavigator: true).pop();
-            //   },
-            //   label: AppLocalizations.of(rootContext)!.translate('copy'),
-            //   backgroundColor: AppColors.text(context),
-            //   textColor: AppColors.gradient(context),
-            //   icon: Icons.copy,
-            //   iconColor: AppColors.gradient(context),
-            // ),
+                UtilitiesService.copyToClipboard(
+                  context: rootContext,
+                  text: psbtString,
+                  messageKey: 'psbt_clipboard',
+                );
+              },
+              label: AppLocalizations.of(rootContext)!.translate('copy'),
+              backgroundColor: AppColors.text(context),
+              textColor: AppColors.gradient(context),
+              icon: Icons.copy,
+              iconColor: AppColors.gradient(context),
+            ),
 
             // Save Txt File Button
             InkwellButton(
@@ -652,23 +646,20 @@ class WalletSendtxHelpers {
                     await file.writeAsString(result);
 
                     // Optional: Show a success message to the user
-                    SnackBarHelper.show(
+                    NotificationHelper.show(
                       context,
                       message: AppLocalizations.of(context)!
                           .translate('file_saved_successfully'),
                     );
                   } catch (e) {
                     // Handle any error
-                    SnackBarHelper.showError(
+                    NotificationHelper.showError(
                       context,
                       message: AppLocalizations.of(context)!
                           .translate('file_save_error'),
                     );
                   }
                 }
-
-                // Navigator.of(rootContext, rootNavigator: true).pop();
-                // Navigator.of(rootContext, rootNavigator: true).pop();
               },
               label: AppLocalizations.of(rootContext)!.translate('save'),
               backgroundColor: AppColors.text(context),
@@ -678,16 +669,16 @@ class WalletSendtxHelpers {
             ),
 
             // // Share Button
-            // InkwellButton(
-            //   onTap: () {
-            //     SharePlus.instance.share(ShareParams(text: result));
-            //   },
-            //   label: AppLocalizations.of(rootContext)!.translate('share'),
-            //   backgroundColor: AppColors.text(context),
-            //   textColor: AppColors.gradient(context),
-            //   icon: Icons.share,
-            //   iconColor: AppColors.gradient(context),
-            // ),
+            InkwellButton(
+              onTap: () {
+                SharePlus.instance.share(ShareParams(text: result));
+              },
+              label: AppLocalizations.of(rootContext)!.translate('share'),
+              backgroundColor: AppColors.text(context),
+              textColor: AppColors.gradient(context),
+              icon: Icons.share,
+              iconColor: AppColors.gradient(context),
+            ),
           ],
         ),
       ],
@@ -740,14 +731,6 @@ class WalletSendtxHelpers {
                   text: result,
                   messageKey: 'hex_clipboard',
                 );
-
-                // if (Navigator.of(rootContext).canPop()) {
-                //   Navigator.of(rootContext, rootNavigator: true).pop();
-                // }
-                // if (Navigator.of(rootContext).canPop()) {
-                //   Navigator.of(rootContext, rootNavigator: true).pop();
-                // }
-                // Navigator.of(rootContext, rootNavigator: true).pop();
               },
               label: AppLocalizations.of(rootContext)!.translate('copy'),
               backgroundColor: AppColors.text(context),
@@ -777,23 +760,20 @@ class WalletSendtxHelpers {
                     await file.writeAsString(result);
 
                     // Optional: Show a success message to the user
-                    SnackBarHelper.show(
+                    NotificationHelper.show(
                       context,
                       message: AppLocalizations.of(context)!
                           .translate('file_saved_successfully'),
                     );
                   } catch (e) {
                     // Handle any error
-                    SnackBarHelper.showError(
+                    NotificationHelper.showError(
                       context,
                       message: AppLocalizations.of(context)!
                           .translate('file_save_error'),
                     );
                   }
                 }
-
-                // Navigator.of(rootContext, rootNavigator: true).pop();
-                // Navigator.of(rootContext, rootNavigator: true).pop();
               },
               label: AppLocalizations.of(rootContext)!.translate('save'),
               backgroundColor: AppColors.text(context),
@@ -1002,7 +982,7 @@ class WalletSendtxHelpers {
                 address, // capture from your State or pass in as param
               );
             } catch (e) {
-              SnackBarHelper.showError(
+              NotificationHelper.showError(
                 context,
                 message:
                     AppLocalizations.of(context)!.translate('invalid_psbt'),

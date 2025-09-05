@@ -10,7 +10,6 @@ import 'package:flutter_wallet/wallet_pages/shared_wallet.dart';
 import 'package:flutter_wallet/widget_helpers/assistant_widget.dart';
 import 'package:flutter_wallet/widget_helpers/custom_bottom_sheet.dart';
 import 'package:flutter_wallet/widget_helpers/dialog_helper.dart';
-import 'package:flutter_wallet/widget_helpers/snackbar_helper.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -327,8 +326,14 @@ class BaseScaffoldState extends State<BaseScaffold> {
                         }
 
                         if (updatedDescriptorName.isEmpty) {
+                          setState(() {
+                            updatedDescriptorName = descriptorName;
+                          });
+
+                          // print(updatedDescriptorName);
+
                           // print("Error: Descriptor name cannot be empty");
-                          return;
+                          // return;
                         }
 
                         // Create the new composite key
@@ -358,12 +363,12 @@ class BaseScaffoldState extends State<BaseScaffold> {
                             // Confirm it's saved
                             var savedData = box.get(newCompositeKey);
                             if (savedData != null) {
-                              // print("Successfully saved to new key: $newCompositeKey");
+                              print(
+                                  "Successfully saved to new key: $newCompositeKey");
+                            } else {
+                              print(
+                                  "Error: Data did not save correctly to new key.");
                             }
-                            // else {
-                            //   print(
-                            //       "Error: Data did not save correctly to new key.");
-                            // }
 
                             // Check if old key exists before deleting
                             if (box.containsKey(oldCompositeKey)) {
@@ -388,8 +393,8 @@ class BaseScaffoldState extends State<BaseScaffold> {
 
                             // print('updatedDescriptorName: $updatedDescriptorName');
 
-                            SnackBarHelper.show(context,
-                                message: 'sw_info_updated');
+                            // SnackBarHelper.show(context,
+                            //     message: 'sw_info_updated');
                           } catch (e) {
                             print("Error updating Hive box: $e");
                           }
