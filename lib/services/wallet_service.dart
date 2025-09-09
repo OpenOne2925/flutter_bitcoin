@@ -88,28 +88,43 @@ class WalletService extends ChangeNotifier {
   late Wallet wallet;
   late Blockchain blockchain;
 
-  // TODO: TESTNET3
-  String get baseUrl {
-    switch (settingsProvider.network) {
-      case Network.testnet:
-        return 'https://blockstream.info/testnet/api/';
-      // 'https://mempool.space/testnet/api';
-      case Network.bitcoin:
-      default:
-        return 'https://mempool.space/api';
+  final List<String> testnetEndpoints = [
+    // 'https://mempool.space/testnet4/api',
+    'https://blockstream.info/testnet/api/',
+    'https://mempool.space/testnet/api/',
+  ];
+
+  final List<String> mainnetEndpoints = [
+    'https://mempool.space/api/',
+    // Add another if you want
+  ];
+
+  Future<String> getWorkingEndpoint(Network network) async {
+    final endpoints =
+        network == Network.testnet ? testnetEndpoints : mainnetEndpoints;
+
+    for (final endpoint in endpoints) {
+      try {
+        // Quick health check(HEAD or simple GET)
+        final response = await http
+            .get(Uri.parse('${endpoint}blocks/tip/height'))
+            .timeout(const Duration(seconds: 3));
+
+        if (response.statusCode == 200) {
+          print("✅ Using endpoint: $endpoint");
+          return endpoint;
+        }
+      } catch (e) {
+        print("⚠️ Failed endpoint: $endpoint → $e");
+      }
     }
+
+    throw Exception("No available endpoint for $network");
   }
 
-  // TODO: TESTNET4
-  // String get baseUrl {
-  //   switch (settingsProvider.network) {
-  //     case Network.testnet:
-  //       return 'https://mempool.space/testnet4/api';
-  //     case Network.bitcoin:
-  //     default:
-  //       return 'https://mempool.space/api';
-  //   }
-  // }
+  Future<String> get baseUrl async {
+    return await getWorkingEndpoint(settingsProvider.network);
+  }
 
   // TODO: TESTNET3
   List<String> get electrumServers {
@@ -387,7 +402,7 @@ class WalletService extends ChangeNotifier {
   Future<double> getFeeRate() async {
     try {
       final response = await http.get(
-        Uri.parse("$baseUrl/v1/fees/recommended"),
+        Uri.parse("${await baseUrl}/v1/fees/recommended"),
       );
 
       if (response.statusCode == 200) {
@@ -402,29 +417,126 @@ class WalletService extends ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>?> fetchRecommendedFees() async {
-    final String url = '$baseUrl/v1/fees/recommended';
-
-    try {
-      final response = await http.get(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-
-        // ✅ Return only the 3 keys you care about
-        return {
-          'fastestFee': data['fastestFee'].toDouble(),
-          'halfHourFee': data['halfHourFee'].toDouble(),
-          'hourFee': data['hourFee'].toDouble(),
-        };
-      } else {
-        print('Failed to load fees: ${response.statusCode}');
-        return null;
-      }
-    } catch (e) {
-      print('Error fetching fees: $e');
-      return null;
+  Future<Map<String, double>?> fetchRecommendedFees() async {
+    // Get whatever you already return from your helper (with or without trailing slash)
+    final String base = await baseUrl;
+    Uri join(String path) {
+      final b = base.endsWith('/') ? base.substring(0, base.length - 1) : base;
+      return Uri.parse('$b$path');
     }
+
+    // Attempt 1: mempool-style endpoint
+    final candidates = <Uri>[
+      join('/v1/fees/recommended'),
+      // Attempt 2: blockstream-style endpoint
+      join('/fee-estimates'),
+    ];
+
+    Map<String, double>? parsed;
+
+    for (final uri in candidates) {
+      try {
+        final resp = await http.get(uri);
+        if (resp.statusCode != 200) {
+          // Try next candidate
+          continue;
+        }
+
+        final dynamic json = jsonDecode(resp.body);
+
+        // Case A: mempool recommended shape
+        if (json is Map && json.containsKey('fastestFee')) {
+          final fastest = (json['fastestFee'] as num?)?.toDouble();
+          final halfHour = (json['halfHourFee'] as num?)?.toDouble();
+          final hour = (json['hourFee'] as num?)?.toDouble();
+          if (fastest != null && halfHour != null && hour != null) {
+            parsed = {
+              'fastestFee': fastest,
+              'halfHourFee': halfHour,
+              'hourFee': hour,
+            };
+            break;
+          }
+        }
+
+        // Case B: blockstream fee-estimates shape: {"1": 87.882, "2": ...}
+        if (json is Map<String, dynamic>) {
+          double? get(Map<String, dynamic> m, String k) {
+            final v = m[k];
+            if (v is num) return v.toDouble();
+            if (v is String) return double.tryParse(v);
+            return null;
+          }
+
+          // Preferred direct lookups
+          double? f1 = get(json, '1');
+          double? f3 = get(json, '3');
+          double? f6 = get(json, '6');
+
+          // If any are missing, pick the closest available target among the known keys
+          double? closest(int target) {
+            // keys include 1-25, 144, 504, 1008
+            // We’ll search exact first, then the nearest greater, then nearest lower.
+            final keys = <int>[];
+            for (final k in json.keys) {
+              final n = int.tryParse(k);
+              if (n != null) keys.add(n);
+            }
+            if (keys.isEmpty) return null;
+            keys.sort();
+
+            double? readFor(int t) {
+              final exact = get(json, '$t');
+              if (exact != null) return exact;
+              // nearest >= target
+              final ge = keys.firstWhere(
+                (k) => k >= t,
+                orElse: () => -1,
+              );
+              if (ge != -1) {
+                final v = get(json, '$ge');
+                if (v != null) return v;
+              }
+              // nearest <= target
+              for (int i = keys.length - 1; i >= 0; i--) {
+                if (keys[i] <= t) {
+                  final v = get(json, '${keys[i]}');
+                  if (v != null) return v;
+                }
+              }
+              return null;
+            }
+
+            return readFor(target);
+          }
+
+          f1 ??= closest(1);
+          f3 ??= closest(3);
+          f6 ??= closest(6);
+
+          if (f1 != null && f3 != null && f6 != null) {
+            parsed = {
+              'fastestFee': f1,
+              'halfHourFee': f3,
+              'hourFee': f6,
+            };
+            break;
+          }
+        }
+
+        // If we got here, this candidate didn't produce the shape we need; try next
+      } catch (e) {
+        // Network/parse error → try next candidate
+        // print('fetchRecommendedFees error for $uri: $e');
+        continue;
+      }
+    }
+
+    if (parsed == null) {
+      print('Failed to fetch fee estimates from available endpoints.');
+    }
+
+    return parsed;
   }
 
   Future<List<Map<String, dynamic>>> getTransactions(String address) async {
@@ -433,7 +545,7 @@ class WalletService extends ChangeNotifier {
     List<Map<String, dynamic>> finalTxs = [];
 
     for (var tx in results) {
-      final url = '$baseUrl/tx/${tx.txid}';
+      final url = '${await baseUrl}/tx/${tx.txid}';
 
       try {
         // print(url);
@@ -466,7 +578,7 @@ class WalletService extends ChangeNotifier {
   // Future<List<Map<String, dynamic>>> getTransactions(String address) async {
   //   try {
   //     // Construct the URL
-  //     final url = '$baseUrl/address/$address/txs';
+  //     final url = '${await baseUrl}/address/$address/txs';
 
   //     print(url);
 
@@ -505,7 +617,7 @@ class WalletService extends ChangeNotifier {
       // print('currentHash: $currentHash');
 
       // API endpoint to fetch block details
-      final String blockApiUrl = '$baseUrl/block/$currentHash';
+      final String blockApiUrl = '${await baseUrl}/block/$currentHash';
 
       // print(blockApiUrl);
 
@@ -615,7 +727,8 @@ class WalletService extends ChangeNotifier {
       final value = utxo.txout.value;
 
       try {
-        final txResponse = await http.get(Uri.parse('$baseUrl/tx/$txid'));
+        final txResponse =
+            await http.get(Uri.parse('${await baseUrl}/tx/$txid'));
 
         if (txResponse.statusCode == 200) {
           final txData = json.decode(txResponse.body);
