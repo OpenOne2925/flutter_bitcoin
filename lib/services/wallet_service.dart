@@ -111,7 +111,7 @@ class WalletService extends ChangeNotifier {
             .timeout(const Duration(seconds: 3));
 
         if (response.statusCode == 200) {
-          print("✅ Using endpoint: $endpoint");
+          // print("✅ Using endpoint: $endpoint");
           return endpoint;
         }
       } catch (e) {

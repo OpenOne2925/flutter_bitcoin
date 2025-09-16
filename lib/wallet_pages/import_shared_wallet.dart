@@ -59,7 +59,7 @@ class ImportSharedWalletState extends State<ImportSharedWallet> {
     _walletService =
         WalletService(Provider.of<SettingsProvider>(context, listen: false));
 
-    print(Provider.of<SettingsProvider>(context, listen: false).network);
+    // print(Provider.of<SettingsProvider>(context, listen: false).network);
 
     // Add a listner to the TextEditingController
     _descriptorController.addListener(() {
