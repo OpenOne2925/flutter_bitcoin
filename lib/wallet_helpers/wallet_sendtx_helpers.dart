@@ -275,11 +275,6 @@ class WalletSendtxHelpers {
             rootContext: rootContext,
             setDialogState: setDialogState,
           ),
-        if (isCreating)
-          useAvailableBalanceButton(
-            onTap: () => _handleAvailableBalanceTap(),
-            updateAssistantMessage: updateAssistantMessage,
-          ),
       ],
     );
   }
@@ -896,6 +891,12 @@ class WalletSendtxHelpers {
                 "${AppLocalizations.of(context)!.translate('amount')} (sats)",
             hintText:
                 AppLocalizations.of(context)!.translate('enter_amount_sats'),
+            suffixIcon: isCreating
+                ? IconButton(
+                    onPressed: () => _handleAvailableBalanceTap(),
+                    icon: Icon(Icons.balance),
+                  )
+                : null,
           ),
           style: TextStyle(color: AppColors.text(context)),
         ),
