@@ -33,11 +33,9 @@ It lets groups pool funds, share balances, and manage contributions—all in one
 | Module | Purpose |
 |---|---|
 | **lib/** | Core Flutter app source code |
-| **lib/models/** | Data models and entity definitions |
-| **lib/services/** | API, blockchain, storage, and business logic layers |
-| **lib/ui/** | Screens and widgets |
-| **assets/** | Icons, images, and translations |
-| **android / ios / web** | Platform-specific configuration |
+| **lib/services/** | API, blockchain and storage services |
+| **lib/wallet_helpers/** | Data and function helpers |
+| **lib/wallet_pages/** | Screens and widgets |
 
 The project follows **Clean Architecture** principles with a clear separation between presentation, domain, and data layers.
 
@@ -56,7 +54,7 @@ The project follows **Clean Architecture** principles with a clear separation be
 
 1. Clone the repository  
    ```bash
-   git clone https://github.com/OpenOne2925/flutter_bitcoin.git
+   git clone https://github.com/cortezhanny124/shared_haven.git
    cd shared_haven
    ```
 
@@ -67,7 +65,7 @@ The project follows **Clean Architecture** principles with a clear separation be
 
 3. Run the app  
    ```bash
-   flutter run --flavor bitcoin_testnet
+   flutter run
    ```
 
 4. (Optional) To build for release  
@@ -85,7 +83,7 @@ The project follows **Clean Architecture** principles with a clear separation be
    Launch *Shared Haven* on your device.  
 
 2. **Set up or Restore a Wallet**  
-   - You can **paste an existing mnemonic** (12 or 24 words) to restore a wallet.  
+   - You can **paste an existing mnemonic** (12 words) to restore a wallet.  
    - Or **generate a new mnemonic** to create a brand-new wallet securely.  
    - Each word will be displayed in its own box for clarity and safety.
 
@@ -155,4 +153,4 @@ Whether you’re managing a small group fund or experimenting with timelocked mu
 ---
 
 **License:** [GNU GPLv3](LICENSE)  
-**Repository:** [GitHub – OpenOne2925/flutter_bitcoin](https://github.com/OpenOne2925/flutter_bitcoin)
+**Repository:** [GitHub – cortezhanny124/shared_haven](https://github.com/cortezhanny124/shared_haven)

@@ -36,20 +36,20 @@ android {
         }
     }
 
-    flavorDimensions "network"
-    productFlavors {
-        bitcoin_mainnet {
-            dimension "network"
-            applicationId "com.bitcoin.sharedhaven.mainnet" // Unique ID for mainnet
-            versionNameSuffix "-mainnet"
-        }
+    // flavorDimensions "network"
+    // productFlavors {
+    //     bitcoin_mainnet {
+    //         dimension "network"
+    //         applicationId "com.bitcoin.sharedhaven.mainnet" // Unique ID for mainnet
+    //         versionNameSuffix "-mainnet"
+    //     }
 
-        bitcoin_testnet {
-            dimension "network"
-            applicationId "com.bitcoin.sharedhaven.testnet" // Unique ID for testnet
-            versionNameSuffix "-testnet"
-        }
-    }
+    //     bitcoin_testnet {
+    //         dimension "network"
+    //         applicationId "com.bitcoin.sharedhaven.testnet" // Unique ID for testnet
+    //         versionNameSuffix "-testnet"
+    //     }
+    // }
 
      // 🔐 Load keystore (fail loudly if missing)
     def keystorePropsFile = rootProject.file("key.properties")

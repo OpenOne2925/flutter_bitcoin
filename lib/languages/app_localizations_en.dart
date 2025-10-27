@@ -82,7 +82,7 @@ const Map<String, String> localizedStringsEn = {
   'confirmed': 'Confirmed',
   'mempool': 'Visit the Mempool',
 
-// Errors & Warnings
+  // Errors & Warnings
   'error_wallet_creation': 'Error creating wallet with the descriptor provided',
   'error_loading_data': 'Error loading wallet data',
   'error_network': 'Network error. Please check your connection.',
@@ -365,7 +365,7 @@ const Map<String, String> localizedStringsEn = {
   'assistant_shared_wallet':
       'Welcome to your **shared wallet**! 🚀 Think of it as a **Bitcoin wallet with superpowers**—offering multisig transactions, spending rules, and team-based security.',
   'assistant_shared_spending_path_box':
-      'These are your available **spending paths**—rules that determine how funds can be spent. Meet the conditions, and you can access the indicated amount. 💡',
+      'These are your available **spending paths**—rules that determine how funds can be spent. Meet the conditions, and you can access the indicated amount. 💡 Tap on each icon to discover each functionality.',
   'assistant_shared_available_balance':
       'In a shared wallet, this button calculates the **spendable balance based on the selected spending path**. **Enter a recipient first** to get an accurate amount! ⚡',
   'assistant_shared_path_selected':
@@ -456,4 +456,29 @@ const Map<String, String> localizedStringsEn = {
       'In this section of the app, you will be able to create a new shared wallet.',
   'assistant_import_shared':
       'In this section of the app, you will be able to import an existing shared wallet.',
+
+  'initial_instructions_title': 'Welcome to SharedHaven',
+  'initial_instructions':
+      'Want to know more about us? Visit {x}!\nLook out for “?” icons across the app — tap them anytime for guidance from our built-in assistant.',
+  'got_it': 'Got it!',
+  'mainnet_switch': 'Switch to mainnet?',
+  'mainnet_switch_text':
+      'You are about to switch to the Bitcoin Mainnet.\n\nTransactions here are real and irreversible.\nAre you sure you want to continue?',
+  'continue': 'Continue',
+  'paste': 'Paste',
+  'clear': 'Clear',
+  'enter_pub_keys': 'Enter Public Keys',
+  'enter_multisig': 'Enter Multisig Policy',
+  'add_multisig': 'Add Multisig Configuration',
+  'assistant_default_tip1':
+      'Need help? Tap the ? icon anytime to get assistance from our built-in guide.',
+  'assistant_default_tip2':
+      'You can always come back here to review your wallet setup and change configurations.',
+  'assistant_enter_pub_keys':
+      'Each participant must provide their public key. Make sure all keys are correct before proceeding!',
+  'assistant_enter_multisig':
+      'Define how many signatures are required to spend from this wallet — for example, 2-of-3 means two signatures out of three total.',
+  'assistant_enter_timelock':
+      'Set an optional timelock if you want your funds to become spendable only after a specific time or block height.',
+  'share_descriptor': 'Share Descriptor',
 };

@@ -169,8 +169,8 @@ class WalletSendtxHelpers {
     } catch (e, stackTrace) {
       // Navigator.of(rootContext, rootNavigator: true).pop();
 
+      print(e);
       print(stackTrace);
-
       NotificationHelper.showError(rootContext, message: e.toString());
     }
   }
