@@ -481,30 +481,4 @@ const Map<String, String> localizedStringsIt = {
   "next": "Avanti",
   "scroll_to_continue": "Scorri per continuare",
   "legal_disclaimer_title": "Disclaimer legale",
-
-  'legal_disclaimer': '''
-1. Rischi legati all’utilizzo del wallet SharedHaven
-SharedHaven non sarà responsabile per eventuali perdite, danni o reclami derivanti da eventi rientranti nelle seguenti cinque categorie:
-
-Errori commessi dall’utente durante l’utilizzo di software o servizi legati alle criptovalute, ad es.: password dimenticate, pagamenti inviati a indirizzi errati, eliminazione accidentale dei wallet.
-Problemi software del wallet e/o di qualsiasi software o servizio correlato alle criptovalute, ad es.: file del wallet danneggiati, transazioni costruite in modo errato, librerie crittografiche non sicure, malware che colpiscono il wallet o altri servizi.
-Errori tecnici nell’hardware dell’utente di software o servizi relativi alle criptovalute, ad es.: perdita di dati dovuta a dispositivi di archiviazione difettosi o danneggiati.
-Problemi di sicurezza subiti dall’utente di software o servizi legati alle criptovalute, ad es.: accesso non autorizzato ai wallet o agli account degli utenti.
-Azioni o omissioni di terzi e/o eventi subiti da terzi, ad es.: bancarotta di fornitori di servizi, attacchi informatici ai fornitori, frodi da parte di terzi.
-
-2. Conformità agli obblighi fiscali
-Gli utenti del wallet sono gli unici responsabili nel determinare quali imposte, se presenti, si applichino alle loro transazioni in criptovaluta. I proprietari o i contributori del wallet NON sono responsabili nel determinare le imposte applicabili alle transazioni in criptovaluta.
-
-3. Nessuna garanzia
-Il wallet è fornito “così com’è”, senza alcuna garanzia di qualsiasi tipo riguardo al wallet e/o a contenuti, dati, materiali e/o servizi forniti tramite il wallet.
-
-4. Limitazione di responsabilità
-Salvo ove richiesto dalla legge, in nessun caso i proprietari o i contributori del wallet saranno responsabili per qualsiasi danno di qualunque tipo, inclusi, ma non limitati a, perdita d’uso, perdita di profitti o perdita di dati derivante o collegata all’utilizzo del wallet. In nessun modo i proprietari o i contributori del wallet sono responsabili per azioni, decisioni o altri comportamenti intrapresi o non intrapresi da voi in relazione all’utilizzo del wallet.
-
-5. Arbitrato
-L’utente del wallet accetta di sottoporre ad arbitrato qualsiasi controversia derivante da o connessa al wallet o al presente disclaimer, fatta eccezione per le controversie relative a copyright, loghi, marchi, nomi commerciali, segreti commerciali o brevetti.
-
-6. Ultima modifica
-Questo disclaimer è stato modificato l’ultima volta il 1 ottobre 2025.
-''',
 };

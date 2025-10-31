@@ -104,8 +104,30 @@ class PinSetupPageState extends State<PinSetupPage> {
                 child: SingleChildScrollView(
                   controller: scrollController,
                   child: Text(
-                    AppLocalizations.of(rootContext)!
-                        .translate('legal_disclaimer'),
+                    '''
+1. Risks related to the use of SharedHaven Wallet
+SharedHaven will not be responsible for any losses, damages or claims arising from events falling within the scope of the following five categories:
+
+Mistakes made by the user of any cryptocurrency-related software or service, e.g., forgotten passwords, payments sent to wrong coin addresses, and accidental deletion of wallets.
+Software problems of the wallet and/or any cryptocurrency-related software or service, e.g., corrupted wallet file, incorrectly constructed transactions, unsafe cryptographic libraries, malware affecting the wallet and/or any cryptocurrency-related software or service.
+Technical failures in the hardware of the user of any cryptocurrency-related software or service, e.g., data loss due to a faulty or damaged storage device.
+Security problems experienced by the user of any cryptocurrency-related software or service, e.g., unauthorized access to users' wallets and/or accounts.
+Actions or inactions of third parties and/or events experienced by third parties, e.g., bankruptcy of service providers, information security attacks on service providers, and fraud conducted by third parties.
+
+2. Compliance with tax obligations
+The users of the wallet are solely responsible to determinate what, if any, taxes apply to their crypto-currency transactions. The owners of, or contributors to, the wallet are NOT responsible for determining the taxes that apply to crypto-currency transactions.
+
+3. No warranties
+The wallet is provided on an "as is" basis without any warranties of any kind regarding the wallet and/or any content, data, materials and/or services provided on the wallet.
+
+4. Limitation of liability
+Unless otherwise required by law, in no event shall the owners of, or contributors to, the wallet be liable for any damages of any kind, including, but not limited to, loss of use, loss of profits, or loss of data arising out of or in any way connected with the use of the wallet. In no way are the owners of, or contributors to, the wallet responsible for the actions, decisions, or other behavior taken or not taken by you in reliance upon the wallet.
+
+5. Arbitration
+The user of the wallet agrees to arbitrate any dispute arising from or in connection with the wallet or this disclaimer, except for disputes related to copyrights, logos, trademarks, trade names, trade secrets or patents.
+
+6. Last amendment
+This disclaimer was amended for the last time on October 1st, 2025 ''',
                     style: TextStyle(
                       color: AppColors.text(context),
                       fontSize: 16,
@@ -116,7 +138,7 @@ class PinSetupPageState extends State<PinSetupPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: handleNextPressed, // disabled
+                  onPressed: handleNextPressed,
                   child: Text(
                     AppLocalizations.of(rootContext)!.translate(
                       isAtBottom ? 'next' : 'scroll_to_continue',
