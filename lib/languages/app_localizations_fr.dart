@@ -485,4 +485,34 @@ const Map<String, String> localizedStringsFr = {
   'assistant_enter_timelock':
       'Définissez un verrou temporel facultatif si vous souhaitez que vos fonds ne soient dépensables qu’après un certain délai ou une certaine hauteur de bloc.',
   'share_descriptor': 'Partager le descripteur',
+
+  "next": "Suivant",
+  "scroll_to_continue": "Faites défiler pour continuer",
+  "legal_disclaimer_title": "Avertissement légal",
+
+  'legal_disclaimer': '''
+1. Risques liés à l’utilisation du portefeuille SharedHaven
+SharedHaven ne pourra être tenu responsable de toute perte, dommage ou réclamation résultant d’événements relevant des cinq catégories suivantes :
+
+Erreurs commises par l’utilisateur lors de l’utilisation de logiciels ou services liés aux cryptomonnaies, p. ex. : mots de passe oubliés, paiements envoyés à de mauvaises adresses, suppression accidentelle de portefeuilles.
+Problèmes logiciels du portefeuille et/ou de tout logiciel ou service lié aux cryptomonnaies, p. ex. : fichiers de portefeuille corrompus, transactions mal construites, bibliothèques cryptographiques non sécurisées, logiciels malveillants affectant le portefeuille ou d’autres services.
+Défaillances techniques du matériel de l’utilisateur de logiciels ou services liés aux cryptomonnaies, p. ex. : perte de données due à un dispositif de stockage défectueux ou endommagé.
+Problèmes de sécurité rencontrés par l’utilisateur de logiciels ou services liés aux cryptomonnaies, p. ex. : accès non autorisé aux portefeuilles ou comptes des utilisateurs.
+Actions ou inactions de tiers et/ou événements subis par des tiers, p. ex. : faillite de prestataires de services, cyberattaques contre des prestataires, fraude menée par des tiers.
+
+2. Respect des obligations fiscales
+Les utilisateurs du portefeuille sont seuls responsables de déterminer quelles taxes, le cas échéant, s’appliquent à leurs transactions en cryptomonnaies. Les propriétaires ou contributeurs du portefeuille ne sont PAS responsables de déterminer les taxes applicables aux transactions en cryptomonnaies.
+
+3. Absence de garanties
+Le portefeuille est fourni « tel quel », sans aucune garantie de quelque nature que ce soit concernant le portefeuille et/ou tout contenu, donnée, matériel et/ou service fourni.
+
+4. Limitation de responsabilité
+Sauf si la loi l’exige, les propriétaires ou contributeurs du portefeuille ne peuvent en aucun cas être tenus responsables de tout dommage, y compris, sans s’y limiter, la perte d’usage, la perte de profits ou la perte de données, découlant de ou lié à l’utilisation du portefeuille. Les propriétaires ou contributeurs du portefeuille ne sont en aucun cas responsables des actions, décisions ou autres comportements que vous entreprenez ou non en vous fondant sur le portefeuille.
+
+5. Arbitrage
+L’utilisateur du portefeuille accepte de soumettre à l’arbitrage tout litige découlant de ou lié au portefeuille ou au présent avertissement, à l’exception des litiges liés aux droits d’auteur, logos, marques, noms commerciaux, secrets commerciaux ou brevets.
+
+6. Dernière modification
+Le présent avertissement a été modifié pour la dernière fois le 1 octobre 2025.
+''',
 };

@@ -33,7 +33,7 @@ class PinSetupPageState extends State<PinSetupPage> {
 
     // Wait until the first frame is rendered before showing the dialog
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _showInitialInstructionsDialog();
+      _showLegalDisclaimerDialog();
     });
   }
 
@@ -59,13 +59,85 @@ class PinSetupPageState extends State<PinSetupPage> {
     }
   }
 
+  void _showLegalDisclaimerDialog() {
+    final rootContext = context;
+    final scrollController = ScrollController();
+    bool isAtBottom = false;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            scrollController.addListener(() {
+              final reachedBottom = scrollController.offset >=
+                  scrollController.position.maxScrollExtent;
+
+              if (reachedBottom != isAtBottom) {
+                setState(() => isAtBottom = reachedBottom);
+              }
+            });
+
+            void handleNextPressed() {
+              if (!isAtBottom) {
+                // Scroll to bottom instead of closing
+                scrollController.animateTo(
+                  scrollController.position.maxScrollExtent,
+                  duration: Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                );
+              } else {
+                // Already at bottom ==> proceed
+                Navigator.pop(context);
+                _showInitialInstructionsDialog();
+              }
+            }
+
+            return AlertDialog(
+              title: Text(
+                AppLocalizations.of(rootContext)!
+                    .translate('legal_disclaimer_title'),
+                textAlign: TextAlign.center,
+              ),
+              content: SizedBox(
+                height: 350, // so that scrolling is possible
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Text(
+                    AppLocalizations.of(rootContext)!
+                        .translate('legal_disclaimer'),
+                    style: TextStyle(
+                      color: AppColors.text(context),
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: handleNextPressed, // disabled
+                  child: Text(
+                    AppLocalizations.of(rootContext)!.translate(
+                      isAtBottom ? 'next' : 'scroll_to_continue',
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showInitialInstructionsDialog() {
     final rootContext = context;
 
     final rawText =
         AppLocalizations.of(rootContext)!.translate('initial_instructions');
 
-// Split the text around the {x} placeholder
+    // Split the text around the {x} placeholder
     final parts = rawText.split('{x}');
 
     showDialog(
@@ -74,6 +146,7 @@ class PinSetupPageState extends State<PinSetupPage> {
         title: Text(
           AppLocalizations.of(rootContext)!
               .translate('initial_instructions_title'),
+          textAlign: TextAlign.center,
         ),
         content: RichText(
           textAlign: TextAlign.center,
