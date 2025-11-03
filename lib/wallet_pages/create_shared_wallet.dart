@@ -435,8 +435,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                           child: Container(
                             padding: const EdgeInsets.all(8.0),
                             decoration: BoxDecoration(
-                              color: AppColors.background(context)
-                                  .withAlpha((0.2 * 255).toInt()),
+                              color: AppColors.background(context).opaque(0.2),
                               borderRadius: BorderRadius.circular(8.0),
                               border:
                                   Border.all(color: AppColors.primary(context)),
@@ -722,8 +721,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                             child: Container(
                               padding: const EdgeInsets.all(8.0),
                               decoration: BoxDecoration(
-                                color: AppColors.primary(context)
-                                    .withAlpha((0.2 * 255).toInt()),
+                                color: AppColors.primary(context).opaque(0.2),
                                 borderRadius: BorderRadius.circular(8.0),
                                 border: Border.all(
                                     color: AppColors.primary(context)),
@@ -1017,10 +1015,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       padding: const EdgeInsets.all(8.0),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.background(context)
-                                .withAlpha((0.8 * 255).toInt())
-                            : AppColors.background(context)
-                                .withAlpha((0.2 * 255).toInt()),
+                            ? AppColors.background(context).opaque(0.8)
+                            : AppColors.background(context).opaque(0.2),
                         borderRadius: BorderRadius.circular(8.0),
                         border: Border.all(
                           color: AppColors.primary(context),
@@ -1194,10 +1190,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
                       padding: const EdgeInsets.all(8.0),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.background(context)
-                                .withAlpha((0.8 * 255).toInt())
-                            : AppColors.background(context)
-                                .withAlpha((0.2 * 255).toInt()),
+                            ? AppColors.background(context).opaque(0.8)
+                            : AppColors.background(context).opaque(0.2),
                         borderRadius: BorderRadius.circular(8.0),
                         border: Border.all(
                           color: AppColors.primary(context),

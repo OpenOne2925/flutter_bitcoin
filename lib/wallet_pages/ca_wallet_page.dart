@@ -322,18 +322,18 @@ class CAWalletPageState extends State<CAWalletPage> {
           repeat:
               !_status.contains('successfully'), // Loop only for non-success
         ),
-        const SizedBox(height: 10),
         // Status Text
         Text(
           statusText,
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: _status.contains('successfully')
-                ? AppColors.primary(context)
-                : _status.contains('Creating')
-                    ? AppColors.accent(context)
-                    : AppColors.text(context),
+            color: AppColors.text(context),
+            //  _status.contains('successfully')
+            //     ? AppColors.primary(context)
+            //     : _status.contains('Creating')
+            //         ? AppColors.accent(context)
+            //         : AppColors.text(context),
           ),
         ),
       ],
@@ -437,6 +437,7 @@ class CAWalletPageState extends State<CAWalletPage> {
           children: List.generate(_wordCount, (i) {
             return SizedBox(
               width: 120, // tweak or make responsive later
+              height: 50,
               child: TextField(
                 controller: _wordCtrls[i],
                 focusNode: _wordFocus[i],

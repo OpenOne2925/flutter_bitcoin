@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_wallet/disclaimer_page.dart';
 import 'package:flutter_wallet/languages/app_localizations.dart';
 import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/services/wallet_service.dart';
@@ -163,9 +164,7 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      initialRoute:
-          // '/example_nfc',
-          _determineInitialRoute(),
+      initialRoute: _determineInitialRoute(),
       routes: {
         '/wallet_page': (context) => const WalletPage(),
         '/ca_wallet_page': (context) => const CAWalletPage(),
@@ -175,6 +174,7 @@ class MyApp extends StatelessWidget {
         '/create_shared_wallet': (context) => const CreateSharedWallet(),
         '/import_shared': (context) => const ImportSharedWallet(),
         '/settings': (context) => const SettingsPage(),
+        '/disclaimer': (context) => const DisclaimerPage(),
       },
     );
   }
@@ -184,7 +184,10 @@ class MyApp extends StatelessWidget {
 
     if (!walletBox.containsKey('userPin')) {
       // If the user hasn't set a PIN yet
-      return '/pin_setup_page';
+      // TODO: Return new Disclaimer Page
+      // Next in the disclaimer page go to the pin setup after.
+      return '/disclaimer';
+      // return '/pin_setup_page';
     } else if (walletBox.containsKey('walletMnemonic')) {
       // If the wallet mnemonic exists, navigate to PIN verification
       return '/pin_verification_page';

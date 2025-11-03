@@ -648,8 +648,7 @@ class WalletSpendingPathHelpers {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color:
-                        AppColors.text(context).withAlpha((0.1 * 255).toInt()),
+                    color: AppColors.text(context).opaque(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
