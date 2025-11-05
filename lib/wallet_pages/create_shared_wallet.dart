@@ -48,6 +48,8 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
   // List<String> publicKeys = [];
   // List<String> timelocks = [];
 
+  int _currHeight = 0;
+
   String? _mnemonic;
   String _finalDescriptor = "";
   String? _publicKey = "";
@@ -73,12 +75,28 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     _walletService =
         WalletService(Provider.of<SettingsProvider>(context, listen: false));
 
+    _getCurrHeight();
+
     _generatePublicKey();
   }
 
   @override
   void dispose() {
     super.dispose();
+  }
+
+  Future<void> _getCurrHeight() async {
+    final settingsProvider =
+        Provider.of<SettingsProvider>(context, listen: false);
+    final wallServ = WalletService(settingsProvider);
+    final url = '${await wallServ.baseUrl}blocks/tip/height';
+
+    print(url);
+
+    final resp = await http.get(Uri.parse(url));
+    setState(() {
+      _currHeight = json.decode(resp.body);
+    });
   }
 
   void _validateInputs() {
@@ -1994,20 +2012,11 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
     int? currentTargetHeight,
   }) async {
     try {
-      final settingsProvider =
-          Provider.of<SettingsProvider>(context, listen: false);
-      final wallServ = WalletService(settingsProvider);
-      final url = '${await wallServ.baseUrl}blocks/tip/height';
-
-      print(url);
-
-      final resp = await http.get(Uri.parse(url));
-      final int currHeight = json.decode(resp.body);
-
+      print(_currHeight);
       const int maxBlocksAhead = 262800; // ~5 years
       final int initialBlocksAhead = (() {
         if (currentTargetHeight == null) return 0;
-        final d = (currentTargetHeight - currHeight);
+        final d = (currentTargetHeight - _currHeight);
         if (d < 0) return 0;
         return d.clamp(0, maxBlocksAhead);
       })();
@@ -2024,7 +2033,7 @@ class CreateSharedWalletState extends State<CreateSharedWallet> {
       if (dur == null) return null;
 
       final estBlocks = (dur.inMinutes / 10).round().clamp(0, maxBlocksAhead);
-      final estTargetHeight = currHeight + estBlocks;
+      final estTargetHeight = _currHeight + estBlocks;
       return estTargetHeight;
     } catch (e) {
       print('Error in _pickAfterHeightFromTime: $e');
