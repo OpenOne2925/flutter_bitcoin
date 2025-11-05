@@ -10,20 +10,21 @@ import 'package:flutter_wallet/settings/settings_provider.dart';
 import 'package:flutter_wallet/utilities/custom_button.dart';
 import 'package:flutter_wallet/utilities/custom_text_field_styles.dart';
 import 'package:flutter_wallet/utilities/inkwell_button.dart';
+import 'package:flutter_wallet/wallet_pages/create_wallet_page.dart';
 import 'package:flutter_wallet/widget_helpers/base_scaffold.dart';
 import 'package:hive/hive.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_wallet/utilities/app_colors.dart';
 import 'package:provider/provider.dart';
 
-class CAWalletPage extends StatefulWidget {
-  const CAWalletPage({super.key});
+class ImportWalletPage extends StatefulWidget {
+  const ImportWalletPage({super.key});
 
   @override
-  CAWalletPageState createState() => CAWalletPageState();
+  ImportWalletPageState createState() => ImportWalletPageState();
 }
 
-class CAWalletPageState extends State<CAWalletPage> {
+class ImportWalletPageState extends State<ImportWalletPage> {
   String? _mnemonic;
   String _status = 'Idle';
 
@@ -248,18 +249,6 @@ class CAWalletPageState extends State<CAWalletPage> {
     );
   }
 
-  Future<void> _generateMnemonic() async {
-    final res = await Mnemonic.create(WordCount.words12);
-
-    setState(() {
-      _mnemonicController.text = res.asString();
-      _mnemonic = res.asString();
-      _status = 'New mnemonic generated!';
-    });
-
-    _isRecoverMode = false;
-  }
-
   String _getAnimationPath() {
     if (_status.contains('successfully')) {
       return 'assets/animations/success.json';
@@ -329,11 +318,6 @@ class CAWalletPageState extends State<CAWalletPage> {
             fontSize: 16,
             fontWeight: FontWeight.bold,
             color: AppColors.text(context),
-            //  _status.contains('successfully')
-            //     ? AppColors.primary(context)
-            //     : _status.contains('Creating')
-            //         ? AppColors.accent(context)
-            //         : AppColors.text(context),
           ),
         ),
       ],
@@ -346,7 +330,8 @@ class CAWalletPageState extends State<CAWalletPage> {
         GlobalKey<BaseScaffoldState>();
 
     return BaseScaffold(
-      title: Text(AppLocalizations.of(context)!.translate('create_restore')),
+      title: Text(
+          AppLocalizations.of(context)!.translate('import_personal_wallet')),
       key: baseScaffoldKey,
       showDrawer: false,
       body: SingleChildScrollView(
@@ -371,48 +356,59 @@ class CAWalletPageState extends State<CAWalletPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: GestureDetector(
-                          onLongPress: () {
-                            final baseScaffoldState =
-                                baseScaffoldKey.currentState;
-                            baseScaffoldState?.updateAssistantMessage(
-                                context, 'assistant_create_wallet');
-                          },
-                          child: CustomButton(
-                            onPressed:
-                                _isMnemonicEntered ? _createWallet : null,
-                            backgroundColor: AppColors.background(context),
-                            foregroundColor: AppColors.text(context),
-                            icon: Icons.wallet,
-                            iconColor: AppColors.gradient(context),
-                            verticalLayout: true,
-                            label: AppLocalizations.of(context)!
-                                .translate('create_wallet'),
-                            padding: 16.0,
-                            iconSize: 28.0,
+                        child: SizedBox(
+                          height: 110,
+                          child: GestureDetector(
+                            onLongPress: () {
+                              final baseScaffoldState =
+                                  baseScaffoldKey.currentState;
+                              baseScaffoldState?.updateAssistantMessage(
+                                  context, 'assistant_create_wallet');
+                            },
+                            child: CustomButton(
+                              onPressed:
+                                  _isMnemonicEntered ? _createWallet : null,
+                              backgroundColor: AppColors.background(context),
+                              foregroundColor: AppColors.text(context),
+                              icon: Icons.wallet,
+                              iconColor: AppColors.gradient(context),
+                              verticalLayout: true,
+                              label: AppLocalizations.of(context)!
+                                  .translate('import_single_wallet'),
+                              padding: 16.0,
+                              iconSize: 28.0,
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: GestureDetector(
-                          onLongPress: () {
-                            final baseScaffoldState =
-                                baseScaffoldKey.currentState;
-                            baseScaffoldState?.updateAssistantMessage(
-                                context, 'assistant_generate_mnemonic');
-                          },
-                          child: CustomButton(
-                            onPressed: _generateMnemonic,
-                            backgroundColor: AppColors.background(context),
-                            foregroundColor: AppColors.gradient(context),
-                            icon: Icons.create,
-                            iconColor: AppColors.text(context),
-                            verticalLayout: true,
-                            label: AppLocalizations.of(context)!
-                                .translate('generate_mnemonic'),
-                            padding: 16.0,
-                            iconSize: 28.0,
+                        child: SizedBox(
+                          height: 110,
+                          child: GestureDetector(
+                            onLongPress: () {
+                              final baseScaffoldState =
+                                  baseScaffoldKey.currentState;
+                              baseScaffoldState?.updateAssistantMessage(
+                                  context, 'assistant_goto_create_wallet');
+                            },
+                            child: CustomButton(
+                              onPressed: () {
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const CreateWalletPage(),
+                                  ),
+                                );
+                              },
+                              backgroundColor: AppColors.background(context),
+                              foregroundColor: AppColors.gradient(context),
+                              verticalLayout: true,
+                              label: AppLocalizations.of(context)!
+                                  .translate('goto_create_wallet'),
+                              padding: 16.0,
+                              iconSize: 28.0,
+                            ),
                           ),
                         ),
                       ),

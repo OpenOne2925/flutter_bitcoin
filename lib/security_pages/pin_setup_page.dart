@@ -44,7 +44,7 @@ class PinSetupPageState extends State<PinSetupPage> {
 
     if (!mounted) return;
 
-    Navigator.pushReplacementNamed(context, '/ca_wallet_page');
+    Navigator.pushReplacementNamed(context, '/create_wallet');
   }
 
   void _validateAndSave() {
