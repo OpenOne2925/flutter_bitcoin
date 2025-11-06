@@ -8,6 +8,10 @@
 **Shared Haven** is a Flutter mobile wallet / shared-fund / pooling app (work in progress).  
 It lets groups pool funds, share balances, and manage contributions—all in one secure place.
 
+[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
+     alt="Get it on F-Droid"
+     height="80">](https://f-droid.org/packages/com.bitcoin.sharedhaven.testnet/)
+
 ---
 
 ## 📚 Index
